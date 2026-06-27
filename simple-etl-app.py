@@ -11,10 +11,10 @@ import frontmatter
 from openai import OpenAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-class MyETLApp:
+class SimpleETLApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("MyETL - Text Processing & SPR Pipeline")
+        self.root.title("SimpleETL - Text Processing & SPR Pipeline")
         self.root.geometry("1100x650")
         self.root.minsize(950, 550)
         self.CONFIG_FILE = "config.json"
@@ -227,7 +227,7 @@ class MyETLApp:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.txt_logs['yscrollcommand'] = scrollbar.set
         
-        self.log("Система MyETL инициализирована. Ожидание выбора файла...")
+        self.log("Система SimpleETL инициализирована. Ожидание выбора файла...")
         
     def log(self, message):
         timestamp = datetime.now().strftime("[%H:%M:%S]")
@@ -533,5 +533,5 @@ class MyETLApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = MyETLApp(root)
+    app = SimpleETLApp(root)
     root.mainloop()
