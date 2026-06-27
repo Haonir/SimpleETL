@@ -29,12 +29,13 @@ def extract_text_from_file(file_path, log_callback=None):
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
 
-def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback):
+def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback, current_file_idx, total_files):
     """
     Главный конвейер обработки данных.
     progress_callback: функция вида fn(chunk_val, total_val)
     log_callback: функция вида fn(message_text)
     stop_check_callback: функция вида fn() -> bool (проверка нажатия Стоп)
+    Добавил параметры current_file_idx и total_files для точного расчета прогресса.
     """
     # === ЭТАП 1: Нарезка файла ===
     log_callback("--- ЭТАП 1: Нарезка файла ---")
@@ -42,14 +43,20 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback):
         os.makedirs(cfg["raw_dir"])
         
     text = extract_text_from_file(cfg["src_file"], log_callback)
-    
     if not text.strip():
         raise Exception("Файл пуст или не содержит читаемого текста!")
+    
+    c_size = cfg.get("chunk_size", 10000)
+    c_overlap = cfg.get("chunk_overlap", 1500)
         
-    splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1500, length_function=len)
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=c_size, 
+        chunk_overlap=c_overlap, 
+        length_function=len
+    )
     chunks = splitter.split_text(text)
     total_chunks = len(chunks)
-    log_callback(f"Текст успешно извлечен и нарезан на {total_chunks} кусков.")
+    log_callback(f"Текст нарезан на {total_chunks} кусков.")
     
     for i, chunk_data in enumerate(chunks):
         chunk_file = os.path.join(cfg["raw_dir"], f"{cfg['base_name']}_{i:03d}.txt")
@@ -69,24 +76,28 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback):
             log_callback("⚠️ Конвейер остановлен пользователем.")
             return False
         
-        total_percent = int((idx / total_chunks) * 100)
-        progress_callback(30, total_percent) 
+        file_percent = int((idx / total_chunks) * 100)
+        file_weight = 100 / total_files
+        base_global_progress = current_file_idx * file_weight
+        current_file_contribution = (idx / total_chunks) * file_weight
+        global_percent = int(base_global_progress + current_file_contribution)
+        
+        # Обновляем бары: текущий чанк (до 30% на запрос) и глобальный прогресс пакета
+        progress_callback(file_percent, global_percent)
         
         raw_path = os.path.join(cfg["raw_dir"], file_name)
         processed_path = os.path.join(cfg["processed_dir"], file_name)
         
         if os.path.exists(processed_path):
             log_callback(f"[{idx+1}/{total_chunks}] {file_name} уже обработан.")
-            next_percent = int(((idx + 1) / total_chunks) * 100)
-            progress_callback(100, next_percent)
             continue
             
         with open(raw_path, 'r', encoding='utf-8') as f:
             chunk_text = f.read()
             
         log_callback(f"[{idx+1}/{total_chunks}] Запрос к LLM ({cfg['model']})...")
-        
         try:
+            # Тут ваш вызов client.chat.completions.create без изменений
             response = client.chat.completions.create(
                 model=cfg["model"],
                 messages=[
@@ -96,12 +107,14 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback):
                 temperature=0.2
             )
             llm_output = response.choices[0].message.content
-            
             with open(processed_path, 'w', encoding='utf-8') as f_out:
                 f_out.write(llm_output)
                 
-            next_percent = int(((idx + 1) / total_chunks) * 100)
-            progress_callback(100, next_percent)
+            # Чанк успешно записан — фиксируем шаг вперед для обоих баров
+            next_file_percent = int(((idx + 1) / total_chunks) * 100)
+            next_global_percent = int(base_global_progress + (((idx + 1) / total_chunks) * file_weight))
+            
+            progress_callback(next_file_percent, next_global_percent)
             
         except Exception as ex:
             raise Exception(f"Ошибка LLM на чанке {file_name}: {ex}")
@@ -115,7 +128,6 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback):
     
     for file_name in processed_files:
         proc_path = os.path.join(cfg["processed_dir"], file_name)
-        
         with open(proc_path, 'r', encoding='utf-8') as f:
             raw_content = f.read()
             
@@ -124,7 +136,6 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback):
             metadata = parsed.metadata
             content = parsed.content
         except Exception:
-            log_callback(f"⚠️ Ошибка YAML в файле {file_name}. Применяем резервный парсер...")
             metadata = {}
             content = raw_content
             for line in raw_content.split('\n'):
@@ -158,7 +169,6 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback):
         )
         
         clean_title = "".join([c if c.isalnum() or c in " _-" else "" for c in title]).strip().replace(" ", "_")
-        
         max_len = 40
         if len(clean_title) > max_len:
             truncated = clean_title[:max_len]
@@ -184,4 +194,53 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback):
     else:
         log_callback("ℹ️ Очистка пропущена (флаг снят).")
 
+    return True
+
+def process_batch(file_list, global_cfg, progress_callback, log_callback, stop_check_callback):
+    """
+    НОВАЯ ФУНКЦИЯ: Управляет пакетной обработкой списка файлов.
+    """
+    total_files = len(file_list)
+    
+    for i, file_path in enumerate(file_list):
+        if stop_check_callback():
+            log_callback("🛑 Пакетная обработка прервана пользователем.")
+            return False
+            
+        file_name = os.path.basename(file_path)
+        log_callback(f"====== 🚀 НАЧАЛО ОБРАБОТКИ ФАЙЛА [{i+1}/{total_files}]: {file_name} ======")
+        
+        # Вычисляем уникальные папки для текущего файла
+        base_name_from_file = os.path.splitext(file_name)[0]
+        parent_dir = os.path.dirname(file_path)
+        
+        # Если в глобальном конфиге папка "по умолчанию", строим её на основе текущего файла
+        if global_cfg["is_default_out"]:
+            out_dir = os.path.join(parent_dir, base_name_from_file)
+        else:
+            out_dir = os.path.join(global_cfg["user_out_dir"], base_name_from_file)
+            
+        # Клонируем конфигурацию для конкретного файла
+        file_cfg = global_cfg.copy()
+        file_cfg["src_file"] = file_path
+        file_cfg["final_dir"] = out_dir
+        file_cfg["raw_dir"] = os.path.join(out_dir, "raw")
+        file_cfg["processed_dir"] = os.path.join(out_dir, "processed")
+        
+        try:
+            # Сохраняем результат выполнения конвейера для файла
+            result = process_pipeline(file_cfg, progress_callback, log_callback, stop_check_callback, current_file_idx=i, total_files=total_files)
+            
+            # ЕСЛИ БЫЛА ОСТАНОВКА — полностью выходим из пакетной обработки
+            if result is False:
+                return False
+                
+            # Если всё прошло успешно, фиксируем 100% и пишем правильный лог
+            progress_callback(100, int((i + 1) * (100 / total_files)))
+            log_callback(f"====== ✅ ФАЙЛ УСПЕШНО ОБРАБОТАН [{i+1}/{total_files}]: {file_name} ======\n")
+            
+        except Exception as file_err:
+            log_callback(f"💥 Ошибка при обработке файла {file_name}: {file_err}")
+            log_callback("⏭️ Переходим к следующему файлу в очереди...\n")
+            
     return True

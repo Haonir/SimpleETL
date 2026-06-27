@@ -117,8 +117,8 @@ class SimpleETLApp:
         main_container.pack(fill=tk.BOTH, expand=True)
         
         # Разные веса колонок для устранения зазоров
-        main_container.columnconfigure(0, weight=2)
-        main_container.columnconfigure(1, weight=3)
+        main_container.columnconfigure(0, weight=0)
+        main_container.columnconfigure(1, weight=1)
         main_container.rowconfigure(0, weight=1)
         
         # --- ЛЕВАЯ ЧАСТЬ ---
@@ -172,8 +172,26 @@ class SimpleETLApp:
         self.ent_key.grid(row=2, column=1, sticky="ew", padx=5, pady=5)
         self.bind_edit_actions(self.ent_key)
         
+        # === Настройки нарезки чанков (Выносим в изолированную под-строку) ===
+        # Создаем скрытый фрейм прямо внутри lf_prov на 3-й строке
+        chunk_frame = ttk.Frame(lf_prov)
+        chunk_frame.grid(row=3, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+        
+        # Размещаем элементы аккуратно внутри этого фрейма в одну линию
+        ttk.Label(chunk_frame, text="Размер чанка:").pack(side=tk.LEFT, padx=(0, 5))
+        self.ent_chunk_size = ttk.Entry(chunk_frame, width=8)
+        self.ent_chunk_size.pack(side=tk.LEFT, padx=(0, 15))
+        self.ent_chunk_size.insert(0, "10000")
+        
+        ttk.Label(chunk_frame, text="Перекрытие:").pack(side=tk.LEFT, padx=(0, 5))
+        self.ent_chunk_overlap = ttk.Entry(chunk_frame, width=8)
+        self.ent_chunk_overlap.pack(side=tk.LEFT)
+        self.ent_chunk_overlap.insert(0, "1500")
+
+        # === Кнопка сохранения ===
+        # Кладём её строго на 4-ю строку, и ограничиваем columnspan=2 (по ширине полей ввода URL/Key)
         btn_save_cfg = ttk.Button(lf_prov, text="💾 Сохранить настройки", command=self.save_settings)
-        btn_save_cfg.grid(row=3, column=0, columnspan=3, sticky="ew", padx=5, pady=8)
+        btn_save_cfg.grid(row=4, column=0, columnspan=2, sticky="ew", padx=5, pady=(10, 5))
         
         # 3. Кнопка и прогресс
         self.var_cleanup = tk.BooleanVar(value=True)
@@ -186,7 +204,7 @@ class SimpleETLApp:
         
         ttk.Checkbutton(lf_actions, text="Удалять временные файлы после завершения", variable=self.var_cleanup).pack(anchor="w", padx=10, pady=(0, 5))
         
-        ttk.Label(lf_actions, text="Прогресс текущего чанка:").pack(anchor="w", padx=10, pady=(5, 0))
+        ttk.Label(lf_actions, text="Прогресс текущего файла:").pack(anchor="w", padx=10, pady=(5, 0))
         self.progress_chunk = ttk.Progressbar(lf_actions, orient="horizontal", mode="determinate")
         self.progress_chunk.pack(fill=tk.X, padx=10, pady=5)
         
@@ -197,6 +215,7 @@ class SimpleETLApp:
         # --- ПРАВАЯ ЧАСТЬ ---
         right_pane = ttk.Frame(main_container)
         right_pane.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        right_pane.columnconfigure(0, weight=1)
         right_pane.rowconfigure(0, weight=1)
         right_pane.rowconfigure(1, weight=1)
         
@@ -245,14 +264,19 @@ class SimpleETLApp:
             ("Текстовые файлы", "*.txt *.md"),
             ("Все файлы", "*.*")
         ]
-        filename = filedialog.askopenfilename(filetypes=filetypes)
-        if filename:
+        # Изменил askopenfilename на askopenfilenames (возвращает кортеж путей)
+        filenames = filedialog.askopenfilenames(filetypes=filetypes)
+        if filenames:
             self.ent_src_file.delete(0, tk.END)
-            self.ent_src_file.insert(0, filename)
-            base = os.path.splitext(os.path.basename(filename))[0]
+            # Записываем пути через точку с запятой, чтобы пользователь видел их в строке
+            self.ent_src_file.insert(0, "; ".join(filenames))
+            
+            # Автоматически ставим имя первого чанка по первому файлу
+            base = os.path.splitext(os.path.basename(filenames[0]))[0]
             self.ent_base_name.delete(0, tk.END)
             self.ent_base_name.insert(0, f"{base}_chunk")
-            self.log(f"Выбран исходный файл: {filename}")
+            
+            self.log(f"📚 Выбрано файлов для пакетной обработки: {len(filenames)}")
             
     def browse_out_dir(self):
         directory = filedialog.askdirectory()
@@ -317,10 +341,19 @@ class SimpleETLApp:
             # Обновляем текст текущего промпта в нашей библиотеке перед сохранением файла
             self.prompts_library[current_name] = self.txt_prompt.get("1.0", tk.END).strip()
             
+            try:
+                c_size = int(self.ent_chunk_size.get().strip())
+                c_overlap = int(self.ent_chunk_overlap.get().strip())
+            except ValueError:
+                messagebox.showerror("Ошибка", "Размер чанка и перекрытие должны быть целыми числами!")
+                return
+            
             config_manager.save_config(
                 model=self.ent_model.get(),
                 base_url=self.ent_url.get(),
                 api_key=self.ent_key.get(),
+                chunk_size=c_size,
+                chunk_overlap=c_overlap,
                 prompts_dict=self.prompts_library,
                 current_prompt_name=current_name
             )
@@ -342,6 +375,13 @@ class SimpleETLApp:
             self.ent_model.insert(0, cfg.get("model", "llama3"))
             self.ent_url.insert(0, cfg.get("base_url", "http://localhost:11434/v1"))
             self.ent_key.insert(0, cfg.get("api_key", "ollama"))
+            
+            # Загружаем настройки чанков
+            self.ent_chunk_size.delete(0, tk.END)
+            self.ent_chunk_size.insert(0, str(cfg.get("chunk_size", 10000)))
+            
+            self.ent_chunk_overlap.delete(0, tk.END)
+            self.ent_chunk_overlap.insert(0, str(cfg.get("chunk_overlap", 1500)))
             
             # Восстанавливаем библиотеку промптов из JSON
             self.prompts_library = cfg.get("prompts", {})
@@ -386,56 +426,58 @@ class SimpleETLApp:
             self.start_pipeline()
             
     def start_pipeline(self):
-        src_file = self.ent_src_file.get().strip()
-        if not src_file or not os.path.exists(src_file):
-            messagebox.showerror("Ошибка", "Укажите исходный файл!")
+        raw_input = self.ent_src_file.get().strip()
+        if not raw_input:
+            messagebox.showerror("Ошибка", "Укажите исходные файлы!")
             return
-        
-        if not os.path.isabs(src_file):
-            src_file = os.path.abspath(os.path.join(BASE_DIR, src_file))
             
-        if not os.path.exists(src_file):
-            messagebox.showerror("Ошибка", f"Файл не найден по пути:\n{src_file}")
-            return    
+        # Разбираем строку на отдельные пути файлов
+        files_pool = [f.strip() for f in raw_input.split(";") if f.strip()]
+        validated_files = []
         
-        base_name_from_file = os.path.splitext(os.path.basename(src_file))[0]
-        parent_dir = os.path.dirname(src_file)
-        
-        user_out_dir = self.ent_out_dir.get().strip()
-        if user_out_dir == "По умолчанию (папка с исходным файлом)" or not user_out_dir:
-            out_dir = os.path.join(parent_dir, base_name_from_file)
-        else:
-            # Если пользователь ввел свой путь, проверяем абсолютный ли он
-            if not os.path.isabs(user_out_dir):
-                out_dir = os.path.abspath(os.path.join(BASE_DIR, user_out_dir))
+        # Проверяем и делаем пути абсолютными
+        for src_file in files_pool:
+            if not os.path.isabs(src_file):
+                src_file = os.path.abspath(os.path.join(BASE_DIR, src_file))
+            if os.path.exists(src_file):
+                validated_files.append(src_file)
             else:
-                out_dir = user_out_dir
+                self.log(f"⚠️ Файл не найден и пропущен: {src_file}")
+                
+        if not validated_files:
+            messagebox.showerror("Ошибка", "Ни один из указанных файлов не найден на диске!")
+            return
             
-        config = {
-            "src_file": src_file,
-            "raw_dir": os.path.join(out_dir, "raw"),
-            "processed_dir": os.path.join(out_dir, "processed"),
-            "final_dir": out_dir,
+        user_out_dir = self.ent_out_dir.get().strip()
+        is_default_out = (user_out_dir == "По умолчанию (папка с исходным файлом)" or not user_out_dir)
+        
+        # Формируем глобальные настройки пакета
+        global_config = {
+            "is_default_out": is_default_out,
+            "user_out_dir": user_out_dir,
             "base_name": self.ent_base_name.get().strip() or "chunk",
             "model": self.ent_model.get(),
             "url": self.ent_url.get(),
             "key": self.ent_key.get(),
+            "chunk_size": int(self.ent_chunk_size.get().strip() or 10000),
+            "chunk_overlap": int(self.ent_chunk_overlap.get().strip() or 1500),
             "prompt": self.txt_prompt.get("1.0", tk.END).strip(),
             "cleanup": self.var_cleanup.get()
         }
         
         self.is_processing = True
         self.stop_requested = False
-        self.btn_start.configure(text="🛑 Остановить обработку", state=tk.NORMAL)
+        self.btn_start.configure(text="🛑 Остановить обработку")
         
-        # Запускаем конвейер
-        threading.Thread(target=self.thread_worker, args=(config,), daemon=True).start()
+        # Передаем список валидных файлов и конфиг в фоновый поток
+        threading.Thread(target=self.thread_worker, args=(validated_files, global_config), daemon=True).start()
 
-    def thread_worker(self, cfg):
+    def thread_worker(self, validated_files, global_config):
         try:
-            # Вызываем функцию конвейера из отдельного модуля etl_pipeline
-            success = etl_pipeline.process_pipeline(
-                cfg=cfg,
+            # Запуск пакетной логики
+            success = etl_pipeline.process_batch(
+                file_list=validated_files,
+                global_cfg=global_config,
                 progress_callback=self.update_progress,
                 log_callback=self.log,
                 stop_check_callback=lambda: self.stop_requested
@@ -443,10 +485,12 @@ class SimpleETLApp:
             
             if success:
                 self.progress_total["value"] = 100
-                self.log(f"🎉 Завершено! Результаты сохранены в: {cfg['final_dir']}")
-                messagebox.showinfo("Успех", f"SPR-документы созданы в папке:\n{cfg['final_dir']}")
+                self.log("🎉 Пакетная обработка всех документов успешно завершена!")
+                messagebox.showinfo("Успех", "Все файлы из пакета обработаны!")
+            else:
+                self.log("🛑 Обработка пакета была остановлена пользователем.")
         except Exception as e:
-            self.log(f"💥 Критическая ошибка конвейера: {e}")
+            self.log(f"💥 Критическая ошибка пакетного конвейера: {e}")
             messagebox.showerror("Ошибка", str(e))
         finally:
             self.is_processing = False
