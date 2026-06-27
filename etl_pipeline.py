@@ -106,8 +106,8 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback):
         except Exception as ex:
             raise Exception(f"Ошибка LLM на чанке {file_name}: {ex}")
             
-    # === ЭТАП 3: Упаковка под Open WebUI ===
-    log_callback("--- ЭТАП 3: Упаковка под Open WebUI ---")
+    # === ЭТАП 3: Упаковка в итоговые .md файлы ===
+    log_callback("--- ЭТАП 3: Упаковка в итоговые .md файлы ---")
     if not os.path.exists(cfg["final_dir"]):
         os.makedirs(cfg["final_dir"])
         

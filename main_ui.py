@@ -5,9 +5,17 @@ from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-# Импортируем наши новые модули
 import config_manager
 import etl_pipeline
+
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Для отладки
+# print(f"Рабочая директория: {os.getcwd()}")
+# print(f"Директория скрипта: {os.path.dirname(os.path.abspath(__file__))}")
 
 class SimpleETLApp:
     def __init__(self, root):
@@ -355,7 +363,7 @@ class SimpleETLApp:
             self.txt_prompt.delete("1.0", tk.END)
             self.txt_prompt.insert(tk.END, self.prompts_library[active_prompt_name])
             
-            self.log("📂 Конфигурация и библиотека промптов успешно загружены.")
+            self.log(f"📂 Конфигурация успешно загружена из: {config_manager.CONFIG_FILE}")
         else:
             # Если файла конфигурации вообще нет (первый запуск)
             self.ent_model.insert(0, "llama3")
@@ -367,7 +375,7 @@ class SimpleETLApp:
             self.cb_prompt_templates.set("Дефолтный SPR")
             
             self.txt_prompt.insert(tk.END, self.DEFAULT_PROMPT)
-            self.log("ℹ️ Конфиг не найден. Загружены параметры по умолчанию.")
+            self.log(f"ℹ️ Конфиг не найден в {BASE_DIR}. Загружены дефолтные параметры.")
 
     def toggle_process(self):
         if self.is_processing:
@@ -378,32 +386,42 @@ class SimpleETLApp:
             self.start_pipeline()
             
     def start_pipeline(self):
-        src_file = self.ent_src_file.get()
+        src_file = self.ent_src_file.get().strip()
         if not src_file or not os.path.exists(src_file):
-            messagebox.showerror("Ошибка", "Укажите существующий исходный файл!")
+            messagebox.showerror("Ошибка", "Укажите исходный файл!")
             return
-            
-        base_name_from_file = os.path.splitext(os.path.basename(src_file))[0]
         
+        if not os.path.isabs(src_file):
+            src_file = os.path.abspath(os.path.join(BASE_DIR, src_file))
+            
+        if not os.path.exists(src_file):
+            messagebox.showerror("Ошибка", f"Файл не найден по пути:\n{src_file}")
+            return    
+        
+        base_name_from_file = os.path.splitext(os.path.basename(src_file))[0]
         parent_dir = os.path.dirname(src_file)
         
         user_out_dir = self.ent_out_dir.get().strip()
         if user_out_dir == "По умолчанию (папка с исходным файлом)" or not user_out_dir:
             out_dir = os.path.join(parent_dir, base_name_from_file)
         else:
-            out_dir = user_out_dir
+            # Если пользователь ввел свой путь, проверяем абсолютный ли он
+            if not os.path.isabs(user_out_dir):
+                out_dir = os.path.abspath(os.path.join(BASE_DIR, user_out_dir))
+            else:
+                out_dir = user_out_dir
             
         config = {
             "src_file": src_file,
             "raw_dir": os.path.join(out_dir, "raw"),
             "processed_dir": os.path.join(out_dir, "processed"),
             "final_dir": out_dir,
-            "base_name": self.ent_base_name.get(),
+            "base_name": self.ent_base_name.get().strip() or "chunk",
             "model": self.ent_model.get(),
             "url": self.ent_url.get(),
             "key": self.ent_key.get(),
-            "cleanup": self.var_cleanup.get(),
-            "prompt": self.txt_prompt.get("1.0", tk.END).strip()
+            "prompt": self.txt_prompt.get("1.0", tk.END).strip(),
+            "cleanup": self.var_cleanup.get()
         }
         
         self.is_processing = True

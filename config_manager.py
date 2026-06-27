@@ -1,7 +1,13 @@
 import os
+import sys
 import json
 
-CONFIG_FILE = "config.json"
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 
 def save_config(model, base_url, api_key, prompts_dict, current_prompt_name):
     """Сохраняет настройки и библиотеку промптов в JSON файл"""
