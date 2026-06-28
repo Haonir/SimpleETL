@@ -1,8 +1,10 @@
 import os
 import shutil
+import frontmatter
+import threading
 from openai import OpenAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-import frontmatter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     import docx
@@ -82,7 +84,6 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback, 
         current_file_contribution = (idx / total_chunks) * file_weight
         global_percent = int(base_global_progress + current_file_contribution)
         
-        # Обновляем бары: текущий чанк (до 30% на запрос) и глобальный прогресс пакета
         progress_callback(file_percent, global_percent)
         
         raw_path = os.path.join(cfg["raw_dir"], file_name)
@@ -97,7 +98,6 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback, 
             
         log_callback(f"[{idx+1}/{total_chunks}] Запрос к LLM ({cfg['model']})...")
         try:
-            # Тут ваш вызов client.chat.completions.create без изменений
             response = client.chat.completions.create(
                 model=cfg["model"],
                 messages=[
@@ -109,8 +109,7 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback, 
             llm_output = response.choices[0].message.content
             with open(processed_path, 'w', encoding='utf-8') as f_out:
                 f_out.write(llm_output)
-                
-            # Чанк успешно записан — фиксируем шаг вперед для обоих баров
+            
             next_file_percent = int(((idx + 1) / total_chunks) * 100)
             next_global_percent = int(base_global_progress + (((idx + 1) / total_chunks) * file_weight))
             
@@ -196,51 +195,72 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback, 
 
     return True
 
-def process_batch(file_list, global_cfg, progress_callback, log_callback, stop_check_callback):
+def process_batch(file_list, global_cfg, progress_callback, log_callback, stop_check_callback, max_workers=1):
     """
-    НОВАЯ ФУНКЦИЯ: Управляет пакетной обработкой списка файлов.
+    Функция управления пакетной обработкой списка файлов.
     """
     total_files = len(file_list)
-    
-    for i, file_path in enumerate(file_list):
-        if stop_check_callback():
-            log_callback("🛑 Пакетная обработка прервана пользователем.")
-            return False
-            
+
+    # Массив прогресса: каждый файл пишет свой 0-100
+    file_progress = [0] * total_files
+    lock = threading.Lock()
+
+    def make_progress_cb(file_idx):
+        """Фабрика коллбэков — каждый файл получает свой, изолированный."""
+        def cb(chunk_pct, _global_ignored):
+            with lock:
+                file_progress[file_idx] = chunk_pct
+                # Глобальный прогресс = среднее по всем файлам
+                global_pct = int(sum(file_progress) / total_files)
+            progress_callback(chunk_pct, global_pct)
+        return cb
+
+    def process_one(i, file_path):
         file_name = os.path.basename(file_path)
-        log_callback(f"====== 🚀 НАЧАЛО ОБРАБОТКИ ФАЙЛА [{i+1}/{total_files}]: {file_name} ======")
-        
-        # Вычисляем уникальные папки для текущего файла
+        log_callback(f"====== 🚀 НАЧАЛО [{i+1}/{total_files}]: {file_name} ======")
+
         base_name_from_file = os.path.splitext(file_name)[0]
         parent_dir = os.path.dirname(file_path)
-        
-        # Если в глобальном конфиге папка "по умолчанию", строим её на основе текущего файла
+
         if global_cfg["is_default_out"]:
             out_dir = os.path.join(parent_dir, base_name_from_file)
         else:
             out_dir = os.path.join(global_cfg["user_out_dir"], base_name_from_file)
-            
-        # Клонируем конфигурацию для конкретного файла
+
         file_cfg = global_cfg.copy()
         file_cfg["src_file"] = file_path
         file_cfg["final_dir"] = out_dir
         file_cfg["raw_dir"] = os.path.join(out_dir, "raw")
         file_cfg["processed_dir"] = os.path.join(out_dir, "processed")
-        
-        try:
-            # Сохраняем результат выполнения конвейера для файла
-            result = process_pipeline(file_cfg, progress_callback, log_callback, stop_check_callback, current_file_idx=i, total_files=total_files)
-            
-            # ЕСЛИ БЫЛА ОСТАНОВКА — полностью выходим из пакетной обработки
-            if result is False:
-                return False
-                
-            # Если всё прошло успешно, фиксируем 100% и пишем правильный лог
-            progress_callback(100, int((i + 1) * (100 / total_files)))
-            log_callback(f"====== ✅ ФАЙЛ УСПЕШНО ОБРАБОТАН [{i+1}/{total_files}]: {file_name} ======\n")
-            
-        except Exception as file_err:
-            log_callback(f"💥 Ошибка при обработке файла {file_name}: {file_err}")
-            log_callback("⏭️ Переходим к следующему файлу в очереди...\n")
-            
-    return True
+
+        return process_pipeline(
+            file_cfg,
+            progress_callback=make_progress_cb(i),
+            log_callback=log_callback,
+            stop_check_callback=stop_check_callback,
+            current_file_idx=i,
+            total_files=total_files
+        )
+
+    all_success = True
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_info = {
+            executor.submit(process_one, i, fp): (i, os.path.basename(fp))
+            for i, fp in enumerate(file_list)
+        }
+
+        for future in as_completed(future_to_info):
+            i, file_name = future_to_info[future]
+            try:
+                result = future.result()
+                if result is False:
+                    all_success = False
+                    log_callback(f"🛑 [{i+1}/{total_files}] {file_name} — остановлен.")
+                else:
+                    log_callback(f"====== ✅ ФАЙЛ ГОТОВ [{i+1}/{total_files}]: {file_name} ======\n")
+            except Exception as e:
+                all_success = False
+                log_callback(f"💥 {file_name}: {e}\n⏭️ Переходим к следующему...\n")
+
+    return all_success and not stop_check_callback()

@@ -21,8 +21,9 @@ class SimpleETLApp:
     def __init__(self, root):
         self.root = root
         self.root.title("SimpleETL - Text Processing & SPR Pipeline")
-        self.root.geometry("1100x650")
-        self.root.minsize(950, 550)
+        self.root.geometry("1100x750")
+        self.root.minsize(950, 850)
+        self.DEFAULT_OUT_PLACEHOLDER = "Папка проекта"
         
         self.DEFAULT_PROMPT = (
             "Ты — эксперт по анализу данных и архитектор баз знаний. Твоя задача — преобразовать 'сырой' фрагмент текста в концентрированное представление формата SPR и упаковать его в YAML Front Matter.\n\n"
@@ -44,13 +45,12 @@ class SimpleETLApp:
         
         self.is_processing = False
         self.stop_requested = False
+        self.file_paths = []  # полные пути файлов (параллельно lb_files)
+        self._tooltip_window = None
         
         self.create_context_menu()
         self.create_widgets()
-        
-        self.prompts_library = {}
-        
-        # Загружаем настройки из внешнего менеджера конфигураций
+        self.prompts_library = {}  
         self.load_settings()
         
     def create_context_menu(self):
@@ -77,6 +77,34 @@ class SimpleETLApp:
         widget.bind("<Button-3>", self.show_context_menu)
         widget.bind("<Button-2>", self.show_context_menu)
         widget.bind("<Control-KeyPress>", self.universal_key_handler)
+
+    def _show_tooltip(self, event):
+        """Показать всплывающую подсказку с полным путём файла."""
+        idx = self.lb_files.nearest(event.y)
+        if idx < 0 or idx >= len(self.file_paths):
+            return
+        full_path = self.file_paths[idx]
+        bbox = self.lb_files.bbox(idx)
+        if not bbox:
+            return
+        _, y_offset, _, height = bbox
+        if event.y < y_offset or event.y > y_offset + height:
+            return
+        self._hide_tooltip()
+        x = event.x_root + 15
+        y = event.y_root + 15
+        self._tooltip_window = tw = tk.Toplevel(self.lb_files)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(tw, text=full_path, background="#ffffe0", foreground="#000000",
+                         font=("Consolas", 9), padx=6, pady=2, relief="solid", borderwidth=1)
+        label.pack()
+
+    def _hide_tooltip(self, event=None):
+        """Скрыть всплывающую подсказку."""
+        if self._tooltip_window:
+            self._tooltip_window.destroy()
+            self._tooltip_window = None
         
     def universal_key_handler(self, event):
         widget = event.widget
@@ -116,7 +144,6 @@ class SimpleETLApp:
         main_container = ttk.Frame(self.root, padding=10)
         main_container.pack(fill=tk.BOTH, expand=True)
         
-        # Разные веса колонок для устранения зазоров
         main_container.columnconfigure(0, weight=0)
         main_container.columnconfigure(1, weight=1)
         main_container.rowconfigure(0, weight=1)
@@ -125,34 +152,60 @@ class SimpleETLApp:
         left_pane = ttk.Frame(main_container)
         left_pane.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
         left_pane.rowconfigure(0, weight=1)
-        left_pane.rowconfigure(1, weight=1)
-        left_pane.rowconfigure(2, weight=1)
+        left_pane.rowconfigure(1, weight=0)
+        left_pane.rowconfigure(2, weight=0)
+        left_pane.rowconfigure(3, weight=0)
         
-        # 1. Выбор файлов
-        lf_files = ttk.LabelFrame(left_pane, text=" Выбор входного файла / Input File Selection ")
+        lf_files = ttk.LabelFrame(left_pane, text=" Файлы для обработки ")
         lf_files.grid(row=0, column=0, sticky="nsew", pady=(0, 5))
-        lf_files.columnconfigure(1, weight=1)
-        
-        ttk.Label(lf_files, text="Исходный файл:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
-        self.ent_src_file = ttk.Entry(lf_files)
-        self.ent_src_file.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
-        self.bind_edit_actions(self.ent_src_file)
-        ttk.Button(lf_files, text="Обзор", command=self.browse_src_file).grid(row=0, column=2, padx=5, pady=5)
-        
-        ttk.Label(lf_files, text="Выходная папка:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+        lf_files.columnconfigure(0, weight=1)
+        lf_files.rowconfigure(0, weight=1)
+
+        lb_frame = ttk.Frame(lf_files)
+        lb_frame.grid(row=0, column=0, columnspan=3, sticky="nsew", padx=5, pady=5)
+        lb_frame.columnconfigure(0, weight=1)
+        lb_frame.rowconfigure(0, weight=1)
+
+        lb_scroll = ttk.Scrollbar(lb_frame)
+        lb_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.lb_files = tk.Listbox(
+            lb_frame,
+            yscrollcommand=lb_scroll.set,
+            height=4,
+            selectmode=tk.EXTENDED,
+            activestyle="dotbox",
+            font=("Consolas", 9)
+        )
+        self.lb_files.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        lb_scroll.config(command=self.lb_files.yview)
+        self.lb_files.bind("<Motion>", self._show_tooltip)
+        self.lb_files.bind("<Leave>", self._hide_tooltip)
+
+        btn_frame = ttk.Frame(lf_files)
+        btn_frame.grid(row=1, column=0, columnspan=3, sticky="ew", padx=5, pady=(0, 5))
+        btn_frame.columnconfigure(0, weight=1)
+
+        btn_inner = ttk.Frame(btn_frame)
+        btn_inner.grid(row=0, column=0, sticky="")
+
+        ttk.Button(btn_inner, text="➕ Добавить", command=self.browse_src_file).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(btn_inner, text="✖ Удалить", command=self.remove_selected_files).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(btn_inner, text="🗑 Очистить", command=self.clear_files).pack(side=tk.LEFT)
+
+        ttk.Label(lf_files, text="Папка экспорта:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
         self.ent_out_dir = ttk.Entry(lf_files)
-        self.ent_out_dir.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
-        self.ent_out_dir.insert(0, "По умолчанию (папка с исходным файлом)")
+        self.ent_out_dir.grid(row=2, column=1, sticky="ew", padx=5, pady=5)
+        self.ent_out_dir.insert(0, self.DEFAULT_OUT_PLACEHOLDER)
         self.bind_edit_actions(self.ent_out_dir)
-        ttk.Button(lf_files, text="Обзор", command=self.browse_out_dir).grid(row=1, column=2, padx=5, pady=5)
-        
-        ttk.Label(lf_files, text="Базовое имя чанков:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+        ttk.Button(lf_files, text="Обзор", command=self.browse_out_dir).grid(row=2, column=2, padx=5, pady=5)
+
+        ttk.Label(lf_files, text="Базовое имя чанков:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
         self.ent_base_name = ttk.Entry(lf_files)
-        self.ent_base_name.grid(row=2, column=1, sticky="ew", padx=5, pady=5)
+        self.ent_base_name.grid(row=3, column=1, sticky="ew", padx=5, pady=5)
         self.ent_base_name.insert(0, "chunk")
         self.bind_edit_actions(self.ent_base_name)
         
-        # 2. Настройки подключения
         lf_prov = ttk.LabelFrame(left_pane, text=" Настройки провайдера LLM ")
         lf_prov.grid(row=1, column=0, sticky="nsew", pady=5)
         lf_prov.columnconfigure(1, weight=1)
@@ -171,38 +224,53 @@ class SimpleETLApp:
         self.ent_key = ttk.Entry(lf_prov, show="*")
         self.ent_key.grid(row=2, column=1, sticky="ew", padx=5, pady=5)
         self.bind_edit_actions(self.ent_key)
-        
-        # === Настройки нарезки чанков (Выносим в изолированную под-строку) ===
-        # Создаем скрытый фрейм прямо внутри lf_prov на 3-й строке
-        chunk_frame = ttk.Frame(lf_prov)
-        chunk_frame.grid(row=3, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
-        
-        # Размещаем элементы аккуратно внутри этого фрейма в одну линию
+
+        lf_settings = ttk.LabelFrame(left_pane, text=" Параметры обработки ")
+        lf_settings.grid(row=2, column=0, sticky="nsew", pady=5)
+        lf_settings.columnconfigure(0, weight=1)
+        lf_settings.columnconfigure(1, weight=1)
+
+        chunk_frame = ttk.Frame(lf_settings)
+        chunk_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+
         ttk.Label(chunk_frame, text="Размер чанка:").pack(side=tk.LEFT, padx=(0, 5))
         self.ent_chunk_size = ttk.Entry(chunk_frame, width=8)
         self.ent_chunk_size.pack(side=tk.LEFT, padx=(0, 15))
         self.ent_chunk_size.insert(0, "10000")
-        
+
         ttk.Label(chunk_frame, text="Перекрытие:").pack(side=tk.LEFT, padx=(0, 5))
         self.ent_chunk_overlap = ttk.Entry(chunk_frame, width=8)
         self.ent_chunk_overlap.pack(side=tk.LEFT)
         self.ent_chunk_overlap.insert(0, "1500")
-
-        # === Кнопка сохранения ===
-        # Кладём её строго на 4-ю строку, и ограничиваем columnspan=2 (по ширине полей ввода URL/Key)
-        btn_save_cfg = ttk.Button(lf_prov, text="💾 Сохранить настройки", command=self.save_settings)
-        btn_save_cfg.grid(row=4, column=0, columnspan=2, sticky="ew", padx=5, pady=(10, 5))
         
-        # 3. Кнопка и прогресс
+        workers_frame = ttk.Frame(lf_settings)
+        workers_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+
+        ttk.Label(workers_frame, text="Параллельных потоков:").pack(side=tk.LEFT)
+        self.spn_workers = ttk.Spinbox(workers_frame, from_=1, to=8, width=4)
+        self.spn_workers.pack(side=tk.LEFT, padx=(5, 0))
+        self.spn_workers.set(1)
+
         self.var_cleanup = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            lf_settings,
+            text="Удалять временные файлы после завершения",
+            variable=self.var_cleanup
+        ).grid(row=2, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+
+        ttk.Button(
+            lf_settings,
+            text="💾 Сохранить настройки",
+            command=self.save_settings
+        ).grid(row=3, column=0, columnspan=2, sticky="ew", padx=5, pady=(5, 5))
+
+
                
         lf_actions = ttk.LabelFrame(left_pane, text=" Управление и прогресс ")
-        lf_actions.grid(row=2, column=0, sticky="nsew", pady=(5, 0))
+        lf_actions.grid(row=3, column=0, sticky="nsew", pady=(5, 0))
         
         self.btn_start = ttk.Button(lf_actions, text="▶ Начать обработку", style='Action.TButton', command=self.toggle_process)
         self.btn_start.pack(fill=tk.X, padx=10, pady=10)
-        
-        ttk.Checkbutton(lf_actions, text="Удалять временные файлы после завершения", variable=self.var_cleanup).pack(anchor="w", padx=10, pady=(0, 5))
         
         ttk.Label(lf_actions, text="Прогресс текущего файла:").pack(anchor="w", padx=10, pady=(5, 0))
         self.progress_chunk = ttk.Progressbar(lf_actions, orient="horizontal", mode="determinate")
@@ -275,19 +343,32 @@ class SimpleETLApp:
             ("Текстовые файлы", "*.txt *.md"),
             ("Все файлы", "*.*")
         ]
-        # Изменил askopenfilename на askopenfilenames (возвращает кортеж путей)
         filenames = filedialog.askopenfilenames(filetypes=filetypes)
         if filenames:
-            self.ent_src_file.delete(0, tk.END)
-            # Записываем пути через точку с запятой, чтобы пользователь видел их в строке
-            self.ent_src_file.insert(0, "; ".join(filenames))
-            
-            # Автоматически ставим имя первого чанка по первому файлу
-            base = os.path.splitext(os.path.basename(filenames[0]))[0]
+            existing = set(self.file_paths)
+            added = 0
+            for f in filenames:
+                if f not in existing:
+                    self.file_paths.append(f)
+                    self.lb_files.insert(tk.END, os.path.basename(f))
+                    added += 1
+
+            first_name = os.path.basename(self.file_paths[0]) if self.file_paths else ""
             self.ent_base_name.delete(0, tk.END)
-            self.ent_base_name.insert(0, f"{base}_chunk")
-            
-            self.log(f"📚 Выбрано файлов для пакетной обработки: {len(filenames)}")
+            self.ent_base_name.insert(0, f"{os.path.splitext(first_name)[0]}_chunk")
+
+            self.log(f"📚 Добавлено: {added}, уже было: {len(filenames) - added}, всего в очереди: {self.lb_files.size()}")
+
+    def remove_selected_files(self):
+        for i in reversed(self.lb_files.curselection()):
+            self.lb_files.delete(i)
+            del self.file_paths[i]
+        self.log(f"✖ Файлов в очереди: {self.lb_files.size()}")
+
+    def clear_files(self):
+        self.lb_files.delete(0, tk.END)
+        self.file_paths.clear()
+        self.log("🗑 Список файлов очищен.")
             
     def browse_out_dir(self):
         directory = filedialog.askdirectory()
@@ -348,8 +429,6 @@ class SimpleETLApp:
             current_name = self.cb_prompt_templates.get()
             if not current_name:
                 current_name = "Дефолтный SPR"
-                
-            # Обновляем текст текущего промпта в нашей библиотеке перед сохранением файла
             self.prompts_library[current_name] = self.txt_prompt.get("1.0", tk.END).strip()
             
             try:
@@ -365,6 +444,7 @@ class SimpleETLApp:
                 api_key=self.ent_key.get(),
                 chunk_size=c_size,
                 chunk_overlap=c_overlap,
+                max_workers=int(self.spn_workers.get()),
                 prompts_dict=self.prompts_library,
                 current_prompt_name=current_name
             )
@@ -377,7 +457,6 @@ class SimpleETLApp:
     def load_settings(self):
         cfg = config_manager.load_config()
         
-        # Загружаем базовые параметры LLM
         self.ent_model.delete(0, tk.END)
         self.ent_url.delete(0, tk.END)
         self.ent_key.delete(0, tk.END)
@@ -387,36 +466,31 @@ class SimpleETLApp:
             self.ent_url.insert(0, cfg.get("base_url", "http://localhost:11434/v1"))
             self.ent_key.insert(0, cfg.get("api_key", "ollama"))
             
-            # Загружаем настройки чанков
+            self.spn_workers.set(cfg.get("max_workers", 1))
+            
             self.ent_chunk_size.delete(0, tk.END)
             self.ent_chunk_size.insert(0, str(cfg.get("chunk_size", 10000)))
             
             self.ent_chunk_overlap.delete(0, tk.END)
             self.ent_chunk_overlap.insert(0, str(cfg.get("chunk_overlap", 1500)))
             
-            # Восстанавливаем библиотеку промптов из JSON
             self.prompts_library = cfg.get("prompts", {})
             
-            # Если в конфиге ничего нет, создаем дефолтную запись
             if not self.prompts_library:
                 self.prompts_library = {"Дефолтный SPR": self.DEFAULT_PROMPT}
                 
-            # Определяем, какой промпт выбрать активным
             active_prompt_name = cfg.get("current_prompt_name")
             if not active_prompt_name or active_prompt_name not in self.prompts_library:
                 active_prompt_name = list(self.prompts_library.keys())[0]
                 
-            # Обновляем выпадающий список
             self.cb_prompt_templates['values'] = list(self.prompts_library.keys())
             self.cb_prompt_templates.set(active_prompt_name)
             
-            # Выводим текст промпта на экран
             self.txt_prompt.delete("1.0", tk.END)
             self.txt_prompt.insert(tk.END, self.prompts_library[active_prompt_name])
             
             self.log(f"📂 Конфигурация успешно загружена из: {config_manager.CONFIG_FILE}")
         else:
-            # Если файла конфигурации вообще нет (первый запуск)
             self.ent_model.insert(0, "llama3")
             self.ent_url.insert(0, "http://localhost:11434/v1")
             self.ent_key.insert(0, "ollama")
@@ -437,17 +511,13 @@ class SimpleETLApp:
             self.start_pipeline()
             
     def start_pipeline(self):
-        raw_input = self.ent_src_file.get().strip()
-        if not raw_input:
-            messagebox.showerror("Ошибка", "Укажите исходные файлы!")
+        if not self.file_paths:
+            messagebox.showerror("Ошибка", "Добавьте хотя бы один файл в список!")
             return
             
-        # Разбираем строку на отдельные пути файлов
-        files_pool = [f.strip() for f in raw_input.split(";") if f.strip()]
         validated_files = []
         
-        # Проверяем и делаем пути абсолютными
-        for src_file in files_pool:
+        for src_file in self.file_paths:
             if not os.path.isabs(src_file):
                 src_file = os.path.abspath(os.path.join(BASE_DIR, src_file))
             if os.path.exists(src_file):
@@ -460,9 +530,8 @@ class SimpleETLApp:
             return
             
         user_out_dir = self.ent_out_dir.get().strip()
-        is_default_out = (user_out_dir == "По умолчанию (папка с исходным файлом)" or not user_out_dir)
+        is_default_out = (user_out_dir == self.DEFAULT_OUT_PLACEHOLDER or not user_out_dir)
         
-        # Формируем глобальные настройки пакета
         global_config = {
             "is_default_out": is_default_out,
             "user_out_dir": user_out_dir,
@@ -472,6 +541,7 @@ class SimpleETLApp:
             "key": self.ent_key.get(),
             "chunk_size": int(self.ent_chunk_size.get().strip() or 10000),
             "chunk_overlap": int(self.ent_chunk_overlap.get().strip() or 1500),
+            "max_workers": int(self.spn_workers.get()),
             "prompt": self.txt_prompt.get("1.0", tk.END).strip(),
             "cleanup": self.var_cleanup.get()
         }
@@ -480,7 +550,6 @@ class SimpleETLApp:
         self.stop_requested = False
         self.btn_start.configure(text="🛑 Остановить обработку")
         
-        # Передаем список валидных файлов и конфиг в фоновый поток
         threading.Thread(target=self.thread_worker, args=(validated_files, global_config), daemon=True).start()
 
     def thread_worker(self, validated_files, global_config):
@@ -490,7 +559,8 @@ class SimpleETLApp:
                 global_cfg=global_config,
                 progress_callback=self.update_progress,
                 log_callback=self.log,
-                stop_check_callback=lambda: self.stop_requested
+                stop_check_callback=lambda: self.stop_requested,
+                max_workers=global_config["max_workers"]
             )
             if success:
                 self.log("🎉 Пакетная обработка всех документов успешно завершена!")
