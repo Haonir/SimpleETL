@@ -1,9 +1,10 @@
 import os
 import sys
 import threading
-from datetime import datetime
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from datetime import datetime
+import customtkinter as ctk
+from tkinter import filedialog, messagebox
 
 import config_manager
 import etl_pipeline
@@ -13,51 +14,216 @@ if getattr(sys, 'frozen', False):
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Для отладки
-# print(f"Рабочая директория: {os.getcwd()}")
-# print(f"Директория скрипта: {os.path.dirname(os.path.abspath(__file__))}")
+# ── Цветовая палитра ──
+BG_MAIN    = '#eef1f5'
+BG_CARD    = '#ffffff'
+BG_INPUT   = '#ffffff'
+FG_TITLE   = '#1a1a2e'
+FG_LABEL   = '#374151'
+FG_HEADER  = '#2c323a'
+BORDER     = '#d1d5db'
+ACCENT     = '#3b82f6'
+ACCENT_HOV = '#2563eb'
+ACCENT_DIS = '#93c5fd'
+BTN_BG     = '#e5e7eb'
+BTN_FG     = '#1f2937'
+BTN_HOVER  = '#d1d5db'
 
+# ── Шрифты ──
+FONT_LABEL  = ("Segoe UI", 12)
+FONT_HEADER = ("Segoe UI", 14, "bold")
+FONT_BTN    = ("Segoe UI", 11)
+FONT_BTN_SM = ("Segoe UI", 11, "bold")
+FONT_MONO   = ("Cascadia Mono", 12)
+FONT_MONO_9 = ("Consolas", 11)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  FileListBox — кастомный список файлов на базе CTkScrollableFrame
+# ═══════════════════════════════════════════════════════════════
+class FileListBox(ctk.CTkFrame):
+    def __init__(self, master, height=4, on_hover=None, on_leave=None, **kw):
+        super().__init__(master, fg_color="transparent", **kw)
+        self._items = []          # [(frame, label, path)]
+        self._selected = set()
+        self._on_hover = on_hover
+        self._on_leave = on_leave
+
+        self._scroll = ctk.CTkScrollableFrame(
+            self, fg_color=BG_CARD, corner_radius=8,
+            border_width=1, border_color=BORDER,
+            height=max(height * 28, 120))
+        self._scroll.pack(fill="both", expand=True)
+
+    # ── публичный API (совместимый с tk.Listbox) ──
+    def insert(self, path):
+        idx = len(self._items)
+        frame = ctk.CTkFrame(self._scroll, fg_color="transparent",
+                             corner_radius=4, height=26)
+        frame.pack(fill="x", padx=3, pady=1)
+        frame.pack_propagate(False)
+
+        lbl = ctk.CTkLabel(frame, text=os.path.basename(path), anchor="w",
+                           font=FONT_BTN, text_color=FG_TITLE)
+        lbl.pack(side="left", fill="x", expand=True, padx=8, pady=2)
+
+        def _click(e, f=frame): self._select_by_frame(f, e)
+        def _enter(e, f=frame): self._fire_hover(f, e)
+        def _leave(e):          self._fire_leave()
+
+        for w in (frame, lbl):
+            w.bind("<Button-1>", _click)
+            w.bind("<Enter>", _enter)
+            w.bind("<Leave>", _leave)
+
+        self._items.append((frame, lbl, path))
+        return idx
+
+    def delete(self, index):
+        if 0 <= index < len(self._items):
+            self._items[index][0].destroy()
+            self._items.pop(index)
+            self._selected.discard(index)
+            self._selected = {i - (1 if i > index else 0) for i in self._selected}
+
+    def get(self, index):
+        return self._items[index][2]
+
+    def size(self):
+        return len(self._items)
+
+    def curselection(self):
+        return sorted(self._selected)
+
+    def clear(self):
+        for f, _, _ in self._items:
+            f.destroy()
+        self._items.clear()
+        self._selected.clear()
+
+    # ── внутреннее ──
+    def _find(self, target):
+        for i, (f, _, _) in enumerate(self._items):
+            if f is target:
+                return i
+        return -1
+
+    def _select_by_frame(self, frame, event):
+        idx = self._find(frame)
+        if idx < 0:
+            return
+        if event.state & 0x4:                       # Ctrl
+            self._selected.symmetric_difference_update({idx})
+        else:
+            self._selected = {idx}
+        self._paint()
+
+    def _paint(self):
+        for i, (f, lbl, _) in enumerate(self._items):
+            sel = i in self._selected
+            f.configure(fg_color=ACCENT if sel else "transparent")
+            lbl.configure(text_color="white" if sel else FG_TITLE)
+
+    def _fire_hover(self, frame, event):
+        if self._on_hover:
+            idx = self._find(frame)
+            if idx >= 0:
+                self._on_hover(idx, event)
+
+    def _fire_leave(self):
+        if self._on_leave:
+            self._on_leave()
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SimpleETLApp
+# ═══════════════════════════════════════════════════════════════
 class SimpleETLApp:
     def __init__(self, root):
         self.root = root
         self.root.title("SimpleETL - Text Processing & SPR Pipeline")
-        self.root.geometry("1100x750")
-        self.root.minsize(950, 850)
-        self.DEFAULT_OUT_PLACEHOLDER = "Папка проекта"
-        
+        self.root.geometry("1100x1000")
+        self.root.minsize(950, 1000)
+        self.root.configure(fg_color=BG_MAIN)
+
+        self.DEFAULT_OUT_PLACEHOLDER = "(Опционально)"
+
         self.DEFAULT_PROMPT = (
-            "Ты — эксперт по анализу данных и архитектор баз знаний. Твоя задача — преобразовать 'сырой' фрагмент текста в концентрированное представление формата SPR и упаковать его в YAML Front Matter.\n\n"
+            "Ты — эксперт по анализу данных и архитектор баз знаний. Твоя задача — "
+            "преобразовать 'сырой' фрагмент текста в концентрированное представление "
+            "формата SPR и упаковать его в YAML Front Matter.\n\n"
             "ИНСТРУКЦИЯ ПО ФОРМАТУ:\n"
-            "1. Твой ответ ОБЯЗАТЕЛЬНО должен начинаться с блока YAML Front Matter, ограниченного тремя дефисами (---\n"
-            "2. Внутри YAML блока СТРОГО оборачивай текстовые значения после двоеточий в двойные кавычки `\"`. Это критически важно для предотвращения ошибок синтаксиса!\n"
-            "3. НЕ используй знаки доллара ($) и LaTeX-разметку (например, \\leftrightarrow) внутри YAML блока. Заменяй их на текстовые аналоги (например, <->).\n\n"
+            "1. Твой ответ ОБЯЗАТЕЛЬНО должен начинаться с блока YAML Front Matter, "
+            "ограниченного тремя дефисами (---\n"
+            "2. Внутри YAML блока СТРОГО оборачивай текстовые значения после двоеточий "
+            "в двойные кавычки \". Это критически важно для предотвращения ошибок синтаксиса!\n"
+            "3. НЕ используй знаки доллара ($) и LaTeX-разметку (например, \\leftrightarrow) "
+            "внутри YAML блока. Заменяй их на текстовые аналоги (например, <->).\n\n"
             "СТРУКТУРА YAML (строго в кавычках):\n"
-            "   - title: \"[краткое техническое название фрагмента]\"\n"
-            "   - концепция: \"[одно предложение-определение сути текста]\"\n"
-            "   - алгоритм: \"[пошаговые действия через запятую или цифры]\"\n"
-            "   - формула: \"[математическое/логическое выражение текстом без знаков $]\"\n"
-            "   - метафора: \"[яркая аналогия/сравнение на РУССКОМ языке]\"\n"
-            "   - связи: [\"Связь1\", \"Связь2\"]\n"
-            "   - теги: [\"тег1\", \"тег2\"]\n\n"
-            "4. Сразу после закрывающих дефисов (---) пиши очищенный, структурированный Markdown текст фрагмента.\n"
+            '   - title: "[краткое техническое название фрагмента]"\n'
+            '   - концепция: "[одно предложение-определение сути текста]"\n'
+            '   - алгоритм: "[пошаговые действия через запятую или цифры]"\n'
+            '   - формула: "[математическое/логическое выражение текстом без знаков $]"\n'
+            '   - метафора: "[яркая аналогия/сравнение на РУССКОМ языке]"\n'
+            '   - связи: ["Связь1", "Связь2"]\n'
+            '   - теги: ["тег1", "тег2"]\n\n'
+            "4. Сразу после закрывающих дефисов (---) пиши очищенный, структурированный "
+            "Markdown текст фрагмента.\n"
             "5. Не пиши никаких вводных фраз. Твой ответ должен начинаться прямо с `---`."
         )
-        
+
         self.is_processing = False
         self.stop_requested = False
-        self.file_paths = []  # полные пути файлов (параллельно lb_files)
+        self.file_paths = []
         self._tooltip_window = None
-        
-        self.create_context_menu()
+        self.prompts_library = {}
+
         self.create_widgets()
-        self.prompts_library = {}  
         self.load_settings()
-        
+
+    # ──────────────────────────────────────────────────────────
+    #  Утилиты
+    # ──────────────────────────────────────────────────────────
+    def _card_section(self, parent, title):
+        """Белая карточка с заголовком — замена LabelFrame."""
+        card = ctk.CTkFrame(parent, fg_color=BG_CARD, corner_radius=10,
+                            border_width=1, border_color=BORDER)
+        ctk.CTkLabel(card, text=title, anchor="w", font=FONT_HEADER,
+                     text_color=FG_HEADER).pack(fill="x", padx=12, pady=(10, 2))
+        content = ctk.CTkFrame(card, fg_color="transparent")
+        content.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        return card, content
+
+    @staticmethod
+    def _btn_kw(**extra):
+        """Базовые параметры для обычных кнопок."""
+        d = dict(corner_radius=8, height=34, font=FONT_BTN,
+                 fg_color=BTN_BG, hover_color=BTN_HOVER, text_color=BTN_FG)
+        d.update(extra)
+        return d
+
+    def _get_tk_widget(self, widget):
+        """Вернуть базовый tkinter-виджет из CTk-обёртки."""
+        if hasattr(widget, "textbox"):
+            return widget.textbox
+        if hasattr(widget, "entry"):
+            return widget.entry
+        return widget
+
+    # ──────────────────────────────────────────────────────────
+    #  Контекстное меню / горячие клавиши
+    # ──────────────────────────────────────────────────────────
     def create_context_menu(self):
         self.context_menu = tk.Menu(self.root, tearoff=0)
-        self.context_menu.add_command(label="Вырезать", command=lambda: self.current_widget.event_generate("<<Cut>>"))
-        self.context_menu.add_command(label="Копировать", command=lambda: self.current_widget.event_generate("<<Copy>>"))
-        self.context_menu.add_command(label="Вставить", command=lambda: self.current_widget.event_generate("<<Paste>>"))
+        self.context_menu.add_command(
+            label="Вырезать",
+            command=lambda: self._get_tk_widget(self.current_widget).event_generate("<<Cut>>"))
+        self.context_menu.add_command(
+            label="Копировать",
+            command=lambda: self._get_tk_widget(self.current_widget).event_generate("<<Copy>>"))
+        self.context_menu.add_command(
+            label="Вставить",
+            command=lambda: self._get_tk_widget(self.current_widget).event_generate("<<Paste>>"))
         self.context_menu.add_separator()
         self.context_menu.add_command(label="Выделить всё", command=self.select_all_handler)
 
@@ -68,281 +234,272 @@ class SimpleETLApp:
         return "break"
 
     def select_all_handler(self):
-        if isinstance(self.current_widget, tk.Text):
-            self.current_widget.tag_add("sel", "1.0", "end")
-        else:
-            self.current_widget.select_range(0, tk.END)
+        w = self.current_widget
+        if isinstance(w, ctk.CTkTextbox):
+            w.textbox.tag_add("sel", "1.0", "end")
+        elif isinstance(w, tk.Text):
+            w.tag_add("sel", "1.0", "end")
+        elif isinstance(w, ctk.CTkEntry):
+            w.entry.select_range(0, "end")
+        elif isinstance(w, tk.Entry):
+            w.select_range(0, "end")
 
     def bind_edit_actions(self, widget):
         widget.bind("<Button-3>", self.show_context_menu)
         widget.bind("<Button-2>", self.show_context_menu)
         widget.bind("<Control-KeyPress>", self.universal_key_handler)
 
-    def _show_tooltip(self, event):
-        """Показать всплывающую подсказку с полным путём файла."""
-        idx = self.lb_files.nearest(event.y)
-        if idx < 0 or idx >= len(self.file_paths):
-            return
-        full_path = self.file_paths[idx]
-        bbox = self.lb_files.bbox(idx)
-        if not bbox:
-            return
-        _, y_offset, _, height = bbox
-        if event.y < y_offset or event.y > y_offset + height:
+    def universal_key_handler(self, event):
+        tk_w = self._get_tk_widget(event.widget)
+        key = event.keycode
+        if key == 86:
+            tk_w.event_generate("<<Paste>>")
+        elif key == 67:
+            tk_w.event_generate("<<Copy>>")
+        elif key == 65:
+            self.select_all_handler()
+        elif key == 88:
+            tk_w.event_generate("<<Cut>>")
+        elif key == 90:
+            tk_w.event_generate("<<Undo>>")
+        return "break"
+
+    # ──────────────────────────────────────────────────────────
+    #  Tooltip
+    # ──────────────────────────────────────────────────────────
+    def _show_tooltip(self, index, event):
+        if index < 0 or index >= len(self.file_paths):
             return
         self._hide_tooltip()
-        x = event.x_root + 15
-        y = event.y_root + 15
-        self._tooltip_window = tw = tk.Toplevel(self.lb_files)
+        x, y = event.x_root + 15, event.y_root + 15
+        tw = tk.Toplevel(self.root)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
-        label = tk.Label(tw, text=full_path, background="#ffffe0", foreground="#000000",
-                         font=("Consolas", 9), padx=6, pady=2, relief="solid", borderwidth=1)
-        label.pack()
+        tk.Label(tw, text=self.file_paths[index], background="#ffffe0",
+                 foreground="#000000", font=FONT_MONO_9,
+                 padx=6, pady=2, relief="solid", borderwidth=1).pack()
+        self._tooltip_window = tw
 
-    def _hide_tooltip(self, event=None):
-        """Скрыть всплывающую подсказку."""
+    def _hide_tooltip(self, _=None):
         if self._tooltip_window:
             self._tooltip_window.destroy()
             self._tooltip_window = None
-        
-    def universal_key_handler(self, event):
-        widget = event.widget
-        if event.keycode == 86:    # V
-            widget.event_generate("<<Paste>>")
-            return "break"
-        elif event.keycode == 67:  # C
-            widget.event_generate("<<Copy>>")
-            return "break"
-        elif event.keycode == 65:  # A
-            self.select_all_from_event(widget)
-            return "break"
-        elif event.keycode == 88:  # X
-            widget.event_generate("<<Cut>>")
-            return "break"
-        elif event.keycode == 90:  # Z
-            widget.event_generate("<<Undo>>")
-            return "break"
 
-    def select_all_from_event(self, widget):
-        if isinstance(widget, tk.Text):
-            widget.tag_add("sel", "1.0", "end")
-        else:
-            widget.select_range(0, tk.END)
-        return "break"
-
+    # ──────────────────────────────────────────────────────────
+    #  Построение интерфейса
+    # ──────────────────────────────────────────────────────────
     def create_widgets(self):
-        style = ttk.Style()
-        style.theme_use('clam')
-        style.configure('TFrame', background='#f5f6f8')
-        style.configure('TLabelframe', background='#f5f6f8', relief='groove')
-        style.configure('TLabelframe.Label', background='#f5f6f8', font=('Arial', 10, 'bold'))
-        style.configure('TLabel', background='#f5f6f8', font=('Arial', 10))
-        style.configure('Action.TButton', font=('Arial', 11, 'bold'), foreground='white', background='#2563eb')
-        style.map('Action.TButton', background=[('active', '#1d4ed8'), ('disabled', '#93c5fd')])
-        
-        main_container = ttk.Frame(self.root, padding=10)
-        main_container.pack(fill=tk.BOTH, expand=True)
-        
-        main_container.columnconfigure(0, weight=0)
-        main_container.columnconfigure(1, weight=1)
-        main_container.rowconfigure(0, weight=1)
-        
-        # --- ЛЕВАЯ ЧАСТЬ ---
-        left_pane = ttk.Frame(main_container)
-        left_pane.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
-        left_pane.rowconfigure(0, weight=1)
-        left_pane.rowconfigure(1, weight=0)
-        left_pane.rowconfigure(2, weight=0)
-        left_pane.rowconfigure(3, weight=0)
-        
-        lf_files = ttk.LabelFrame(left_pane, text=" Файлы для обработки ")
+        self.create_context_menu()
+
+        main = ctk.CTkFrame(self.root, fg_color="transparent")
+        main.pack(fill="both", expand=True, padx=10, pady=10)
+        main.grid_columnconfigure(0, weight=0)
+        main.grid_columnconfigure(1, weight=1)
+        main.grid_rowconfigure(0, weight=1)
+
+        # ─── ЛЕВАЯ ЧАСТЬ ────────────────────────────────────
+        left = ctk.CTkFrame(main, fg_color="transparent")
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        for r in range(4):
+            left.grid_rowconfigure(r, weight=1 if r == 0 else 0)
+
+        # — Файлы —
+        lf_files, fc = self._card_section(left, "Файлы для обработки")
         lf_files.grid(row=0, column=0, sticky="nsew", pady=(0, 5))
-        lf_files.columnconfigure(0, weight=1)
-        lf_files.rowconfigure(0, weight=1)
 
-        lb_frame = ttk.Frame(lf_files)
-        lb_frame.grid(row=0, column=0, columnspan=3, sticky="nsew", padx=5, pady=5)
-        lb_frame.columnconfigure(0, weight=1)
-        lb_frame.rowconfigure(0, weight=1)
+        self.file_list = FileListBox(
+            fc, height=4,
+            on_hover=self._show_tooltip, on_leave=self._hide_tooltip)
+        self.file_list.pack(fill="both", expand=True, pady=(0, 4))
 
-        lb_scroll = ttk.Scrollbar(lb_frame)
-        lb_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        bf = ctk.CTkFrame(fc, fg_color="transparent")
+        bf.pack(fill="x", pady=(0, 4))
+        ctk.CTkButton(bf, text="➕ Добавить", command=self.browse_src_file,
+                       **self._btn_kw(width=110)).pack(side="left", padx=(0, 5))
+        ctk.CTkButton(bf, text="✖ Удалить", command=self.remove_selected_files,
+                       **self._btn_kw(width=100)).pack(side="left", padx=(0, 5))
+        ctk.CTkButton(bf, text="🗑 Очистить", command=self.clear_files,
+                       **self._btn_kw(width=100)).pack(side="left")
 
-        self.lb_files = tk.Listbox(
-            lb_frame,
-            yscrollcommand=lb_scroll.set,
-            height=4,
-            selectmode=tk.EXTENDED,
-            activestyle="dotbox",
-            font=("Consolas", 9)
-        )
-        self.lb_files.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        lb_scroll.config(command=self.lb_files.yview)
-        self.lb_files.bind("<Motion>", self._show_tooltip)
-        self.lb_files.bind("<Leave>", self._hide_tooltip)
-
-        btn_frame = ttk.Frame(lf_files)
-        btn_frame.grid(row=1, column=0, columnspan=3, sticky="ew", padx=5, pady=(0, 5))
-        btn_frame.columnconfigure(0, weight=1)
-
-        btn_inner = ttk.Frame(btn_frame)
-        btn_inner.grid(row=0, column=0, sticky="")
-
-        ttk.Button(btn_inner, text="➕ Добавить", command=self.browse_src_file).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(btn_inner, text="✖ Удалить", command=self.remove_selected_files).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(btn_inner, text="🗑 Очистить", command=self.clear_files).pack(side=tk.LEFT)
-
-        ttk.Label(lf_files, text="Папка экспорта:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
-        self.ent_out_dir = ttk.Entry(lf_files)
-        self.ent_out_dir.grid(row=2, column=1, sticky="ew", padx=5, pady=5)
+        # Папка экспорта — pack для точного выравнивания
+        row_out = ctk.CTkFrame(fc, fg_color="transparent")
+        row_out.pack(fill="x", pady=4)
+        ctk.CTkLabel(row_out, text="Папка экспорта:", font=FONT_LABEL,
+                     text_color=FG_LABEL).pack(side="left", padx=(0, 8))
+        self.ent_out_dir = ctk.CTkEntry(row_out)
+        self.ent_out_dir.pack(side="left", fill="x", expand=True, padx=(0, 4))
         self.ent_out_dir.insert(0, self.DEFAULT_OUT_PLACEHOLDER)
         self.bind_edit_actions(self.ent_out_dir)
-        ttk.Button(lf_files, text="Обзор", command=self.browse_out_dir).grid(row=2, column=2, padx=5, pady=5)
+        ctk.CTkButton(row_out, text="Обзор", command=self.browse_out_dir,
+                       **self._btn_kw(width=70)).pack(side="left")
 
-        ttk.Label(lf_files, text="Базовое имя чанков:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
-        self.ent_base_name = ttk.Entry(lf_files)
-        self.ent_base_name.grid(row=3, column=1, sticky="ew", padx=5, pady=5)
-        self.ent_base_name.insert(0, "chunk")
+        # Базовое имя чанков — pack
+        row_base = ctk.CTkFrame(fc, fg_color="transparent")
+        row_base.pack(fill="x", pady=4)
+        ctk.CTkLabel(row_base, text="Префикс чанков:", font=FONT_LABEL,
+                     text_color=FG_LABEL).pack(side="left", padx=(0, 8))
+        self.ent_base_name = ctk.CTkEntry(row_base)
+        self.ent_base_name.pack(side="left", fill="x", expand=True)
+        self.ent_base_name.insert(0, "(Опционально)")
         self.bind_edit_actions(self.ent_base_name)
-        
-        lf_prov = ttk.LabelFrame(left_pane, text=" Настройки провайдера LLM ")
+
+        # — Провайдер LLM —
+        lf_prov, pc = self._card_section(left, "Настройки провайдера LLM")
         lf_prov.grid(row=1, column=0, sticky="nsew", pady=5)
-        lf_prov.columnconfigure(1, weight=1)
-        
-        ttk.Label(lf_prov, text="Модель:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
-        self.ent_model = ttk.Entry(lf_prov)
-        self.ent_model.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
-        self.bind_edit_actions(self.ent_model)
-        
-        ttk.Label(lf_prov, text="Base URL:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.ent_url = ttk.Entry(lf_prov)
-        self.ent_url.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
-        self.bind_edit_actions(self.ent_url)
-        
-        ttk.Label(lf_prov, text="API Key:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
-        self.ent_key = ttk.Entry(lf_prov, show="*")
-        self.ent_key.grid(row=2, column=1, sticky="ew", padx=5, pady=5)
-        self.bind_edit_actions(self.ent_key)
+        pc.grid_columnconfigure(1, weight=1)
 
-        lf_settings = ttk.LabelFrame(left_pane, text=" Параметры обработки ")
-        lf_settings.grid(row=2, column=0, sticky="nsew", pady=5)
-        lf_settings.columnconfigure(0, weight=1)
-        lf_settings.columnconfigure(1, weight=1)
+        for row, (lbl, show) in enumerate([
+            ("Модель:", None), ("Base URL:", None), ("API Key:", "*")]):
+            ctk.CTkLabel(pc, text=lbl, font=FONT_LABEL, text_color=FG_LABEL
+                         ).grid(row=row, column=0, sticky="w", padx=4, pady=4)
+            ent = ctk.CTkEntry(pc, show=show or "")
+            ent.grid(row=row, column=1, sticky="ew", padx=4, pady=4)
+            self.bind_edit_actions(ent)
+            setattr(self, ["ent_model", "ent_url", "ent_key"][row], ent)
 
-        chunk_frame = ttk.Frame(lf_settings)
-        chunk_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+        # — Параметры обработки —
+        lf_sets, sc = self._card_section(left, "Параметры обработки")
+        lf_sets.grid(row=2, column=0, sticky="nsew", pady=5)
+        sc.grid_columnconfigure(0, weight=1)
+        sc.grid_columnconfigure(1, weight=1)
 
-        ttk.Label(chunk_frame, text="Размер чанка:").pack(side=tk.LEFT, padx=(0, 5))
-        self.ent_chunk_size = ttk.Entry(chunk_frame, width=8)
-        self.ent_chunk_size.pack(side=tk.LEFT, padx=(0, 15))
+        cf = ctk.CTkFrame(sc, fg_color="transparent")
+        cf.grid(row=0, column=0, columnspan=2, sticky="ew", pady=2)
+        ctk.CTkLabel(cf, text="Размер чанка:", font=FONT_LABEL,
+                     text_color=FG_LABEL).pack(side="left", padx=(0, 4))
+        self.ent_chunk_size = ctk.CTkEntry(cf, width=80)
+        self.ent_chunk_size.pack(side="left", padx=(0, 12))
         self.ent_chunk_size.insert(0, "10000")
-
-        ttk.Label(chunk_frame, text="Перекрытие:").pack(side=tk.LEFT, padx=(0, 5))
-        self.ent_chunk_overlap = ttk.Entry(chunk_frame, width=8)
-        self.ent_chunk_overlap.pack(side=tk.LEFT)
+        ctk.CTkLabel(cf, text="Перекрытие:", font=FONT_LABEL,
+                     text_color=FG_LABEL).pack(side="left", padx=(0, 4))
+        self.ent_chunk_overlap = ctk.CTkEntry(cf, width=80)
+        self.ent_chunk_overlap.pack(side="left")
         self.ent_chunk_overlap.insert(0, "1500")
-        
-        workers_frame = ttk.Frame(lf_settings)
-        workers_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
-        ttk.Label(workers_frame, text="Параллельных потоков:").pack(side=tk.LEFT)
-        self.spn_workers = ttk.Spinbox(workers_frame, from_=1, to=8, width=4)
-        self.spn_workers.pack(side=tk.LEFT, padx=(5, 0))
-        self.spn_workers.set(1)
+        wf = ctk.CTkFrame(sc, fg_color="transparent")
+        wf.grid(row=1, column=0, columnspan=2, sticky="ew", pady=2)
+        ctk.CTkLabel(wf, text="Количество потоков:", font=FONT_LABEL,
+                     text_color=FG_LABEL).pack(side="left")
+        self.var_workers = ctk.StringVar(value="1")
+        ctk.CTkOptionMenu(wf, variable=self.var_workers,
+                          values=[str(i) for i in range(1, 9)],
+                          width=60, font=FONT_BTN,
+                          fg_color=BG_INPUT, button_color=BORDER,
+                          button_hover_color=BTN_HOVER,
+                          text_color=FG_TITLE,
+                          dropdown_fg_color=BG_CARD,
+                          dropdown_hover_color=ACCENT,
+                          dropdown_text_color=FG_TITLE
+                          ).pack(side="left", padx=(6, 0))
 
-        self.var_cleanup = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
-            lf_settings,
-            text="Удалять временные файлы после завершения",
-            variable=self.var_cleanup
-        ).grid(row=2, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+        self.var_cleanup = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(sc, text="Очищать временные файлы",
+                        variable=self.var_cleanup, font=FONT_BTN,
+                        text_color=FG_TITLE, fg_color=BTN_BG,
+                        hover_color=BTN_HOVER, checkmark_color=FG_TITLE
+                        ).grid(row=2, column=0, columnspan=2, sticky="w", pady=4)
 
-        ttk.Button(
-            lf_settings,
-            text="💾 Сохранить настройки",
-            command=self.save_settings
-        ).grid(row=3, column=0, columnspan=2, sticky="ew", padx=5, pady=(5, 5))
+        ctk.CTkButton(sc, text="💾 Сохранить настройки", command=self.save_settings,
+                       corner_radius=8, height=32, font=FONT_BTN_SM,
+                       fg_color=BTN_BG, hover_color=BTN_HOVER,
+                       text_color=BTN_FG
+                       ).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(4, 0))
 
+        # — Управление и прогресс —
+        lf_act, ac = self._card_section(left, "Управление и прогресс")
+        lf_act.grid(row=3, column=0, sticky="nsew", pady=(5, 0))
 
-               
-        lf_actions = ttk.LabelFrame(left_pane, text=" Управление и прогресс ")
-        lf_actions.grid(row=3, column=0, sticky="nsew", pady=(5, 0))
-        
-        self.btn_start = ttk.Button(lf_actions, text="▶ Начать обработку", style='Action.TButton', command=self.toggle_process)
-        self.btn_start.pack(fill=tk.X, padx=10, pady=10)
-        
-        ttk.Label(lf_actions, text="Прогресс текущего файла:").pack(anchor="w", padx=10, pady=(5, 0))
-        self.progress_chunk = ttk.Progressbar(lf_actions, orient="horizontal", mode="determinate")
-        self.progress_chunk.pack(fill=tk.X, padx=10, pady=5)
-        
-        ttk.Label(lf_actions, text="Общий прогресс конвейера:").pack(anchor="w", padx=10, pady=(5, 0))
-        self.progress_total = ttk.Progressbar(lf_actions, orient="horizontal", mode="determinate")
-        self.progress_total.pack(fill=tk.X, padx=10, pady=5)
-        
-        # --- ПРАВАЯ ЧАСТЬ ---
-        right_pane = ttk.Frame(main_container)
-        right_pane.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
-        right_pane.columnconfigure(0, weight=1)
-        right_pane.rowconfigure(0, weight=2)
-        right_pane.rowconfigure(1, weight=1)
-        
-        lf_prompt = ttk.LabelFrame(right_pane, text=" Системный промпт / System Prompt ")
-        lf_prompt.grid(row=0, column=0, sticky="nsew", pady=(0, 5))
-        
-        prompt_mgmt_frame = ttk.Frame(lf_prompt)
-        prompt_mgmt_frame.pack(fill=tk.X, padx=5, pady=2)
-        
-        ttk.Label(prompt_mgmt_frame, text="Шаблон:").pack(side=tk.LEFT, padx=(0, 5))
-        
-        self.cb_prompt_templates = ttk.Combobox(prompt_mgmt_frame, state="readonly", width=30)
-        self.cb_prompt_templates.pack(side=tk.LEFT, padx=(0, 5))
-        self.cb_prompt_templates.bind("<<ComboboxSelected>>", self.on_prompt_template_changed)
-        
-        btn_add_prompt = ttk.Button(prompt_mgmt_frame, text="➕ Сохранить как...", command=self.save_prompt_as_new)
-        btn_add_prompt.pack(side=tk.LEFT, padx=(0, 5))
-        
-        btn_reset_prompt = ttk.Button(prompt_mgmt_frame, text="Сброс", width=8, command=self.reset_prompt)
-        btn_reset_prompt.pack(side=tk.RIGHT)
-        
-        self.txt_prompt = tk.Text(lf_prompt, font=("Courier New", 10), wrap=tk.WORD, height=10)
-        self.txt_prompt.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.btn_start = ctk.CTkButton(
+            ac, text="▶ Начать обработку", command=self.toggle_process,
+            corner_radius=10, height=38, font=FONT_BTN_SM,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white")
+        self.btn_start.pack(fill="x", pady=(4, 8))
+
+        ctk.CTkLabel(ac, text="Прогресс текущего файла:", font=FONT_LABEL,
+                     text_color=FG_LABEL).pack(anchor="w")
+        self.progress_chunk = ctk.CTkProgressBar(ac, height=8, corner_radius=4,
+                                                  progress_color=ACCENT,
+                                                  fg_color="#e5e7eb")
+        self.progress_chunk.pack(fill="x", pady=(2, 6))
+        self.progress_chunk.set(0)
+
+        ctk.CTkLabel(ac, text="Общий прогресс конвейера:", font=FONT_LABEL,
+                     text_color=FG_LABEL).pack(anchor="w")
+        self.progress_total = ctk.CTkProgressBar(ac, height=8, corner_radius=4,
+                                                  progress_color=ACCENT,
+                                                  fg_color="#e5e7eb")
+        self.progress_total.pack(fill="x", pady=(2, 4))
+        self.progress_total.set(0)
+
+        # ─── ПРАВАЯ ЧАСТЬ ───────────────────────────────────
+        right = ctk.CTkFrame(main, fg_color="transparent")
+        right.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        right.grid_columnconfigure(0, weight=1)
+        right.grid_rowconfigure(0, weight=2)
+        right.grid_rowconfigure(1, weight=1)
+
+        # — Системный промпт —
+        lf_pr, prc = self._card_section(right, "Системный промпт / System Prompt")
+        lf_pr.grid(row=0, column=0, sticky="nsew", pady=(0, 5))
+
+        pmf = ctk.CTkFrame(prc, fg_color="transparent")
+        pmf.pack(fill="x", pady=(0, 4))
+
+        ctk.CTkLabel(pmf, text="Шаблон:", font=FONT_LABEL,
+                     text_color=FG_LABEL).pack(side="left", padx=(0, 4))
+        self.var_prompt_template = ctk.StringVar(value="")
+        self.combo_prompt = ctk.CTkOptionMenu(
+            pmf, variable=self.var_prompt_template, values=[""],
+            command=self.on_prompt_template_changed,
+            width=260, font=FONT_BTN,
+            fg_color=BTN_BG, button_color=BORDER,
+            button_hover_color=BTN_HOVER, text_color=BTN_FG,
+            dropdown_fg_color=BG_CARD, dropdown_hover_color=ACCENT,
+            dropdown_text_color=FG_TITLE)
+        self.combo_prompt.pack(side="left", padx=(0, 6))
+
+        ctk.CTkButton(pmf, text="➕ Сохранить как...", command=self.save_prompt_as_new,
+                       **self._btn_kw(width=140)).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(pmf, text="Сброс", command=self.reset_prompt,
+                       **self._btn_kw(width=80)).pack(side="right")
+
+        self.txt_prompt = ctk.CTkTextbox(prc, font=FONT_MONO, wrap="word",
+                                          fg_color=BG_INPUT, text_color=FG_TITLE,
+                                          border_width=1, border_color=BORDER,
+                                          corner_radius=6)
+        self.txt_prompt.pack(fill="both", expand=True)
         self.bind_edit_actions(self.txt_prompt)
-        
-        lf_logs = ttk.LabelFrame(right_pane, text=" Лог событий / Event Log ")
-        lf_logs.grid(row=1, column=0, sticky="nsew", pady=(5, 0))
-        
-        logs_frame = ttk.Frame(lf_logs)
-        logs_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        scrollbar = ttk.Scrollbar(logs_frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # — Лог —
+        lf_log, lgc = self._card_section(right, "Лог событий / Event Log")
+        lf_log.grid(row=1, column=0, sticky="nsew", pady=(5, 0))
 
-        self.txt_logs = tk.Text(logs_frame, background="#1e1e1e", foreground="#a9b7c6",
-                        font=("Consolas", 10), wrap=tk.WORD,
-                        yscrollcommand=scrollbar.set, height=15)
-        self.txt_logs.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
-        scrollbar.config(command=self.txt_logs.yview)
-
+        self.txt_logs = ctk.CTkTextbox(lgc, font=FONT_MONO, wrap="word",
+                                        fg_color="#1e293b", text_color="#94a3b8",
+                                        border_width=0, corner_radius=6)
+        self.txt_logs.pack(fill="both", expand=True)
         self.bind_edit_actions(self.txt_logs)
-        
-    def log(self, message):
-        """Может вызываться из любого потока — ставит задачу в очередь главного."""
-        timestamp = datetime.now().strftime("[%H:%M:%S]")
-        self.root.after(0, self._log_safe, timestamp, message)
 
-    def _log_safe(self, timestamp, message):
-        """Выполняется только в главном потоке."""
-        self.txt_logs.insert(tk.END, f"{timestamp} {message}\n")
-        self.txt_logs.see(tk.END)
-        
+    # ──────────────────────────────────────────────────────────
+    #  Логирование
+    # ──────────────────────────────────────────────────────────
+    def log(self, message):
+        ts = datetime.now().strftime("[%H:%M:%S]")
+        self.root.after(0, self._log_safe, ts, message)
+
+    def _log_safe(self, ts, msg):
+        self.txt_logs.insert("end", f"{ts} {msg}\n")
+        self.txt_logs.see("end")
+
+    # ──────────────────────────────────────────────────────────
+    #  Работа с файлами
+    # ──────────────────────────────────────────────────────────
     def browse_src_file(self):
         filetypes = [
             ("Поддерживаемые файлы", "*.txt *.md *.docx *.doc"),
             ("Документы Word", "*.docx *.doc"),
             ("Текстовые файлы", "*.txt *.md"),
-            ("Все файлы", "*.*")
-        ]
+            ("Все файлы", "*.*")]
         filenames = filedialog.askopenfilenames(filetypes=filetypes)
         if filenames:
             existing = set(self.file_paths)
@@ -350,104 +507,101 @@ class SimpleETLApp:
             for f in filenames:
                 if f not in existing:
                     self.file_paths.append(f)
-                    self.lb_files.insert(tk.END, os.path.basename(f))
+                    self.file_list.insert(f)
                     added += 1
-
-            first_name = os.path.basename(self.file_paths[0]) if self.file_paths else ""
-            self.ent_base_name.delete(0, tk.END)
-            self.ent_base_name.insert(0, f"{os.path.splitext(first_name)[0]}_chunk")
-
-            self.log(f"📚 Добавлено: {added}, уже было: {len(filenames) - added}, всего в очереди: {self.lb_files.size()}")
+            first = os.path.basename(self.file_paths[0]) if self.file_paths else ""
+            self.ent_base_name.delete(0, "end")
+            self.ent_base_name.insert(0, f"{os.path.splitext(first)[0]}_chunk")
+            self.log(f"📚 Добавлено: {added}, уже было: {len(filenames) - added}, "
+                     f"всего в очереди: {self.file_list.size()}")
 
     def remove_selected_files(self):
-        for i in reversed(self.lb_files.curselection()):
-            self.lb_files.delete(i)
+        for i in reversed(self.file_list.curselection()):
+            self.file_list.delete(i)
             del self.file_paths[i]
-        self.log(f"✖ Файлов в очереди: {self.lb_files.size()}")
+        self.log(f"✖ Файлов в очереди: {self.file_list.size()}")
 
     def clear_files(self):
-        self.lb_files.delete(0, tk.END)
+        self.file_list.clear()
         self.file_paths.clear()
         self.log("🗑 Список файлов очищен.")
-            
+
     def browse_out_dir(self):
         directory = filedialog.askdirectory()
         if directory:
-            self.ent_out_dir.delete(0, tk.END)
+            self.ent_out_dir.delete(0, "end")
             self.ent_out_dir.insert(0, directory)
             self.log(f"Выбрана папка сохранения: {directory}")
-    
-    def on_prompt_template_changed(self, event):
-        """Срабатывает при выборе другого промпта в выпадающем списке"""
-        selected_name = self.cb_prompt_templates.get()
-        if selected_name in self.prompts_library:
-            self.txt_prompt.delete("1.0", tk.END)
-            self.txt_prompt.insert(tk.END, self.prompts_library[selected_name])
-            self.log(f"🔄 Переключено на промпт: '{selected_name}'")
+
+    # ──────────────────────────────────────────────────────────
+    #  Промпты
+    # ──────────────────────────────────────────────────────────
+    def on_prompt_template_changed(self, selected_value):
+        if selected_value in self.prompts_library:
+            self.txt_prompt.delete("1.0", "end")
+            self.txt_prompt.insert("end", self.prompts_library[selected_value])
+            self.log(f"🔄 Переключено на промпт: '{selected_value}'")
 
     def save_prompt_as_new(self):
-        """Открывает модальное окно для ввода имени и сохраняет текущий текст промпта как новый шаблон"""
-        dialog = tk.Toplevel(self.root)
+        dialog = ctk.CTkToplevel(self.root)
         dialog.title("Новый шаблон")
-        dialog.geometry("350x120")
+        dialog.geometry("380x140")
         dialog.resizable(False, False)
         dialog.transient(self.root)
         dialog.grab_set()
-        
-        ttk.Label(dialog, text="Введите название для этого промпта:").pack(anchor="w", padx=10, pady=10)
-        ent_name = ttk.Entry(dialog)
-        ent_name.pack(fill=tk.X, padx=10, pady=5)
+        dialog.configure(fg_color=BG_MAIN)
+
+        ctk.CTkLabel(dialog, text="Введите название для этого промпта:",
+                     font=FONT_LABEL, text_color=FG_LABEL
+                     ).pack(anchor="w", padx=12, pady=(14, 4))
+        ent_name = ctk.CTkEntry(dialog, placeholder_text="Имя шаблона…")
+        ent_name.pack(fill="x", padx=12, pady=(0, 8))
         ent_name.focus_set()
-        
+
         def confirm():
             name = ent_name.get().strip()
             if not name:
                 messagebox.showerror("Ошибка", "Имя не может быть пустым!", parent=dialog)
                 return
-            
-            current_text = self.txt_prompt.get("1.0", tk.END).strip()
-            
-            self.prompts_library[name] = current_text
-            
-            self.cb_prompt_templates['values'] = list(self.prompts_library.keys())
-            self.cb_prompt_templates.set(name)
-            
+            self.prompts_library[name] = self.txt_prompt.get("1.0", "end").strip()
+            self.combo_prompt.configure(values=list(self.prompts_library.keys()))
+            self.combo_prompt.set(name)
             self.log(f"➕ Добавлен новый шаблон промпта: '{name}'")
             dialog.destroy()
-            
             self.save_settings()
 
-        ttk.Button(dialog, text="Сохранить", command=confirm).pack(anchor="e", padx=10, pady=5)
-            
+        ctk.CTkButton(dialog, text="Сохранить", command=confirm,
+                       corner_radius=8, height=32, font=FONT_BTN_SM,
+                       fg_color=ACCENT, hover_color=ACCENT_HOV,
+                       text_color="white").pack(anchor="e", padx=12, pady=(0, 10))
+
     def reset_prompt(self):
-        self.txt_prompt.delete("1.0", tk.END)
-        self.txt_prompt.insert(tk.END, self.DEFAULT_PROMPT)
+        self.txt_prompt.delete("1.0", "end")
+        self.txt_prompt.insert("end", self.DEFAULT_PROMPT)
         self.log("Промпт сброшен к стандартному SPR шаблону.")
-        
+
+    # ──────────────────────────────────────────────────────────
+    #  Настройки
+    # ──────────────────────────────────────────────────────────
     def save_settings(self):
         try:
-            current_name = self.cb_prompt_templates.get()
-            if not current_name:
-                current_name = "Дефолтный SPR"
-            self.prompts_library[current_name] = self.txt_prompt.get("1.0", tk.END).strip()
-            
+            name = self.var_prompt_template.get() or "Дефолтный SPR"
+            self.prompts_library[name] = self.txt_prompt.get("1.0", "end").strip()
             try:
                 c_size = int(self.ent_chunk_size.get().strip())
                 c_overlap = int(self.ent_chunk_overlap.get().strip())
             except ValueError:
-                messagebox.showerror("Ошибка", "Размер чанка и перекрытие должны быть целыми числами!")
+                messagebox.showerror("Ошибка",
+                                     "Размер чанка и перекрытие должны быть целыми числами!")
                 return
-            
             config_manager.save_config(
                 model=self.ent_model.get(),
                 base_url=self.ent_url.get(),
                 api_key=self.ent_key.get(),
-                chunk_size=c_size,
-                chunk_overlap=c_overlap,
-                max_workers=int(self.spn_workers.get()),
+                chunk_size=c_size, chunk_overlap=c_overlap,
+                max_workers=int(self.var_workers.get()),
                 prompts_dict=self.prompts_library,
-                current_prompt_name=current_name
-            )
+                current_prompt_name=name)
             self.log("💾 Все настройки приложения и библиотека промптов успешно сохранены.")
             messagebox.showinfo("Успех", "Все настройки сохранены!")
         except Exception as e:
@@ -456,143 +610,124 @@ class SimpleETLApp:
 
     def load_settings(self):
         cfg = config_manager.load_config()
-        
-        self.ent_model.delete(0, tk.END)
-        self.ent_url.delete(0, tk.END)
-        self.ent_key.delete(0, tk.END)
-        
+        self.ent_model.delete(0, "end")
+        self.ent_url.delete(0, "end")
+        self.ent_key.delete(0, "end")
+
         if cfg:
             self.ent_model.insert(0, cfg.get("model", "llama3"))
             self.ent_url.insert(0, cfg.get("base_url", "http://localhost:11434/v1"))
             self.ent_key.insert(0, cfg.get("api_key", "ollama"))
-            
-            self.spn_workers.set(cfg.get("max_workers", 1))
-            
-            self.ent_chunk_size.delete(0, tk.END)
+            self.var_workers.set(str(cfg.get("max_workers", 1)))
+            self.ent_chunk_size.delete(0, "end")
             self.ent_chunk_size.insert(0, str(cfg.get("chunk_size", 10000)))
-            
-            self.ent_chunk_overlap.delete(0, tk.END)
+            self.ent_chunk_overlap.delete(0, "end")
             self.ent_chunk_overlap.insert(0, str(cfg.get("chunk_overlap", 1500)))
-            
             self.prompts_library = cfg.get("prompts", {})
-            
             if not self.prompts_library:
                 self.prompts_library = {"Дефолтный SPR": self.DEFAULT_PROMPT}
-                
-            active_prompt_name = cfg.get("current_prompt_name")
-            if not active_prompt_name or active_prompt_name not in self.prompts_library:
-                active_prompt_name = list(self.prompts_library.keys())[0]
-                
-            self.cb_prompt_templates['values'] = list(self.prompts_library.keys())
-            self.cb_prompt_templates.set(active_prompt_name)
-            
-            self.txt_prompt.delete("1.0", tk.END)
-            self.txt_prompt.insert(tk.END, self.prompts_library[active_prompt_name])
-            
+            active = cfg.get("current_prompt_name")
+            if not active or active not in self.prompts_library:
+                active = list(self.prompts_library.keys())[0]
+            self.combo_prompt.configure(values=list(self.prompts_library.keys()))
+            self.combo_prompt.set(active)
+            self.txt_prompt.delete("1.0", "end")
+            self.txt_prompt.insert("end", self.prompts_library[active])
             self.log(f"📂 Конфигурация успешно загружена из: {config_manager.CONFIG_FILE}")
         else:
             self.ent_model.insert(0, "llama3")
             self.ent_url.insert(0, "http://localhost:11434/v1")
             self.ent_key.insert(0, "ollama")
-            
             self.prompts_library = {"Дефолтный SPR": self.DEFAULT_PROMPT}
-            self.cb_prompt_templates['values'] = list(self.prompts_library.keys())
-            self.cb_prompt_templates.set("Дефолтный SPR")
-            
-            self.txt_prompt.insert(tk.END, self.DEFAULT_PROMPT)
+            self.combo_prompt.configure(values=list(self.prompts_library.keys()))
+            self.combo_prompt.set("Дефолтный SPR")
+            self.txt_prompt.insert("end", self.DEFAULT_PROMPT)
             self.log(f"ℹ️ Конфиг не найден в {BASE_DIR}. Загружены дефолтные параметры.")
 
+    # ──────────────────────────────────────────────────────────
+    #  Конвейер
+    # ──────────────────────────────────────────────────────────
     def toggle_process(self):
         if self.is_processing:
             self.stop_requested = True
             self.log("Запрошена остановка конвейера... Ожидание завершения чанка.")
-            self.btn_start.configure(state=tk.DISABLED)
+            self.btn_start.configure(state="disabled")
         else:
             self.start_pipeline()
-            
+
     def start_pipeline(self):
         if not self.file_paths:
             messagebox.showerror("Ошибка", "Добавьте хотя бы один файл в список!")
             return
-            
-        validated_files = []
-        
-        for src_file in self.file_paths:
-            if not os.path.isabs(src_file):
-                src_file = os.path.abspath(os.path.join(BASE_DIR, src_file))
-            if os.path.exists(src_file):
-                validated_files.append(src_file)
+        validated = []
+        for src in self.file_paths:
+            if not os.path.isabs(src):
+                src = os.path.abspath(os.path.join(BASE_DIR, src))
+            if os.path.exists(src):
+                validated.append(src)
             else:
-                self.log(f"⚠️ Файл не найден и пропущен: {src_file}")
-                
-        if not validated_files:
+                self.log(f"⚠️ Файл не найден и пропущен: {src}")
+        if not validated:
             messagebox.showerror("Ошибка", "Ни один из указанных файлов не найден на диске!")
             return
-            
-        user_out_dir = self.ent_out_dir.get().strip()
-        is_default_out = (user_out_dir == self.DEFAULT_OUT_PLACEHOLDER or not user_out_dir)
-        
-        global_config = {
-            "is_default_out": is_default_out,
-            "user_out_dir": user_out_dir,
+
+        out = self.ent_out_dir.get().strip()
+        is_default = (out == self.DEFAULT_OUT_PLACEHOLDER or not out)
+        cfg = {
+            "is_default_out": is_default, "user_out_dir": out,
             "base_name": self.ent_base_name.get().strip() or "chunk",
-            "model": self.ent_model.get(),
-            "url": self.ent_url.get(),
+            "model": self.ent_model.get(), "url": self.ent_url.get(),
             "key": self.ent_key.get(),
             "chunk_size": int(self.ent_chunk_size.get().strip() or 10000),
             "chunk_overlap": int(self.ent_chunk_overlap.get().strip() or 1500),
-            "max_workers": int(self.spn_workers.get()),
-            "prompt": self.txt_prompt.get("1.0", tk.END).strip(),
-            "cleanup": self.var_cleanup.get()
-        }
-        
+            "max_workers": int(self.var_workers.get()),
+            "prompt": self.txt_prompt.get("1.0", "end").strip(),
+            "cleanup": self.var_cleanup.get()}
         self.is_processing = True
         self.stop_requested = False
         self.btn_start.configure(text="🛑 Остановить обработку")
-        
-        threading.Thread(target=self.thread_worker, args=(validated_files, global_config), daemon=True).start()
+        threading.Thread(target=self._worker, args=(validated, cfg), daemon=True).start()
 
-    def thread_worker(self, validated_files, global_config):
+    def _worker(self, files, cfg):
         try:
-            success = etl_pipeline.process_batch(
-                file_list=validated_files,
-                global_cfg=global_config,
+            ok = etl_pipeline.process_batch(
+                file_list=files, global_cfg=cfg,
                 progress_callback=self.update_progress,
                 log_callback=self.log,
                 stop_check_callback=lambda: self.stop_requested,
-                max_workers=global_config["max_workers"]
-            )
-            if success:
+                max_workers=cfg["max_workers"])
+            if ok:
                 self.log("🎉 Пакетная обработка всех документов успешно завершена!")
                 self.root.after(0, lambda: messagebox.showinfo(
                     "Успех", "Все файлы из пакета обработаны!"))
             else:
                 self.log("🛑 Обработка пакета была остановлена пользователем.")
         except Exception as e:
-            err_text = str(e)
-            self.log(f"💥 Критическая ошибка пакетного конвейера: {err_text}")
-            self.root.after(0, lambda: messagebox.showerror("Ошибка", err_text))
+            err = str(e)
+            self.log(f"💥 Критическая ошибка пакетного конвейера: {err}")
+            self.root.after(0, lambda: messagebox.showerror("Ошибка", err))
         finally:
-            self.root.after(0, self._reset_ui_after_processing)
+            self.root.after(0, self._reset_ui)
 
-    def _reset_ui_after_processing(self):
-        """Финальный сброс UI — только в главном потоке."""
+    def _reset_ui(self):
         self.is_processing = False
-        self.btn_start.configure(text="▶ Начать обработку", state=tk.NORMAL)
-        self.progress_chunk["value"] = 0
-        self.progress_total["value"] = 0
+        self.btn_start.configure(text="▶ Начать обработку", state="normal")
+        self.progress_chunk.set(0)
+        self.progress_total.set(0)
 
     def update_progress(self, chunk_val, total_val):
-        """Может вызываться из любого потока."""
-        self.root.after(0, self._update_progress_safe, chunk_val, total_val)
+        self.root.after(0, self._update_progress, chunk_val, total_val)
 
-    def _update_progress_safe(self, chunk_val, total_val):
-        """Выполняется только в главном потоке."""
-        self.progress_chunk["value"] = chunk_val
+    def _update_progress(self, chunk_val, total_val):
+        self.progress_chunk.set(chunk_val / 100)
         if total_val is not None:
-            self.progress_total["value"] = total_val
+            self.progress_total.set(total_val / 100)
 
+
+# ═══════════════════════════════════════════════════════════════
 if __name__ == "__main__":
-    root = tk.Tk()
+    ctk.set_appearance_mode("light")
+    ctk.set_default_color_theme("blue")
+    root = ctk.CTk()
     app = SimpleETLApp(root)
     root.mainloop()
