@@ -42,12 +42,13 @@ FONT_MONO_9 = ("Consolas", 11)
 #  FileListBox — кастомный список файлов на базе CTkScrollableFrame
 # ═══════════════════════════════════════════════════════════════
 class FileListBox(ctk.CTkFrame):
-    def __init__(self, master, height=4, on_hover=None, on_leave=None, **kw):
+    def __init__(self, master, height=4, on_hover=None, on_leave=None, on_select=None, **kw):
         super().__init__(master, fg_color="transparent", **kw)
         self._items = []          # [(frame, label, path)]
         self._selected = set()
         self._on_hover = on_hover
         self._on_leave = on_leave
+        self._on_select = on_select
 
         self._scroll = ctk.CTkScrollableFrame(
             self, fg_color=BG_CARD, corner_radius=8,
@@ -117,6 +118,8 @@ class FileListBox(ctk.CTkFrame):
         else:
             self._selected = {idx}
         self._paint()
+        if self._on_select:
+            self._on_select(idx)
 
     def _paint(self):
         for i, (f, lbl, _) in enumerate(self._items):
@@ -177,6 +180,8 @@ class SimpleETLApp:
         self.file_paths = []
         self._tooltip_window = None
         self.prompts_library = {}
+        self.file_progress = {}       # {file_path: chunk_pct (0-100)}
+        self._watched_file_idx = None  # индекс файла, прогресс которого отображается
 
         self.create_widgets()
         self.load_settings()
@@ -298,8 +303,10 @@ class SimpleETLApp:
         main.grid_rowconfigure(0, weight=1)
 
         # ─── ЛЕВАЯ ЧАСТЬ ────────────────────────────────────
-        left = ctk.CTkFrame(main, fg_color="transparent")
-        left.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        left = ctk.CTkFrame(main, fg_color="transparent", width=400)
+        left.grid(row=0, column=0, sticky="ns", padx=(0, 5))
+        left.grid_propagate(False)
+        left.grid_columnconfigure(0, weight=1)
         for r in range(4):
             left.grid_rowconfigure(r, weight=1 if r == 0 else 0)
 
@@ -309,17 +316,26 @@ class SimpleETLApp:
 
         self.file_list = FileListBox(
             fc, height=4,
-            on_hover=self._show_tooltip, on_leave=self._hide_tooltip)
+            on_hover=self._show_tooltip, on_leave=self._hide_tooltip,
+            on_select=self._on_file_select)
         self.file_list.pack(fill="both", expand=True, pady=(0, 4))
 
         bf = ctk.CTkFrame(fc, fg_color="transparent")
         bf.pack(fill="x", pady=(0, 4))
-        ctk.CTkButton(bf, text="➕ Добавить", command=self.browse_src_file,
+        btn_row = ctk.CTkFrame(bf, fg_color="transparent")
+        btn_row.pack(anchor="center")
+        ctk.CTkButton(btn_row, text="➕ Добавить", command=self.browse_src_file,
                        **self._btn_kw(width=110)).pack(side="left", padx=(0, 5))
-        ctk.CTkButton(bf, text="✖ Удалить", command=self.remove_selected_files,
+        ctk.CTkButton(btn_row, text="✖ Удалить", command=self.remove_selected_files,
                        **self._btn_kw(width=100)).pack(side="left", padx=(0, 5))
-        ctk.CTkButton(bf, text="🗑 Очистить", command=self.clear_files,
+        ctk.CTkButton(btn_row, text="🗑 Очистить", command=self.clear_files,
                        **self._btn_kw(width=100)).pack(side="left")
+
+        # Уведомление об OCR (показывается при наличии PDF без Tesseract)
+        self.lbl_ocr_hint = ctk.CTkLabel(
+            fc, text="", font=("Segoe UI", 11), text_color="#b42309",
+            anchor="center", justify="center", wraplength=350)
+        self.lbl_ocr_hint.pack(fill="x", padx=4, pady=(0, 2))
 
         # Папка экспорта — pack для точного выравнивания
         row_out = ctk.CTkFrame(fc, fg_color="transparent")
@@ -396,14 +412,23 @@ class SimpleETLApp:
         ctk.CTkCheckBox(sc, text="Очищать временные файлы",
                         variable=self.var_cleanup, font=FONT_BTN,
                         text_color=FG_TITLE, fg_color=BTN_BG,
-                        hover_color=BTN_HOVER, checkmark_color=FG_TITLE
+                        hover_color=BTN_HOVER, checkmark_color=FG_TITLE,
+                        border_width=1, border_color=BORDER
                         ).grid(row=2, column=0, columnspan=2, sticky="w", pady=4)
+
+        self.var_skip_llm = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(sc, text="Только нарезка и конверсия",
+                        variable=self.var_skip_llm, font=FONT_BTN,
+                        text_color=FG_TITLE, fg_color=BTN_BG,
+                        hover_color=BTN_HOVER, checkmark_color=FG_TITLE,
+                        border_width=1, border_color=BORDER
+                        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=4)
 
         ctk.CTkButton(sc, text="💾 Сохранить настройки", command=self.save_settings,
                        corner_radius=8, height=32, font=FONT_BTN_SM,
                        fg_color=BTN_BG, hover_color=BTN_HOVER,
                        text_color=BTN_FG
-                       ).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+                       ).grid(row=4, column=0, columnspan=2, sticky="ew", pady=(4, 0))
 
         # — Управление и прогресс —
         lf_act, ac = self._card_section(left, "Управление и прогресс")
@@ -415,8 +440,9 @@ class SimpleETLApp:
             fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white")
         self.btn_start.pack(fill="x", pady=(4, 8))
 
-        ctk.CTkLabel(ac, text="Прогресс текущего файла:", font=FONT_LABEL,
-                     text_color=FG_LABEL).pack(anchor="w")
+        self.lbl_progress_file = ctk.CTkLabel(ac, text="Прогресс файла:", font=FONT_LABEL,
+                     text_color=FG_LABEL)
+        self.lbl_progress_file.pack(anchor="w")
         self.progress_chunk = ctk.CTkProgressBar(ac, height=8, corner_radius=4,
                                                   progress_color=ACCENT,
                                                   fg_color="#e5e7eb")
@@ -460,6 +486,8 @@ class SimpleETLApp:
 
         ctk.CTkButton(pmf, text="➕ Сохранить как...", command=self.save_prompt_as_new,
                        **self._btn_kw(width=140)).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(pmf, text="🗑 Удалить", command=self.delete_prompt,
+                       **self._btn_kw(width=100)).pack(side="left", padx=(0, 4))
         ctk.CTkButton(pmf, text="Сброс", command=self.reset_prompt,
                        **self._btn_kw(width=80)).pack(side="right")
 
@@ -496,8 +524,9 @@ class SimpleETLApp:
     # ──────────────────────────────────────────────────────────
     def browse_src_file(self):
         filetypes = [
-            ("Поддерживаемые файлы", "*.txt *.md *.docx *.doc"),
+            ("Поддерживаемые файлы", "*.txt *.md *.docx *.doc *.pdf"),
             ("Документы Word", "*.docx *.doc"),
+            ("PDF документы", "*.pdf"),
             ("Текстовые файлы", "*.txt *.md"),
             ("Все файлы", "*.*")]
         filenames = filedialog.askopenfilenames(filetypes=filetypes)
@@ -512,6 +541,7 @@ class SimpleETLApp:
             first = os.path.basename(self.file_paths[0]) if self.file_paths else ""
             self.ent_base_name.delete(0, "end")
             self.ent_base_name.insert(0, f"{os.path.splitext(first)[0]}_chunk")
+            self._update_ocr_hint()
             self.log(f"📚 Добавлено: {added}, уже было: {len(filenames) - added}, "
                      f"всего в очереди: {self.file_list.size()}")
 
@@ -519,12 +549,32 @@ class SimpleETLApp:
         for i in reversed(self.file_list.curselection()):
             self.file_list.delete(i)
             del self.file_paths[i]
+        self._update_ocr_hint()
         self.log(f"✖ Файлов в очереди: {self.file_list.size()}")
 
     def clear_files(self):
         self.file_list.clear()
         self.file_paths.clear()
+        self._update_ocr_hint()
         self.log("🗑 Список файлов очищен.")
+
+    def _update_ocr_hint(self):
+        """Показывает/скрывает уведомление о необходимости Tesseract для PDF."""
+        has_pdf = any(p.lower().endswith(".pdf") for p in self.file_paths)
+        if has_pdf and not etl_pipeline.OCR_AVAILABLE:
+            self.lbl_ocr_hint.configure(
+                text="ℹ️ Для распознавания сканированных PDF установите Tesseract-OCR")
+        else:
+            self.lbl_ocr_hint.configure(text="")
+
+    def _on_file_select(self, idx):
+        """Обработчик клика по файлу в списке — обновляет прогресс-бар."""
+        self._watched_file_idx = idx
+        file_path = self.file_paths[idx] if idx < len(self.file_paths) else None
+        file_name = os.path.basename(file_path) if file_path else ""
+        self.lbl_progress_file.configure(text=f"Прогресс: {file_name}")
+        pct = self.file_progress.get(file_path, 0)
+        self.progress_chunk.set(pct / 100)
 
     def browse_out_dir(self):
         directory = filedialog.askdirectory()
@@ -574,6 +624,25 @@ class SimpleETLApp:
                        corner_radius=8, height=32, font=FONT_BTN_SM,
                        fg_color=ACCENT, hover_color=ACCENT_HOV,
                        text_color="white").pack(anchor="e", padx=12, pady=(0, 10))
+
+    def delete_prompt(self):
+        """Удаляет текущий выбранный промпт из библиотеки."""
+        name = self.var_prompt_template.get()
+        if not name or name not in self.prompts_library:
+            messagebox.showwarning("Внимание", "Выберите промпт для удаления из списка шаблонов.")
+            return
+        if len(self.prompts_library) <= 1:
+            messagebox.showwarning("Внимание", "Нельзя удалить последний промпт в библиотеке.")
+            return
+        if not messagebox.askyesno("Подтверждение", f"Удалить промпт «{name}»?"):
+            return
+        del self.prompts_library[name]
+        remaining = list(self.prompts_library.keys())
+        self.combo_prompt.configure(values=remaining)
+        self.combo_prompt.set(remaining[0])
+        self.on_prompt_template_changed(remaining[0])
+        self.log(f"🗑 Удалён промпт: «{name}»")
+        self.save_settings()
 
     def reset_prompt(self):
         self.txt_prompt.delete("1.0", "end")
@@ -682,9 +751,11 @@ class SimpleETLApp:
             "chunk_overlap": int(self.ent_chunk_overlap.get().strip() or 1500),
             "max_workers": int(self.var_workers.get()),
             "prompt": self.txt_prompt.get("1.0", "end").strip(),
-            "cleanup": self.var_cleanup.get()}
+            "cleanup": self.var_cleanup.get(),
+            "skip_llm": self.var_skip_llm.get()}
         self.is_processing = True
         self.stop_requested = False
+        self.file_progress.clear()
         self.btn_start.configure(text="🛑 Остановить обработку")
         threading.Thread(target=self._worker, args=(validated, cfg), daemon=True).start()
 
@@ -714,12 +785,18 @@ class SimpleETLApp:
         self.btn_start.configure(text="▶ Начать обработку", state="normal")
         self.progress_chunk.set(0)
         self.progress_total.set(0)
+        self.file_progress.clear()
 
-    def update_progress(self, chunk_val, total_val):
-        self.root.after(0, self._update_progress, chunk_val, total_val)
+    def update_progress(self, chunk_val, total_val, file_idx=None):
+        self.root.after(0, self._update_progress, chunk_val, total_val, file_idx)
 
-    def _update_progress(self, chunk_val, total_val):
-        self.progress_chunk.set(chunk_val / 100)
+    def _update_progress(self, chunk_val, total_val, file_idx=None):
+        # Сохраняем прогресс конкретного файла
+        if file_idx is not None and file_idx < len(self.file_paths):
+            self.file_progress[self.file_paths[file_idx]] = chunk_val
+            # Обновляем прогресс-бар если это отслеживаемый файл
+            if file_idx == self._watched_file_idx:
+                self.progress_chunk.set(chunk_val / 100)
         if total_val is not None:
             self.progress_total.set(total_val / 100)
 

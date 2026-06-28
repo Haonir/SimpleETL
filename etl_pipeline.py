@@ -11,8 +11,31 @@ try:
 except ImportError:
     docx = None
 
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    fitz = None
+
+try:
+    import pytesseract
+    from PIL import Image
+    import io
+    pytesseract.get_tesseract_version()
+    OCR_AVAILABLE = True
+except Exception:
+    pytesseract = None
+    Image = None
+    OCR_AVAILABLE = False
+
+def _ocr_pdf_page(page):
+    """Распознаёт текст на странице PDF через Tesseract OCR."""
+    pix = page.get_pixmap(dpi=150)
+    img = Image.open(io.BytesIO(pix.tobytes("png")))
+    text = pytesseract.image_to_string(img, lang="rus+eng")
+    return text.strip()
+
 def extract_text_from_file(file_path, log_callback=None):
-    """Извлекает текст из TXT, MD или DOCX файлов"""
+    """Извлекает текст из TXT, MD, DOCX или PDF файлов"""
     ext = os.path.splitext(file_path)[1].lower()
     
     if ext in [".docx", ".doc"]:
@@ -27,6 +50,44 @@ def extract_text_from_file(file_path, log_callback=None):
             return "\n".join([paragraph.text for paragraph in doc.paragraphs])
         except Exception as doc_err:
             raise Exception(f"Не удалось прочитать Word файл. Если это старый формат .doc, пересохраните его в .docx! Ошибка: {doc_err}")
+    elif ext == ".pdf":
+        if fitz is None:
+            raise ImportError("Библиотека PyMuPDF не установлена! Выполните: pip install PyMuPDF")
+        
+        if log_callback:
+            log_callback("Чтение PDF документа...")
+        
+        try:
+            doc = fitz.open(file_path)
+            pages_text = []
+            ocr_used = False
+            
+            for page_num, page in enumerate(doc):
+                text = page.get_text()
+                if text.strip():
+                    pages_text.append(text)
+                elif OCR_AVAILABLE:
+                    if log_callback:
+                        log_callback(f"  Страница {page_num + 1}: текст не найден, распознавание через OCR...")
+                    ocr_text = _ocr_pdf_page(page)
+                    if ocr_text:
+                        pages_text.append(ocr_text)
+                        ocr_used = True
+                    else:
+                        if log_callback:
+                            log_callback(f"  ⚠️ Страница {page_num + 1}: OCR не вернул текст")
+                else:
+                    if log_callback:
+                        log_callback(f"  ⚠️ Страница {page_num + 1}: текст не найден (установите Tesseract-OCR для распознавания сканов)")
+            
+            doc.close()
+            
+            if ocr_used and log_callback:
+                log_callback("✅ OCR-распознавание завершено.")
+            
+            return "\n".join(pages_text)
+        except Exception as pdf_err:
+            raise Exception(f"Не удалось прочитать PDF файл: {pdf_err}")
     else:
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
@@ -66,11 +127,16 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback, 
             f_out.write(chunk_data)
             
     # === ЭТАП 2: Анализ SPR через LLM ===
-    log_callback("--- ЭТАП 2: Анализ SPR через LLM ---")
+    skip_llm = cfg.get("skip_llm", False)
+    if skip_llm:
+        log_callback("--- ЭТАП 2: пропущен (режим только нарезки) ---")
+    else:
+        log_callback("--- ЭТАП 2: Анализ SPR через LLM ---")
     if not os.path.exists(cfg["processed_dir"]):
         os.makedirs(cfg["processed_dir"])
         
-    client = OpenAI(base_url=cfg["url"], api_key=cfg["key"])
+    if not skip_llm:
+        client = OpenAI(base_url=cfg["url"], api_key=cfg["key"])
     raw_files = sorted([f for f in os.listdir(cfg["raw_dir"]) if f.startswith(cfg["base_name"])])
     
     for idx, file_name in enumerate(raw_files):
@@ -89,34 +155,37 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback, 
         raw_path = os.path.join(cfg["raw_dir"], file_name)
         processed_path = os.path.join(cfg["processed_dir"], file_name)
         
-        if os.path.exists(processed_path):
-            log_callback(f"[{idx+1}/{total_chunks}] {file_name} уже обработан.")
-            continue
-            
-        with open(raw_path, 'r', encoding='utf-8') as f:
-            chunk_text = f.read()
-            
-        log_callback(f"[{idx+1}/{total_chunks}] Запрос к LLM ({cfg['model']})...")
-        try:
-            response = client.chat.completions.create(
-                model=cfg["model"],
-                messages=[
-                    {"role": "system", "content": cfg["prompt"]},
-                    {"role": "user", "content": f"Вот текст для обработки:\n\n{chunk_text}"}
-                ],
-                temperature=0.2
-            )
-            llm_output = response.choices[0].message.content
-            with open(processed_path, 'w', encoding='utf-8') as f_out:
-                f_out.write(llm_output)
-            
-            next_file_percent = int(((idx + 1) / total_chunks) * 100)
-            next_global_percent = int(base_global_progress + (((idx + 1) / total_chunks) * file_weight))
-            
-            progress_callback(next_file_percent, next_global_percent)
-            
-        except Exception as ex:
-            raise Exception(f"Ошибка LLM на чанке {file_name}: {ex}")
+        if skip_llm:
+            shutil.copy2(raw_path, processed_path)
+        else:
+            if os.path.exists(processed_path):
+                log_callback(f"[{idx+1}/{total_chunks}] {file_name} уже обработан.")
+                continue
+                
+            with open(raw_path, 'r', encoding='utf-8') as f:
+                chunk_text = f.read()
+                
+            log_callback(f"[{idx+1}/{total_chunks}] Запрос к LLM ({cfg['model']})...")
+            try:
+                response = client.chat.completions.create(
+                    model=cfg["model"],
+                    messages=[
+                        {"role": "system", "content": cfg["prompt"]},
+                        {"role": "user", "content": f"Вот текст для обработки:\n\n{chunk_text}"}
+                    ],
+                    temperature=0.2
+                )
+                llm_output = response.choices[0].message.content
+                with open(processed_path, 'w', encoding='utf-8') as f_out:
+                    f_out.write(llm_output)
+                
+                next_file_percent = int(((idx + 1) / total_chunks) * 100)
+                next_global_percent = int(base_global_progress + (((idx + 1) / total_chunks) * file_weight))
+                
+                progress_callback(next_file_percent, next_global_percent)
+                
+            except Exception as ex:
+                raise Exception(f"Ошибка LLM на чанке {file_name}: {ex}")
             
     # === ЭТАП 3: Упаковка в итоговые .md файлы ===
     log_callback("--- ЭТАП 3: Упаковка в итоговые .md файлы ---")
@@ -212,7 +281,7 @@ def process_batch(file_list, global_cfg, progress_callback, log_callback, stop_c
                 file_progress[file_idx] = chunk_pct
                 # Глобальный прогресс = среднее по всем файлам
                 global_pct = int(sum(file_progress) / total_files)
-            progress_callback(chunk_pct, global_pct)
+            progress_callback(chunk_pct, global_pct, file_idx)
         return cb
 
     def process_one(i, file_path):
