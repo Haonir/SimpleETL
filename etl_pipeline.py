@@ -193,48 +193,81 @@ def process_pipeline(cfg, progress_callback, log_callback, stop_check_callback, 
         os.makedirs(cfg["final_dir"])
         
     processed_files = sorted([f for f in os.listdir(cfg["processed_dir"]) if f.startswith(cfg["base_name"])])
+    output_format = cfg.get("output_format", "spr")
     
     for file_name in processed_files:
         proc_path = os.path.join(cfg["processed_dir"], file_name)
         with open(proc_path, 'r', encoding='utf-8') as f:
             raw_content = f.read()
-            
-        try:
-            parsed = frontmatter.loads(raw_content)
-            metadata = parsed.metadata
-            content = parsed.content
-        except Exception:
-            metadata = {}
-            content = raw_content
-            for line in raw_content.split('\n'):
-                if line.startswith('title:') or line.startswith('- title:'):
-                    metadata['title'] = line.split(':', 1)[1].strip().strip('"\'')
-                elif line.startswith('концепция:') or line.startswith('- концепция:'):
-                    metadata['концепция'] = line.split(':', 1)[1].strip().strip('"\'')
+        
+        if output_format == "markdown":
+            # Обычный Markdown без frontmatter
+            new_content = raw_content
+            title = os.path.splitext(file_name)[0]
+        elif output_format == "frontmatter":
+            # Настоящий YAML Front Matter между ---
+            try:
+                parsed = frontmatter.loads(raw_content)
+                metadata = parsed.metadata
+                content = parsed.content
+            except Exception:
+                metadata = {}
+                content = raw_content
+                for line in raw_content.split('\n'):
+                    if ':' in line:
+                        key = line.split(':', 1)[0].strip().lstrip('- ')
+                        val = line.split(':', 1)[1].strip().strip('\'\"')
+                        if key and val:
+                            metadata[key] = val
 
-        title = metadata.get("title", f"Документ {os.path.splitext(file_name)[0]}")
-        koncept = metadata.get("концепция", "Не указана (ошибка парсинга YAML)")
-        algo = metadata.get("алгоритм", "Отсутствует")
-        formula = metadata.get("формула", "Не применимо")
-        metafora = metadata.get("метафора", "Отсутствует")
-        svyazi = metadata.get("связи", "Нет связей")
-        
-        tags_list = metadata.get("теги", metadata.get("tags", []))
-        formatted_tags = ", ".join([f"#{t.strip()}" for t in tags_list]) if isinstance(tags_list, list) else str(tags_list)
-        
-        new_content = (
-            f"# {title}\n\n"
-            f"## 🧠 Краткое представление (SPR)\n"
-            f"* **Концепция:** {koncept}\n"
-            f"* **Алгоритм:** {algo}\n"
-            f"* **Формула:** {formula}\n"
-            f"* **Метафора:** {metafora}\n"
-            f"* **Связи:** {svyazi}\n"
-            f"* **Теги:** {formatted_tags}\n\n"
-            f"---\n\n"
-            f"## 📄 Полный текст фрагмента\n"
-            f"{content}"
-        )
+            title = metadata.pop("title", f"Документ {os.path.splitext(file_name)[0]}")
+            metadata["title"] = title
+            
+            yaml_block = frontmatter.dumps(frontmatter.Post(content, **metadata))
+            new_content = yaml_block
+        else:
+            # SPR-формат с YAML Front Matter (динамические поля)
+            try:
+                parsed = frontmatter.loads(raw_content)
+                metadata = parsed.metadata
+                content = parsed.content
+            except Exception:
+                metadata = {}
+                content = raw_content
+                for line in raw_content.split('\n'):
+                    if ':' in line:
+                        key = line.split(':', 1)[0].strip().lstrip('- ')
+                        val = line.split(':', 1)[1].strip().strip('"\'')
+                        if key and val:
+                            metadata[key] = val
+
+            title = metadata.pop("title", f"Документ {os.path.splitext(file_name)[0]}")
+            
+            # Формируем мета-блок из ВСХ полей (кроме title и tags/tags_list)
+            meta_lines = []
+            for key, value in metadata.items():
+                if key.lower() in ("теги", "tags"):
+                    continue
+                if isinstance(value, list):
+                    value = ", ".join(str(v) for v in value)
+                meta_lines.append(f"* **{key.title()}:** {value}")
+            
+            # Теги — отдельно, если есть
+            tags_list = metadata.get("теги", metadata.get("tags", []))
+            if isinstance(tags_list, list) and tags_list:
+                formatted_tags = ", ".join([f"#{str(t).strip()}" for t in tags_list])
+                meta_lines.append(f"* **Теги:** {formatted_tags}")
+            
+            meta_block = "\n".join(meta_lines) if meta_lines else "* _Метаданные отсутствуют_"
+            
+            new_content = (
+                f"# {title}\n\n"
+                f"## 🧠 Краткое представление (SPR)\n"
+                f"{meta_block}\n\n"
+                f"---\n\n"
+                f"## 📄 Полный текст фрагмента\n"
+                f"{content}"
+            )
         
         clean_title = "".join([c if c.isalnum() or c in " _-" else "" for c in title]).strip().replace(" ", "_")
         max_len = 40

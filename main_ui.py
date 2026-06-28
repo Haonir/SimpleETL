@@ -145,8 +145,8 @@ class SimpleETLApp:
     def __init__(self, root):
         self.root = root
         self.root.title("SimpleETL - Text Processing & SPR Pipeline")
-        self.root.geometry("1100x1000")
-        self.root.minsize(950, 1000)
+        self.root.geometry("1100x630")
+        self.root.minsize(1000, 630)
         self.root.configure(fg_color=BG_MAIN)
 
         self.DEFAULT_OUT_PLACEHOLDER = "(Опционально)"
@@ -302,17 +302,15 @@ class SimpleETLApp:
         main.grid_columnconfigure(1, weight=1)
         main.grid_rowconfigure(0, weight=1)
 
-        # ─── ЛЕВАЯ ЧАСТЬ ────────────────────────────────────
-        left = ctk.CTkFrame(main, fg_color="transparent", width=400)
-        left.grid(row=0, column=0, sticky="ns", padx=(0, 5))
-        left.grid_propagate(False)
-        left.grid_columnconfigure(0, weight=1)
-        for r in range(4):
-            left.grid_rowconfigure(r, weight=1 if r == 0 else 0)
+        # ─── ЛЕВАЯ ЧАСТЬ (скроллируемая) ─────────────────────
+        left_scroll = ctk.CTkScrollableFrame(main, fg_color="transparent",
+                                              width=400, corner_radius=0,
+                                              border_width=0)
+        left_scroll.grid(row=0, column=0, sticky="ns", padx=(0, 0))
 
         # — Файлы —
-        lf_files, fc = self._card_section(left, "Файлы для обработки")
-        lf_files.grid(row=0, column=0, sticky="nsew", pady=(0, 5))
+        lf_files, fc = self._card_section(left_scroll, "Файлы для обработки")
+        lf_files.pack(fill="x", pady=(0, 5))
 
         self.file_list = FileListBox(
             fc, height=4,
@@ -349,7 +347,7 @@ class SimpleETLApp:
         ctk.CTkButton(row_out, text="Обзор", command=self.browse_out_dir,
                        **self._btn_kw(width=70)).pack(side="left")
 
-        # Базовое имя чанков — pack
+        # Префикс чанков — pack
         row_base = ctk.CTkFrame(fc, fg_color="transparent")
         row_base.pack(fill="x", pady=4)
         ctk.CTkLabel(row_base, text="Префикс чанков:", font=FONT_LABEL,
@@ -359,23 +357,36 @@ class SimpleETLApp:
         self.ent_base_name.insert(0, "(Опционально)")
         self.bind_edit_actions(self.ent_base_name)
 
-        # — Провайдер LLM —
-        lf_prov, pc = self._card_section(left, "Настройки провайдера LLM")
-        lf_prov.grid(row=1, column=0, sticky="nsew", pady=5)
-        pc.grid_columnconfigure(1, weight=1)
+        # — Управление и прогресс —
+        lf_act, ac = self._card_section(left_scroll, "Управление и прогресс")
+        lf_act.pack(fill="x", pady=(0, 5))
 
-        for row, (lbl, show) in enumerate([
-            ("Модель:", None), ("Base URL:", None), ("API Key:", "*")]):
-            ctk.CTkLabel(pc, text=lbl, font=FONT_LABEL, text_color=FG_LABEL
-                         ).grid(row=row, column=0, sticky="w", padx=4, pady=4)
-            ent = ctk.CTkEntry(pc, show=show or "")
-            ent.grid(row=row, column=1, sticky="ew", padx=4, pady=4)
-            self.bind_edit_actions(ent)
-            setattr(self, ["ent_model", "ent_url", "ent_key"][row], ent)
+        self.btn_start = ctk.CTkButton(
+            ac, text="▶ Начать обработку", command=self.toggle_process,
+            corner_radius=10, height=38, font=FONT_BTN_SM,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white")
+        self.btn_start.pack(fill="x", pady=(4, 8))
+
+        self.lbl_progress_file = ctk.CTkLabel(ac, text="Прогресс файла:", font=FONT_LABEL,
+                     text_color=FG_LABEL)
+        self.lbl_progress_file.pack(anchor="w")
+        self.progress_chunk = ctk.CTkProgressBar(ac, height=8, corner_radius=4,
+                                                  progress_color=ACCENT,
+                                                  fg_color="#e5e7eb")
+        self.progress_chunk.pack(fill="x", pady=(2, 6))
+        self.progress_chunk.set(0)
+
+        ctk.CTkLabel(ac, text="Общий прогресс конвейера:", font=FONT_LABEL,
+                     text_color=FG_LABEL).pack(anchor="w")
+        self.progress_total = ctk.CTkProgressBar(ac, height=8, corner_radius=4,
+                                                  progress_color=ACCENT,
+                                                  fg_color="#e5e7eb")
+        self.progress_total.pack(fill="x", pady=(2, 4))
+        self.progress_total.set(0)
 
         # — Параметры обработки —
-        lf_sets, sc = self._card_section(left, "Параметры обработки")
-        lf_sets.grid(row=2, column=0, sticky="nsew", pady=5)
+        lf_sets, sc = self._card_section(left_scroll, "Параметры обработки")
+        lf_sets.pack(fill="x", pady=5)
         sc.grid_columnconfigure(0, weight=1)
         sc.grid_columnconfigure(1, weight=1)
 
@@ -424,42 +435,50 @@ class SimpleETLApp:
                         border_width=1, border_color=BORDER
                         ).grid(row=3, column=0, columnspan=2, sticky="w", pady=4)
 
-        ctk.CTkButton(sc, text="💾 Сохранить настройки", command=self.save_settings,
+        # Формат выходных файлов
+        row_fmt = ctk.CTkFrame(sc, fg_color="transparent")
+        row_fmt.grid(row=4, column=0, columnspan=2, sticky="ew", pady=4)
+        ctk.CTkLabel(row_fmt, text="Формат вывода:", font=FONT_LABEL,
+                     text_color=FG_LABEL).pack(side="left", padx=(0, 8))
+        self.var_output_format = ctk.StringVar(value="spr")
+        ctk.CTkOptionMenu(row_fmt, variable=self.var_output_format,
+                          values=["spr", "frontmatter", "markdown"],
+                          width=120, font=FONT_BTN,
+                          fg_color=BG_INPUT, button_color=BORDER,
+                          button_hover_color=BTN_HOVER, text_color=FG_TITLE,
+                          dropdown_fg_color=BG_CARD, dropdown_hover_color=ACCENT,
+                          dropdown_text_color=FG_TITLE
+                          ).pack(side="left")
+
+        # — Провайдер LLM —
+        lf_prov, pc = self._card_section(left_scroll, "Настройки провайдера LLM")
+        lf_prov.pack(fill="x", pady=(5, 0))
+        pc.grid_columnconfigure(1, weight=1)
+
+        for row, (lbl, show) in enumerate([
+            ("Модель:", None), ("Base URL:", None), ("API Key:", "*")]):
+            ctk.CTkLabel(pc, text=lbl, font=FONT_LABEL, text_color=FG_LABEL
+                         ).grid(row=row, column=0, sticky="w", padx=4, pady=4)
+            ent = ctk.CTkEntry(pc, show=show or "")
+            ent.grid(row=row, column=1, sticky="ew", padx=4, pady=4)
+            self.bind_edit_actions(ent)
+            setattr(self, ["ent_model", "ent_url", "ent_key"][row], ent)
+
+        # — Сохранение —
+        lf_save = ctk.CTkFrame(left_scroll, fg_color=BG_CARD, corner_radius=10,
+                               border_width=1, border_color=BORDER)
+        lf_save.pack(fill="x", pady=5)
+        svc = ctk.CTkFrame(lf_save, fg_color="transparent")
+        svc.pack(fill="both", expand=True, padx=8, pady=8)
+        ctk.CTkButton(svc, text="💾 Сохранить настройки", command=self.save_settings,
                        corner_radius=8, height=32, font=FONT_BTN_SM,
                        fg_color=BTN_BG, hover_color=BTN_HOVER,
                        text_color=BTN_FG
-                       ).grid(row=4, column=0, columnspan=2, sticky="ew", pady=(4, 0))
-
-        # — Управление и прогресс —
-        lf_act, ac = self._card_section(left, "Управление и прогресс")
-        lf_act.grid(row=3, column=0, sticky="nsew", pady=(5, 0))
-
-        self.btn_start = ctk.CTkButton(
-            ac, text="▶ Начать обработку", command=self.toggle_process,
-            corner_radius=10, height=38, font=FONT_BTN_SM,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white")
-        self.btn_start.pack(fill="x", pady=(4, 8))
-
-        self.lbl_progress_file = ctk.CTkLabel(ac, text="Прогресс файла:", font=FONT_LABEL,
-                     text_color=FG_LABEL)
-        self.lbl_progress_file.pack(anchor="w")
-        self.progress_chunk = ctk.CTkProgressBar(ac, height=8, corner_radius=4,
-                                                  progress_color=ACCENT,
-                                                  fg_color="#e5e7eb")
-        self.progress_chunk.pack(fill="x", pady=(2, 6))
-        self.progress_chunk.set(0)
-
-        ctk.CTkLabel(ac, text="Общий прогресс конвейера:", font=FONT_LABEL,
-                     text_color=FG_LABEL).pack(anchor="w")
-        self.progress_total = ctk.CTkProgressBar(ac, height=8, corner_radius=4,
-                                                  progress_color=ACCENT,
-                                                  fg_color="#e5e7eb")
-        self.progress_total.pack(fill="x", pady=(2, 4))
-        self.progress_total.set(0)
+                       ).pack(fill="x", pady=(4, 0))
 
         # ─── ПРАВАЯ ЧАСТЬ ───────────────────────────────────
         right = ctk.CTkFrame(main, fg_color="transparent")
-        right.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        right.grid(row=0, column=1, sticky="nsew", padx=(0, 0))
         right.grid_columnconfigure(0, weight=1)
         right.grid_rowconfigure(0, weight=2)
         right.grid_rowconfigure(1, weight=1)
@@ -669,6 +688,7 @@ class SimpleETLApp:
                 api_key=self.ent_key.get(),
                 chunk_size=c_size, chunk_overlap=c_overlap,
                 max_workers=int(self.var_workers.get()),
+                output_format=self.var_output_format.get(),
                 prompts_dict=self.prompts_library,
                 current_prompt_name=name)
             self.log("💾 Все настройки приложения и библиотека промптов успешно сохранены.")
@@ -692,6 +712,7 @@ class SimpleETLApp:
             self.ent_chunk_size.insert(0, str(cfg.get("chunk_size", 10000)))
             self.ent_chunk_overlap.delete(0, "end")
             self.ent_chunk_overlap.insert(0, str(cfg.get("chunk_overlap", 1500)))
+            self.var_output_format.set(cfg.get("output_format", "spr"))
             self.prompts_library = cfg.get("prompts", {})
             if not self.prompts_library:
                 self.prompts_library = {"Дефолтный SPR": self.DEFAULT_PROMPT}
@@ -752,7 +773,8 @@ class SimpleETLApp:
             "max_workers": int(self.var_workers.get()),
             "prompt": self.txt_prompt.get("1.0", "end").strip(),
             "cleanup": self.var_cleanup.get(),
-            "skip_llm": self.var_skip_llm.get()}
+            "skip_llm": self.var_skip_llm.get(),
+            "output_format": self.var_output_format.get()}
         self.is_processing = True
         self.stop_requested = False
         self.file_progress.clear()

@@ -9,7 +9,7 @@ else:
 
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 
-def save_config(model, base_url, api_key, prompts_dict, current_prompt_name, chunk_size=10000, chunk_overlap=1500, max_workers=1):
+def save_config(model, base_url, api_key, prompts_dict, current_prompt_name, chunk_size=10000, chunk_overlap=1500, max_workers=1, output_format="spr"):
     """Сохраняет настройки и библиотеку промптов в JSON файл"""
     config_data = {
         "model": model,
@@ -18,6 +18,7 @@ def save_config(model, base_url, api_key, prompts_dict, current_prompt_name, chu
         "chunk_size": chunk_size,
         "chunk_overlap": chunk_overlap,
         "max_workers": max_workers,
+        "output_format": output_format,
         "prompts": prompts_dict,
         "current_prompt_name": current_prompt_name
     }
