@@ -216,7 +216,7 @@ class SimpleETLApp:
         right_pane = ttk.Frame(main_container)
         right_pane.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
         right_pane.columnconfigure(0, weight=1)
-        right_pane.rowconfigure(0, weight=1)
+        right_pane.rowconfigure(0, weight=2)
         right_pane.rowconfigure(1, weight=1)
         
         lf_prompt = ttk.LabelFrame(right_pane, text=" Системный промпт / System Prompt ")
@@ -244,16 +244,27 @@ class SimpleETLApp:
         lf_logs = ttk.LabelFrame(right_pane, text=" Лог событий / Event Log ")
         lf_logs.grid(row=1, column=0, sticky="nsew", pady=(5, 0))
         
-        self.txt_logs = tk.Text(lf_logs, background="#1e1e1e", foreground="#a9b7c6", font=("Consolas", 10), wrap=tk.WORD)
-        self.txt_logs.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        logs_frame = ttk.Frame(lf_logs)
+        logs_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        scrollbar = ttk.Scrollbar(logs_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.txt_logs = tk.Text(logs_frame, background="#1e1e1e", foreground="#a9b7c6",
+                        font=("Consolas", 10), wrap=tk.WORD,
+                        yscrollcommand=scrollbar.set, height=15)
+        self.txt_logs.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+        scrollbar.config(command=self.txt_logs.yview)
+
         self.bind_edit_actions(self.txt_logs)
         
-        scrollbar = ttk.Scrollbar(self.txt_logs, command=self.txt_logs.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.txt_logs['yscrollcommand'] = scrollbar.set
-        
     def log(self, message):
+        """Может вызываться из любого потока — ставит задачу в очередь главного."""
         timestamp = datetime.now().strftime("[%H:%M:%S]")
+        self.root.after(0, self._log_safe, timestamp, message)
+
+    def _log_safe(self, timestamp, message):
+        """Выполняется только в главном потоке."""
         self.txt_logs.insert(tk.END, f"{timestamp} {message}\n")
         self.txt_logs.see(tk.END)
         
@@ -474,7 +485,6 @@ class SimpleETLApp:
 
     def thread_worker(self, validated_files, global_config):
         try:
-            # Запуск пакетной логики
             success = etl_pipeline.process_batch(
                 file_list=validated_files,
                 global_cfg=global_config,
@@ -482,28 +492,35 @@ class SimpleETLApp:
                 log_callback=self.log,
                 stop_check_callback=lambda: self.stop_requested
             )
-            
             if success:
-                self.progress_total["value"] = 100
                 self.log("🎉 Пакетная обработка всех документов успешно завершена!")
-                messagebox.showinfo("Успех", "Все файлы из пакета обработаны!")
+                self.root.after(0, lambda: messagebox.showinfo(
+                    "Успех", "Все файлы из пакета обработаны!"))
             else:
                 self.log("🛑 Обработка пакета была остановлена пользователем.")
         except Exception as e:
-            self.log(f"💥 Критическая ошибка пакетного конвейера: {e}")
-            messagebox.showerror("Ошибка", str(e))
+            err_text = str(e)
+            self.log(f"💥 Критическая ошибка пакетного конвейера: {err_text}")
+            self.root.after(0, lambda: messagebox.showerror("Ошибка", err_text))
         finally:
-            self.is_processing = False
-            self.btn_start.configure(text="▶ Начать обработку", state=tk.NORMAL)
-            self.progress_chunk["value"] = 0
-            self.progress_total["value"] = 0
+            self.root.after(0, self._reset_ui_after_processing)
+
+    def _reset_ui_after_processing(self):
+        """Финальный сброс UI — только в главном потоке."""
+        self.is_processing = False
+        self.btn_start.configure(text="▶ Начать обработку", state=tk.NORMAL)
+        self.progress_chunk["value"] = 0
+        self.progress_total["value"] = 0
 
     def update_progress(self, chunk_val, total_val):
-        """Обновление прогресс-баров из фонового потока (принимает значения от 0 до 100)"""
+        """Может вызываться из любого потока."""
+        self.root.after(0, self._update_progress_safe, chunk_val, total_val)
+
+    def _update_progress_safe(self, chunk_val, total_val):
+        """Выполняется только в главном потоке."""
         self.progress_chunk["value"] = chunk_val
         if total_val is not None:
             self.progress_total["value"] = total_val
-        self.root.update_idletasks()
 
 if __name__ == "__main__":
     root = tk.Tk()
