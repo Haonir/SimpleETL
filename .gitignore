@@ -4,3 +4,4 @@ build
 dist
 main_ui.spec
 config.json
+AGENTS.md
