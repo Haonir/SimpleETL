@@ -58,7 +58,7 @@ def test_post_config_full_update(client, isolated_config):
     # Verify file was written
     with open(isolated_config["path"]) as f:
         saved = json.load(f)
-    assert saved["model"] == "claude"
+    assert saved["llm"]["model"] == "claude"
 
 
 def test_post_config_partial_update(client, isolated_config):

@@ -40,16 +40,20 @@ def empty_config_file(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def populated_config_file(tmp_path: Path) -> Path:
-    """Create a pre-populated config.json with some prompts."""
+    """Create a pre-populated config.json with nested format and some prompts."""
     cfg = tmp_path / "config.json"
     data = {
-        "model": "llama3",
-        "base_url": "http://localhost:11434/v1",
-        "api_key": "ollama",
-        "chunk_size": 5000,
-        "chunk_overlap": 200,
-        "max_workers": 2,
-        "output_format": "spr",
+        "llm": {
+            "model": "llama3",
+            "base_url": "http://localhost:11434/v1",
+            "api_key": "ollama",
+        },
+        "processing": {
+            "chunk_size": 5000,
+            "chunk_overlap": 200,
+            "max_workers": 2,
+            "output_format": "spr",
+        },
         "prompts": {
             "summarize": "Summarize the following text:",
             "extract": "Extract key points from the text:",
@@ -116,7 +120,7 @@ class TestSave:
         assert os.path.exists(tmp_config_path)
         with open(tmp_config_path, "r") as f:
             data = json.load(f)
-        assert data["model"] == "test"
+        assert data["llm"]["model"] == "test"
 
     def test_save_overwrites_existing(self, populated_config_file: Path):
         svc = ConfigService(config_path=populated_config_file)

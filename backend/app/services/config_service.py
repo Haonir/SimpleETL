@@ -1,11 +1,15 @@
-"""ConfigService — load/save/get_prompts/add_prompt/delete_prompt."""
+"""ConfigService — load/save/get_prompts/add_prompt/delete_prompt.
+
+Works with nested config.json format matching Pydantic schemas directly.
+Handles legacy flat format via auto-migration on read.
+"""
 
 from __future__ import annotations
 
 import json
-import os
+import logging
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 from app.schemas.config import (
     ConfigResponse,
@@ -18,135 +22,55 @@ from app.schemas.config import (
     ProcessingConfig,
 )
 
-
-# ── Flat defaults used when config.json is missing or fields are absent ─────
-
-_FLAT_DEFAULTS = {
-    "model": "llama3",
-    "base_url": "http://localhost:11434/v1",
-    "api_key": "ollama",
-    "chunk_size": 10_000,
-    "chunk_overlap": 1_500,
-    "max_workers": 1,
-    "output_format": "spr",
-    "prompts": {},
-    "current_prompt_name": "",
-}
+logger = logging.getLogger(__name__)
 
 
-def _make_defaults() -> ConfigResponse:
-    """Build a ConfigResponse from flat defaults (JSON-serializable)."""
-    return ConfigResponse(
-        llm=LLMConfig(model="llama3", base_url="http://localhost:11434/v1", api_key="ollama"),
-        processing=ProcessingConfig(),
-        prompts=[],
-        current_prompt_name="",
-    )
+# ── Defaults ────────────────────────────────────────────────────────────────
+
+_DEFAULTS = ConfigResponse(
+    llm=LLMConfig(model="llama3", base_url="http://localhost:11434/v1", api_key="ollama"),
+    processing=ProcessingConfig(),
+    prompts=[],
+    current_prompt_name="",
+)
 
 
-# ── Flat JSON ↔ Nested Pydantic mapping helpers ─────────────────────────────
+# ── Legacy flat format detection & migration ────────────────────────────────
 
-def _flat_to_nested(data: dict) -> ConfigResponse:
-    """Convert flat config.json dict to nested ConfigResponse."""
-    llm = LLMConfig(
-        model=data.get("model", "llama3"),
-        base_url=data.get("base_url", "http://localhost:11434/v1"),
-        api_key=data.get("api_key", "ollama"),
-    )
-    processing = ProcessingConfig(
-        chunk_size=data.get("chunk_size", 10_000),
-        chunk_overlap=data.get("chunk_overlap", 1_500),
-        max_workers=data.get("max_workers", 1),
-        output_format=data.get("output_format", "spr"),
-    )
-    raw_prompts = data.get("prompts") or {}
-    prompts_list = [PromptEntry(name=k, text=v) for k, v in raw_prompts.items()]
-
-    return ConfigResponse(
-        llm=llm,
-        processing=processing,
-        prompts=prompts_list,
-        current_prompt_name=data.get("current_prompt_name", ""),
-    )
+def _is_flat_format(data: dict) -> bool:
+    """Check if config.json uses the old flat format (no 'llm' key)."""
+    return "llm" not in data and "model" in data
 
 
-def _nested_to_flat(cfg: ConfigResponse) -> dict:
-    """Convert nested ConfigResponse to flat config.json dict."""
+def _migrate_flat_to_nested(data: dict) -> dict:
+    """Convert old flat config.json to nested format."""
     return {
-        "model": cfg.llm.model,
-        "base_url": cfg.llm.base_url,
-        "api_key": cfg.llm.api_key,
-        "chunk_size": cfg.processing.chunk_size,
-        "chunk_overlap": cfg.processing.chunk_overlap,
-        "max_workers": cfg.processing.max_workers,
-        "output_format": cfg.processing.output_format,
-        "prompts": {p.name: p.text for p in cfg.prompts},
-        "current_prompt_name": cfg.current_prompt_name,
+        "llm": {
+            "model": data.get("model", "llama3"),
+            "base_url": data.get("base_url", "http://localhost:11434/v1"),
+            "api_key": data.get("api_key", "ollama"),
+        },
+        "processing": {
+            "chunk_size": data.get("chunk_size", 10_000),
+            "chunk_overlap": data.get("chunk_overlap", 1_500),
+            "max_workers": data.get("max_workers", 1),
+            "output_format": data.get("output_format", "spr"),
+        },
+        "prompts": data.get("prompts", {}),
+        "current_prompt_name": data.get("current_prompt_name", ""),
     }
 
 
-def _flat_to_nested_with_prompts(data: dict) -> ConfigResponse:
-    """Convert flat config.json dict to nested ConfigResponse.
-    
-    Handles both dict format {name: text} and list format [PromptEntry(...)] for prompts.
-    """
-    llm = LLMConfig(
-        model=data.get("model", "llama3"),
-        base_url=data.get("base_url", "http://localhost:11434/v1"),
-        api_key=data.get("api_key", "ollama"),
-    )
-    processing = ProcessingConfig(
-        chunk_size=data.get("chunk_size", 10_000),
-        chunk_overlap=data.get("chunk_overlap", 1_500),
-        max_workers=data.get("max_workers", 1),
-        output_format=data.get("output_format", "spr"),
-    )
-    raw_prompts = data.get("prompts") or {}
-    # Handle both dict format {name: text} and legacy list format [PromptEntry(...)]
-    if isinstance(raw_prompts, list):
-        prompts_list = [PromptEntry(name=p.name, text=p.text) for p in raw_prompts]
-    else:
-        prompts_list = [PromptEntry(name=k, text=v) for k, v in raw_prompts.items()]
-
-    return ConfigResponse(
-        llm=llm,
-        processing=processing,
-        prompts=prompts_list,
-        current_prompt_name=data.get("current_prompt_name", ""),
-    )
+def _normalize_prompts(data: dict) -> dict:
+    """Normalize prompts to list-of-dicts format for Pydantic parsing."""
+    raw = data.get("prompts") or {}
+    if isinstance(raw, dict):
+        data["prompts"] = [{"name": k, "text": v} for k, v in raw.items()]
+    return data
 
 
-def _merge_flat(existing: dict, update: ConfigUpdateRequest) -> dict:
-    """Merge partial ConfigUpdateRequest into existing flat config."""
-    merged = dict(existing)
+# ── ConfigService ───────────────────────────────────────────────────────────
 
-    if update.llm is not None:
-        merged["model"] = update.llm.model
-        merged["base_url"] = update.llm.base_url
-        merged["api_key"] = update.llm.api_key
-
-    if update.processing is not None:
-        merged["chunk_size"] = update.processing.chunk_size
-        merged["chunk_overlap"] = update.processing.chunk_overlap
-        merged["max_workers"] = update.processing.max_workers
-        merged["output_format"] = update.processing.output_format
-
-    if update.prompts is not None:
-        new_dict = {p.name: p.text for p in update.prompts}
-        existing_names = set(existing.get("prompts", {}).keys())
-        new_names = set(new_dict.keys())
-        if existing_names - new_names and "current_prompt_name" in merged:
-            removed = existing_names - new_names
-            if merged["current_prompt_name"] in removed:
-                pass  # current_prompt_name will be lost; caller should handle
-
-    if update.current_prompt_name is not None:
-        merged["current_prompt_name"] = update.current_prompt_name
-
-    return merged
-
-
-# ── ConfigService class ─────────────────────────────────────────────────────
 
 class ConfigService:
     """Service for loading, saving and managing the application config."""
@@ -156,136 +80,116 @@ class ConfigService:
             self._config_path = Path(config_path)
         else:
             from app.settings import get_settings
-
             settings = get_settings()
-            # Use _config_path property (handles fallback resolution)
-            # instead of raw config_file field which may be empty
             self._config_path = settings._config_path
 
-    # ── load() ──────────────────────────────────────────────────────────────
+    # ── Internal helpers ────────────────────────────────────────────────────
+
+    def _read_raw(self) -> dict | None:
+        """Read raw JSON dict from disk. Returns None if missing/corrupt."""
+        try:
+            with open(self._config_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (FileNotFoundError, OSError, json.JSONDecodeError):
+            return None
+
+    def _write(self, cfg: ConfigResponse) -> None:
+        """Write ConfigResponse to disk as nested JSON."""
+        data = cfg.model_dump()
+        # Prompts: list[dict] → dict for compact storage
+        data["prompts"] = {p["name"]: p["text"] for p in data["prompts"]}
+        with open(self._config_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
+    def _parse(self, data: dict) -> ConfigResponse:
+        """Parse raw dict into ConfigResponse, auto-migrating flat format."""
+        if _is_flat_format(data):
+            logger.info("Auto-migrating flat config format to nested")
+            data = _migrate_flat_to_nested(data)
+        data = _normalize_prompts(data)
+        # Merge with defaults so partial dicts (e.g. from add_prompt) still parse
+        merged = {**_DEFAULTS.model_dump(), **data}
+        return ConfigResponse.model_validate(merged)
+
+    # ── Public API ──────────────────────────────────────────────────────────
 
     def load(self) -> ConfigResponse:
         """Load configuration from config.json. Returns defaults if file missing."""
-        try:
-            with open(self._config_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            return _flat_to_nested_with_prompts(data)
-        except (FileNotFoundError, OSError, json.JSONDecodeError):
-            return _make_defaults()
-
-    # ── save() ───────────────────────────────────────────────────────────────
+        data = self._read_raw()
+        if data is None:
+            return _DEFAULTS.model_copy()
+        return self._parse(data)
 
     def save(self, update: ConfigUpdateRequest) -> ConfigResponse:
         """Save config with partial update. Merges with existing config."""
-        try:
-            existing = self.load()
-            # Convert nested response back to flat dict for merging
-            existing_flat = _nested_to_flat(existing)
-        except Exception:
-            # If we can't load at all, start from defaults
-            existing_flat = dict(_FLAT_DEFAULTS)
+        current = self.load()
+        update_data = update.model_dump(exclude_unset=True)
 
-        merged = _merge_flat(existing_flat, update)
-        # Convert flat dict back to nested for file writing and response
-        cfg_response = _flat_to_nested_with_prompts(merged)
-        flat_data = _nested_to_flat(cfg_response)
+        # Merge: nested dicts are updated field-by-field, not replaced wholesale
+        merged = current.model_dump()
+        for key, value in update_data.items():
+            if isinstance(value, dict) and key in merged and isinstance(merged[key], dict):
+                merged[key] = {**merged[key], **value}
+            else:
+                merged[key] = value
 
-        try:
-            with open(self._config_path, "w", encoding="utf-8") as f:
-                json.dump(flat_data, f, ensure_ascii=False, indent=4)
-        except OSError as exc:
-            raise OSError(f"Failed to write config file: {exc}") from exc
-
-        return cfg_response
-
-    # ── get_prompts() ────────────────────────────────────────────────────────
+        result = ConfigResponse.model_validate(merged)
+        self._write(result)
+        return result
 
     def get_prompts(self) -> PromptLibraryResponse:
         """Return all prompts in the library."""
-        try:
-            with open(self._config_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (FileNotFoundError, OSError, json.JSONDecodeError):
+        data = self._read_raw()
+        if data is None:
             return PromptLibraryResponse(prompts=[], total=0)
 
-        raw_prompts = data.get("prompts") or {}
-        # Handle both dict format {name: text} and legacy list format [PromptEntry(...)]
-        if isinstance(raw_prompts, list):
-            prompts_list = [PromptEntry(name=p.name, text=p.text) for p in raw_prompts]
-        else:
-            prompts_list = [PromptEntry(name=k, text=v) for k, v in raw_prompts.items()]
-        return PromptLibraryResponse(prompts=prompts_list, total=len(prompts_list))
-
-    # ── add_prompt() ────────────────────────────────────────────────────────
+        data = _normalize_prompts(data)
+        prompts = [PromptEntry.model_validate(p) for p in data["prompts"]]
+        return PromptLibraryResponse(prompts=prompts, total=len(prompts))
 
     def add_prompt(self, req: PromptCreateRequest) -> PromptEntry:
         """Add a new prompt. Raises ValueError if name already exists."""
-        try:
-            with open(self._config_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (FileNotFoundError, OSError, json.JSONDecodeError):
-            # Create file from defaults if missing or invalid JSON
-            data = dict(_FLAT_DEFAULTS)
+        data = self._read_raw() or {}
 
-        raw_prompts = data.get("prompts") or {}
-        # Handle both dict format {name: text} and legacy list format [PromptEntry(...)]
-        if isinstance(raw_prompts, list):
-            existing_dict = {p.name: p.text for p in raw_prompts}
-        else:
-            existing_dict = dict(raw_prompts)
+        raw = data.get("prompts") or {}
+        prompts_dict = {p["name"]: p["text"] for p in raw} if isinstance(raw, list) else dict(raw)
 
-        existing_names = set(existing_dict.keys())
-        if req.name in existing_names:
+        if req.name in prompts_dict:
             raise ValueError(
                 f"Prompt with name '{req.name}' already exists. "
-                f"Available names: {', '.join(sorted(existing_names))}"
+                f"Available: {', '.join(sorted(prompts_dict.keys()))}"
             )
 
-        existing_dict[req.name] = req.text
-        data["prompts"] = existing_dict
+        prompts_dict[req.name] = req.text
+        data["prompts"] = prompts_dict
 
-        try:
-            with open(self._config_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
-        except OSError as exc:
-            raise OSError(f"Failed to write config file: {exc}") from exc
+        with open(self._config_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
         return PromptEntry(name=req.name, text=req.text)
 
-    # ── delete_prompt() ─────────────────────────────────────────────────────
-
     def delete_prompt(self, name: str) -> PromptDeleteResponse:
         """Delete a prompt by name. Raises ValueError if not found."""
-        try:
-            with open(self._config_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (FileNotFoundError, OSError):
+        data = self._read_raw()
+        if data is None:
             raise ValueError("Config file not found.")
 
-        raw_prompts = data.get("prompts") or {}
-        # Handle both dict format {name: text} and legacy list format [PromptEntry(...)]
-        if isinstance(raw_prompts, list):
-            prompts_dict = {p.name: p.text for p in raw_prompts}
-        else:
-            prompts_dict = dict(raw_prompts)
+        raw = data.get("prompts") or {}
+        prompts_dict = {p["name"]: p["text"] for p in raw} if isinstance(raw, list) else dict(raw)
 
         if name not in prompts_dict:
             raise ValueError(
                 f"Prompt '{name}' not found. "
-                f"Available names: {', '.join(sorted(prompts_dict.keys()))}"
+                f"Available: {', '.join(sorted(prompts_dict.keys()))}"
             )
 
         del prompts_dict[name]
         data["prompts"] = prompts_dict
 
-        # If the deleted prompt was current, clear it
         if data.get("current_prompt_name") == name:
             data["current_prompt_name"] = ""
 
-        try:
-            with open(self._config_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
-        except OSError as exc:
-            raise OSError(f"Failed to write config file: {exc}") from exc
+        with open(self._config_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
         return PromptDeleteResponse(deleted=name, message=f"Prompt '{name}' removed.")
