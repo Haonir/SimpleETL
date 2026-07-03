@@ -53,7 +53,7 @@ class AppSettings(BaseSettings):
             base = Path(sys._MEIPASS) if hasattr(sys, "_MEIPASS") else Path(sys.executable)
         else:
             base = Path(__file__).resolve().parent.parent.parent  # backend/ → project root
-        return base / "core" / "config.json"
+        return base / "backend" / "config.json"
 
     @classmethod
     def from_env(cls, config_file: Optional[str] | None = None) -> AppSettings:

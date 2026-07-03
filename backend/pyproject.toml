@@ -19,7 +19,11 @@ dependencies = [
 dev = [
     "pytest",
     "httpx",
+    "pytest-asyncio",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [tool.setuptools.packages.find]
 where = ["."]

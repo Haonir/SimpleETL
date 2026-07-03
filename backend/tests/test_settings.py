@@ -78,9 +78,9 @@ class TestAppSettingsEnvVars:
 
 class TestAppSettingsConfigPath:
     def test_config_path_default(self):
-        """Default config path resolves to core/config.json (absolute)."""
+        """Default config path resolves to backend/config.json (absolute)."""
         settings = AppSettings()
-        expected = Path(__file__).resolve().parent.parent.parent / "core" / "config.json"  # backend/app/ → project root
+        expected = Path(__file__).resolve().parent.parent.parent / "backend" / "config.json"  # backend/app/ → project root
         assert settings._config_path == expected
 
     def test_config_path_from_env(self, tmp_path):
