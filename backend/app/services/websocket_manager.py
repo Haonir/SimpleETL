@@ -7,6 +7,8 @@ import json
 import logging
 from typing import Any
 
+from fastapi import WebSocket
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,24 +20,25 @@ class ConnectionManager:
     """
 
     def __init__(self) -> None:
-        self._rooms: dict[str, set[asyncio.WebSocket]] = {}
+        self._rooms: dict[str, set[WebSocket]] = {}
         self._lock = asyncio.Lock()
 
     # ── Public API ───────────────────────────────────────────────────────────
 
-    async def connect(self, job_id: str, ws: asyncio.WebSocket) -> None:
+    async def connect(self, job_id: str, ws: WebSocket) -> None:
         """Accept a new WebSocket and register it in the given room."""
         async with self._lock:
             if job_id not in self._rooms:
                 self._rooms[job_id] = set()
             self._rooms[job_id].add(ws)
 
-    async def disconnect(self, job_id: str, ws: asyncio.WebSocket) -> None:
+    async def disconnect(self, job_id: str, ws: WebSocket) -> None:
         """Remove a WebSocket from its room and cleanup empty rooms."""
-        if job_id in self._rooms:
-            self._rooms[job_id].discard(ws)
-            if not self._rooms[job_id]:
-                del self._rooms[job_id]
+        async with self._lock:
+            if job_id in self._rooms:
+                self._rooms[job_id].discard(ws)
+                if not self._rooms[job_id]:
+                    del self._rooms[job_id]
 
     async def broadcast(self, job_id: str, message: dict[str, Any]) -> None:
         """Send a JSON-encoded message to all connections in the given room."""
@@ -43,7 +46,7 @@ class ConnectionManager:
         async with self._lock:
             if job_id not in self._rooms or not self._rooms[job_id]:
                 return
-            disconnected: list[asyncio.WebSocket] = []
+            disconnected: list[WebSocket] = []
             for conn in self._rooms[job_id]:
                 try:
                     await conn.send_text(data)

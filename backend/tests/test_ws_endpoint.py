@@ -9,7 +9,7 @@ import pytest
 
 
 @pytest.fixture
-async def ws_app():
+def ws_app():
     """Create a FastAPI app with only the websocket router for testing."""
     from fastapi import FastAPI
 
@@ -23,12 +23,12 @@ async def ws_app():
 
     app = FastAPI()
     app.include_router(ws_router)
-    yield app
+    return app
 
 
 @pytest.fixture
-async def ws_client(ws_app):
-    """Return an async TestClient for WebSocket testing."""
+def ws_client(ws_app):
+    """Return a TestClient for WebSocket testing."""
     from fastapi.testclient import TestClient
 
     return TestClient(ws_app)
