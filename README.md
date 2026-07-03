@@ -82,7 +82,7 @@ SimpleETL/
 │   ├── app/
 │   │   ├── main.py              # FastAPI app, lifespan, CORS, static files
 │   │   ├── config.py            # Pydantic Settings (env + config.json)
-│   │   ├── models/              # Request/response schemas
+│   │   ├── schemas/            # Request/response schemas
 │   │   ├── api/                 # REST endpoints + WebSocket
 │   │   ├── services/            # Business logic layer
 │   │   └── etl/                 # Async wrapper around core ETL pipeline

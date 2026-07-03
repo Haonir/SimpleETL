@@ -49,7 +49,7 @@ backend/
 │   ├── __init__.py
 │   ├── main.py              # FastAPI app, lifespan, CORS, static files
 │   ├── config.py            # Pydantic Settings (env + config.json)
-│   ├── models/
+│   ├── schemas/
 │   │   ├── __init__.py
 │   │   ├── config.py        # Config schemas (request/response)
 │   │   ├── job.py           # Job status, progress, log schemas
@@ -301,7 +301,7 @@ function createWindow() {
 
 ### Phase 1: Backend Foundation (Week 1)
 - [ ] FastAPI project setup with `pyproject.toml`, `uvicorn`, `pydantic-settings`
-- [ ] Config service (reuse `core/config_manager.py` + Pydantic models)
+- [ ] Config service (reuse `core/config_manager.py` + Pydantic schemas)
 - [ ] REST endpoints: `/config`, `/prompts` CRUD
 - [ ] WebSocket manager + `/ws/{job_id}` endpoint
 - [ ] File upload endpoint (multipart → temp dir)
