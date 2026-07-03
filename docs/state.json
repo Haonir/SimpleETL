@@ -22,19 +22,19 @@
     {
       "id": "task-002",
       "title": "Create AppSettings with pydantic-settings (env + config.json path)",
-      "status": "pending",
-      "coder_iterations": 0,
-      "started_at": null,
-      "completed_at": null,
+      "status": "completed",
+      "coder_iterations": 2,
+      "started_at": "2026-07-03T20:10:00Z",
+      "completed_at": "2026-07-03T17:20:00Z",
       "error_log": null
     },
     {
       "id": "task-003",
       "title": "Create ConfigService class (load/save/get_prompts/add_prompt/delete_prompt)",
-      "status": "pending",
-      "coder_iterations": 0,
-      "started_at": null,
-      "completed_at": null,
+      "status": "completed",
+      "coder_iterations": 2,
+      "started_at": "2026-07-03T17:30:00Z",
+      "completed_at": "2026-07-03T17:35:00Z",
       "error_log": null
     },
     {
@@ -58,11 +58,11 @@
   ],
   "global_variables_file": "docs/global_variables.json",
   "test_results": {
-      "last_run_at": "2026-07-03T20:00:00Z",
-      "total": 15,
-      "passed": 15,
-      "failed": 0,
-      "failures": []
+    "last_run_at": "2026-07-03T17:35:00Z",
+    "total": 16,
+    "passed": 16,
+    "failed": 0,
+    "failures": []
   },
   "review": {
     "last_review_at": null,
@@ -85,20 +85,70 @@
       "event": "Task task-001 completed: Created Pydantic v2 schemas (config.py) + validation tests (test_schemas_config.py)",
       "actor": "coder"
     },
-      {
-        "timestamp": "2026-07-03T19:55:00Z",
-        "event": "Fix #3 for task-001: fixed chunk_overlap constraint + test",
-        "actor": "orchestrator"
-      },
-      {
-        "timestamp": "2026-07-03T20:00:00Z",
-        "event": "Tests task-001: 15/15 passed",
-        "actor": "orchestrator"
-      },
-      {
-        "timestamp": "2026-07-03T20:00:00Z",
-        "event": "task-001 completed",
-        "actor": "orchestrator"
-      }
-    ]
+    {
+      "timestamp": "2026-07-03T19:55:00Z",
+      "event": "Fix #3 for task-001: fixed chunk_overlap constraint + test",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-03T20:00:00Z",
+      "event": "Tests task-001: 15/15 passed",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-03T20:00:00Z",
+      "event": "task-001 completed",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-03T20:10:00Z",
+      "event": "Task task-002 started: Create AppSettings with pydantic-settings",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-03T17:15:00Z",
+      "event": "Fix #2 for task-002: fixed 4 test failures (JSONDecodeError not caught, default_prompts_dict_empty used real config path, env_nested_delimiter invalid for flat fields, config_path_default compared with relative instead of absolute path)",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-03T17:20:00Z",
+      "event": "Tests task-002: 13/13 passed",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-03T17:20:00Z",
+      "event": "task-002 completed",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-03T17:30:00Z",
+      "event": "Task task-003 started: Create ConfigService class",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-03T18:00:00Z",
+      "event": "Tests task-003: 15/15 passed (functional verification)",
+      "actor": "coder"
+    },
+    {
+      "timestamp": "2026-07-03T18:00:00Z",
+      "event": "task-003 completed",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-03T17:32:00Z",
+      "event": "Fix #2 for task-003: added JSONDecodeError to add_prompt except",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-03T17:35:00Z",
+      "event": "Tests task-003: 16/16 passed",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-03T17:35:00Z",
+      "event": "task-003 completed",
+      "actor": "orchestrator"
+    }
+  ]
 }
