@@ -301,9 +301,9 @@ function createWindow() {
 
 ### Phase 1: Backend Foundation (Week 1)
 - [x] FastAPI project setup with `pyproject.toml`, `uvicorn`, `pydantic-settings`
-- [ ] Config service (reuse `core/config_manager.py` + Pydantic schemas)
-- [ ] REST endpoints: `/config`, `/prompts` CRUD
-- [ ] WebSocket manager + `/ws/{job_id}` endpoint
+- [x] Config service (reuse `core/config_manager.py` + Pydantic schemas)
+- [x] REST endpoints: `/config`, `/prompts` CRUD
+- [x] WebSocket manager + `/ws/{job_id}` endpoint
 - [ ] File upload endpoint (multipart → temp dir)
 - [ ] Job service with in-memory registry
 - [ ] ETL runner: async wrapper around `process_batch` with WS callbacks

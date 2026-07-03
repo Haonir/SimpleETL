@@ -157,7 +157,10 @@ class ConfigService:
         else:
             from app.settings import get_settings
 
-            self._config_path = Path(get_settings().config_file)
+            settings = get_settings()
+            # Use _config_path property (handles fallback resolution)
+            # instead of raw config_file field which may be empty
+            self._config_path = settings._config_path
 
     # ── load() ──────────────────────────────────────────────────────────────
 
