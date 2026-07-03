@@ -6,8 +6,8 @@ from datetime import datetime
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 
-import config_manager
-import etl_pipeline
+from . import config_manager
+from . import etl_pipeline
 
 if getattr(sys, 'frozen', False):
     BASE_DIR = os.path.dirname(sys.executable)
@@ -824,9 +824,9 @@ class SimpleETLApp:
 
 
 # ═══════════════════════════════════════════════════════════════
-if __name__ == "__main__":
-    ctk.set_appearance_mode("light")
-    ctk.set_default_color_theme("blue")
-    root = ctk.CTk()
-    app = SimpleETLApp(root)
-    root.mainloop()
+# if __name__ == "__main__":
+#     ctk.set_appearance_mode("light")
+#     ctk.set_default_color_theme("blue")
+#     root = ctk.CTk()
+#     app = SimpleETLApp(root)
+#     root.mainloop()

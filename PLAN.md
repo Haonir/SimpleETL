@@ -1,5 +1,11 @@
 # Migration Plan: SimpleETL → Vue 3 + FastAPI (Web App, Electron-Ready)
 
+## Status Update
+
+The **backend scaffold (`backend/app/`)** has already been created with the full structure described in this plan. The project is ready for development work following the phases outlined below.
+
+> **Note:** The `.venv-core` virtual environment for the desktop app (`core/`) is now located at `core/.venv-core/`, not at the project root.
+
 ## 1. Architecture Overview
 
 ```
@@ -25,7 +31,7 @@
 │  └──────────┘  └──────────┘  └────┬─────┘  └────────────────┘  │
 │                                    │                              │
 │                           ┌────────▼────────┐                     │
-│                           │ etl_pipeline.py │ (async-adapted)     │
+│                           │ core/etl_pipeline.py │ (async-adapted)     │
 │                           └─────────────────┘                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -78,7 +84,7 @@ backend/
 
 | Component | Responsibility | Migration Notes |
 |-----------|---------------|-----------------|
-| `config_service.py` | Load/save `config.json` | **Reuse** `config_manager.py` logic; add Pydantic validation |
+| `config_service.py` | Load/save `config.json` | **Reuse** `core/config_manager.py` logic; add Pydantic validation |
 | `file_service.py` | Save uploads to temp dir, cleanup | New: `tempfile` + background cleanup task |
 | `job_service.py` | Create/manage ETL jobs, track status | New: job registry (in-memory + persistence optional) |
 | `websocket_manager.py` | Broadcast progress/logs to clients | New: `ConnectionManager` class with `job_id` rooms |
@@ -295,7 +301,7 @@ function createWindow() {
 
 ### Phase 1: Backend Foundation (Week 1)
 - [ ] FastAPI project setup with `pyproject.toml`, `uvicorn`, `pydantic-settings`
-- [ ] Config service (reuse `config_manager.py` + Pydantic models)
+- [ ] Config service (reuse `core/config_manager.py` + Pydantic models)
 - [ ] REST endpoints: `/config`, `/prompts` CRUD
 - [ ] WebSocket manager + `/ws/{job_id}` endpoint
 - [ ] File upload endpoint (multipart → temp dir)
@@ -347,9 +353,9 @@ function createWindow() {
 
 | Module | Action |
 |--------|--------|
-| `config_manager.py` | **Reuse** → `services/config_service.py` with Pydantic |
-| `etl_pipeline.py` | **Reuse** logic; wrap in `services/etl/runner.py` |
-| `main_ui.py` GUI | **Rewrite** as Vue components |
+| `core/config_manager.py` | **Reuse** → `services/config_service.py` with Pydantic |
+| `core/etl_pipeline.py` | **Reuse** logic; wrap in `services/etl/runner.py` |
+| `core/main_ui.py` GUI | **Rewrite** as Vue components |
 | `FileListBox` | **Rewrite** → `FileList` + `FileItem` (Vue) |
 | Prompt library UI | **Rewrite** → `PromptLibrary` components |
 | Context menu | **Rewrite** → `useContextMenu` composable |

@@ -1,5 +1,6 @@
 __pycache__
 .venv
+.opencode
 build
 dist
 main_ui.spec

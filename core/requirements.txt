@@ -1,0 +1,8 @@
+customtkinter>=5.2.0
+openai>=1.0.0
+langchain-text-splitters>=0.0.1
+python-frontmatter>=1.0.0
+python-docx>=1.0.0
+PyMuPDF>=1.23.0
+pytesseract>=0.3.10
+Pillow>=10.0.0

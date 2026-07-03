@@ -1,6 +1,11 @@
 # SimpleETL — Text Processing & SPR Pipeline
 
-**SimpleETL** — это десктопное приложение с современным графическим интерфейсом (CustomTkinter) для автоматизированной обработки текстовых документов. Приложение нарезает исходный текст на фрагменты (чанки), отправляет их в LLM-модель для генерации структурированного представления (SPR) и упаковывает результат в готовые Markdown-файлы с метаданными YAML Front Matter.
+**SimpleETL** состоит из двух проектов:
+
+1. **`core/`** — десктопное приложение с современным графическим интерфейсом (CustomTkinter) для автоматизированной обработки текстовых документов. Приложение нарезает исходный текст на фрагменты (чанки), отправляет их в LLM-модель для генерации структурированного представления (SPR) и упаковывает результат в готовые Markdown-файлы с метаданными YAML Front Matter.
+2. **`backend/`** — веб-бэкенд для миграции на Vue 3 + FastAPI (см. [PLAN.md](PLAN.md)). Scaffold уже создан со структурой проекта, готов к развитию.
+
+Оба проекта могут запускаться одновременно: десктопное приложение (`core/main_ui.py`) и веб-сервер (`backend/app/main.py`).
 
 **Цель приложения** — подготовить структурированные Markdown-файлы с метаданными YAML Front Matter для последующей передачи в embedding-модель при построении RAG-систем (Retrieval-Augmented Generation). Благодаря формату SPR каждый фрагмент содержит не только исходный текст, но и концентрированное смысловое представление: концепцию, алгоритм, формулу, метафору, связи и теги. Это значительно повышает качество семантического поиска при векторизации — embedding-модель получает не «сырой» текст, а обогащённый контекст с явно выделенными связями и ключевыми понятиями, что позволяет RAG-системе точнее находить релевантные фрагменты при генерации ответов.
 
@@ -16,15 +21,30 @@
 
 ## 📋 Содержание
 
-- [Возможности](#-возможности)
-- [Архитектура проекта](#-архитектура-проекта)
-- [Установка](#-установка)
-- [Конфигурация](#-конфигурация)
-- [Использование](#-использование)
-- [Форматы вывода](#-форматы-вывода)
-- [Поддерживаемые форматы файлов](#-поддерживаемые-форматы-файлов)
-- [Структура выходных данных](#-структура-выходных-данных)
-- [Зависимости](#-зависимости)
+- [SimpleETL — Text Processing \& SPR Pipeline](#simpleetl--text-processing--spr-pipeline)
+    - [Интерфейс приложения](#интерфейс-приложения)
+  - [📋 Содержание](#-содержание)
+  - [🚀 Возможности](#-возможности)
+  - [🏗 Архитектура проекта](#-архитектура-проекта)
+    - [Схема конвейера (ETL)](#схема-конвейера-etl)
+  - [⚙️ Установка](#️-установка)
+    - [1. Клонирование репозитория](#1-клонирование-репозитория)
+    - [2. Создание виртуального окружения для ядра](#2-создание-виртуального-окружения-для-ядра)
+    - [3. Установка зависимостей ядра](#3-установка-зависимостей-ядра)
+    - [4. Запуск приложения](#4-запуск-приложения)
+  - [🔧 Конфигурация](#-конфигурация)
+  - [📖 Использование](#-использование)
+    - [Пошаговая инструкция](#пошаговая-инструкция)
+    - [Горячие клавиши](#горячие-клавиши)
+  - [🧠 Форматы вывода](#-форматы-вывода)
+    - [1. `spr` (по умолчанию)](#1-spr-по-умолчанию)
+    - [2. `frontmatter`](#2-frontmatter)
+    - [3. `markdown`](#3-markdown)
+  - [📁 Поддерживаемые форматы файлов](#-поддерживаемые-форматы-файлов)
+  - [📂 Структура выходных данных](#-структура-выходных-данных)
+  - [📦 Зависимости](#-зависимости)
+  - [📄 Лицензия](#-лицензия)
+  - [👤 Автор](#-автор)
 
 ---
 
@@ -51,19 +71,40 @@
 
 ```
 SimpleETL/
-├── main_ui.py           # GUI-приложение (CustomTkinter) — точка входа
-├── etl_pipeline.py      # Ядро ETL-конвейера: нарезка → LLM-анализ → упаковка
-├── config_manager.py    # Менеджер конфигурации (сохранение/загрузка config.json)
-├── config.json          # Файл настроек (генерируется автоматически)
+├── core/                # Desktop ETL pipeline implementation package + dependencies
+│   ├── __init__.py      # Package init, version, public API exports
+│   ├── main_ui.py       # GUI-приложение (CustomTkinter) — точка входа
+│   ├── etl_pipeline.py  # Ядро ETL-конвейера: нарезка → LLM-анализ → упаковка
+│   ├── config_manager.py# Менеджер конфигурации (сохранение/загрузка config.json)
+│   ├── requirements.txt # Список зависимостей для .venv-core
+│   └── .venv-core/      # Виртуальное окружение с установленными зависимостями
+├── backend/             # Web backend scaffold for Vue 3 + FastAPI migration (see PLAN.md)
+│   ├── app/
+│   │   ├── main.py              # FastAPI app, lifespan, CORS, static files
+│   │   ├── config.py            # Pydantic Settings (env + config.json)
+│   │   ├── models/              # Request/response schemas
+│   │   ├── api/                 # REST endpoints + WebSocket
+│   │   ├── services/            # Business logic layer
+│   │   └── etl/                 # Async wrapper around core ETL pipeline
+│   ├── pyproject.toml           # Backend project config
+│   ├── requirements.txt         # Backend dependencies
+│   └── Dockerfile (optional)
+├── frontend/            # Vue 3 + TypeScript SPA scaffold (see PLAN.md)
+│   ├── src/              # Source code
+│   ├── package.json      # Node.js dependencies
+│   ├── vite.config.ts    # Vite build config
+│   └── tsconfig.json     # TypeScript config
 ├── assets/              # Ресурсы (скриншоты, иконки)
 └── README.md            # Документация
 ```
 
 | Модуль | Ответственность |
-|--------|----------------|
-| `main_ui.py` | Графический интерфейс (CustomTkinter), управление вводом/выводом, запуск фоновых потоков |
-| `etl_pipeline.py` | Извлечение текста, нарезка на чанки, вызов LLM, парсинг YAML Front Matter, формирование итоговых `.md` файлов |
-| `config_manager.py` | Чтение и запись JSON-конфигурации с поддержкой Frozen-режима (PyInstaller) |
+|--------|-----------------|
+| `core/main_ui.py` | Графический интерфейс (CustomTkinter), управление вводом/выводом, запуск фоновых потоков |
+| `core/etl_pipeline.py` | Извлечение текста, нарезка на чанки, вызов LLM, парсинг YAML Front Matter, формирование итоговых `.md` файлов |
+| `core/config_manager.py` | Чтение и запись JSON-конфигурации с поддержкой Frozen-режима (PyInstaller) |
+| `backend/app/main.py` | FastAPI приложение — REST API + WebSocket для веба |
+| `backend/services/etl/runner.py` | Асинхронная обёртка над ETL-конвейером из `core/` |
 
 ### Схема конвейера (ETL)
 
@@ -103,27 +144,28 @@ git clone <url-репозитория>
 cd SimpleETL
 ```
 
-### 2. Создание виртуального окружения
+### 2. Создание виртуального окружения для ядра
 
 ```bash
-python -m venv .venv
+python3 -m venv core/.venv-core
+source core/.venv-core/bin/activate
 ```
 
 Активация:
 
 - **Windows:**
   ```powershell
-  .venv\Scripts\Activate.ps1
+  core\.venv-core\Scripts\Activate.ps1
   ```
 - **Linux / macOS:**
   ```bash
-  source .venv/bin/activate
+  source core/.venv-core/bin/activate
   ```
 
-### 3. Установка зависимостей
+### 3. Установка зависимостей ядра
 
 ```bash
-pip install customtkinter openai langchain-text-splitters python-frontmatter python-docx PyMuPDF pytesseract Pillow
+pip install -r core/requirements.txt
 ```
 
 > **Примечание:** Для OCR-распознавания сканированных PDF дополнительно требуется установить [Tesseract-OCR](https://github.com/tesseract-ocr/tesseract) на систему. Без Tesseract приложение работает, но не распознаёт изображения в PDF.
@@ -131,7 +173,7 @@ pip install customtkinter openai langchain-text-splitters python-frontmatter pyt
 ### 4. Запуск приложения
 
 ```bash
-python main_ui.py
+python -m core.main_ui
 ```
 
 ---
