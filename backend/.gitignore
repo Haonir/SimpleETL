@@ -18,6 +18,7 @@ var/
 wheels/
 *.egg-info/
 simple_etl_backend.egg-info/
+.pytest_cache
 
 # Virtual environments
 .venv/

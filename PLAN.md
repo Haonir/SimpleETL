@@ -300,7 +300,7 @@ function createWindow() {
 ## 5. Migration Phases
 
 ### Phase 1: Backend Foundation (Week 1)
-- [ ] FastAPI project setup with `pyproject.toml`, `uvicorn`, `pydantic-settings`
+- [x] FastAPI project setup with `pyproject.toml`, `uvicorn`, `pydantic-settings`
 - [ ] Config service (reuse `core/config_manager.py` + Pydantic schemas)
 - [ ] REST endpoints: `/config`, `/prompts` CRUD
 - [ ] WebSocket manager + `/ws/{job_id}` endpoint

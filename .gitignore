@@ -1,8 +1,8 @@
 __pycache__
 .venv
+.venv-backend
 .opencode
 build
 dist
 main_ui.spec
 config.json
-AGENTS.md
