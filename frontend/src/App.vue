@@ -7,6 +7,7 @@ import { usePromptsStore } from '@/stores/prompts'
 import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
 import PromptLibrary from '@/components/PromptLibrary/PromptLibrary.vue'
 import LogPanel from '@/components/LogPanel/LogPanel.vue'
+import FileList from '@/components/FileList/FileList.vue'
 import { onMounted } from 'vue'
 
 const uiStore = useUiStore()
