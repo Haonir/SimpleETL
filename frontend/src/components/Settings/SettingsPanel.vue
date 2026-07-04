@@ -49,8 +49,8 @@ async function saveSettings() {
 
     <!-- Tab content -->
     <div class="tab-content">
-      <LLMSettings v-model="llmValue" :disabled="false" />
-      <ProcessingSettings v-model="processingValue" :disabled="false" />
+      <LLMSettings v-model="llmValue" :disabled="false" v-if="activeTab === 'llm'" />
+      <ProcessingSettings v-model="processingValue" :disabled="false" v-if="activeTab === 'processing'" />
     </div>
 
     <!-- Save button -->

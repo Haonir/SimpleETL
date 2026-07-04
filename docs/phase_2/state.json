@@ -7,7 +7,7 @@
       "id": "task-001",
       "title": "Scaffold Vue 3 + Vite + TypeScript project",
       "status": "completed",
-      "coder_iterations": 0,
+      "coder_iterations": 1,
       "started_at": "2026-07-04T13:05:00Z",
       "completed_at": "2026-07-04T13:10:00Z",
       "error_log": null
@@ -34,7 +34,7 @@
       "id": "task-004",
       "title": "Pinia stores (config, files, prompts, job, ui)",
       "status": "completed",
-      "coder_iterations": 3,
+      "coder_iterations": 4,
       "started_at": "2026-07-04T13:35:00Z",
       "completed_at": "2026-07-04T16:15:00Z",
       "error_log": null
