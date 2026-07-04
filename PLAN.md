@@ -327,11 +327,11 @@ function createWindow() {
 - [x] WebSocket manager + `/ws/{job_id}` endpoint
 - [x] File upload endpoint (multipart → temp dir)
 - [x] Job service with in-memory registry
-- [ ] ETL pipeline: modular async architecture (extractor, splitter, llm_processor, packer, image_utils, runner, callbacks)
+- [x] ETL pipeline: modular async architecture (extractor, splitter, llm_processor, packer, image_utils, runner, callbacks)
 
 ### Phase 2: Frontend Core (Week 2)
 - [x] Vue 3 + TypeScript + Pinia + Vite setup
-- [ ] Component library (Button, Input, Select, Checkbox, Modal, ProgressBar)
+- [x] Component library (Button, Input, Select, Checkbox, Modal, ProgressBar)
 - [ ] Layout: Dashboard with left panel (scrollable) + right panel
 - [ ] Config store + REST sync (load/save settings)
 - [ ] Prompt library store + UI (selector, editor, save/delete dialogs)
