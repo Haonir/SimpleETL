@@ -1,0 +1,79 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { setActivePinia, createPinia } from 'pinia'
+
+const { mockGetConfig, mockSaveConfig } = vi.hoisted(() => ({
+  mockGetConfig: vi.fn(),
+  mockSaveConfig: vi.fn(),
+}))
+
+vi.mock('@/services/api', () => ({
+  getConfig: mockGetConfig,
+  saveConfig: mockSaveConfig,
+}))
+
+import { useConfigStore } from '@/stores/config'
+
+describe('config store', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    mockGetConfig.mockClear()
+    mockSaveConfig.mockClear()
+  })
+
+  it('loadConfig populates state from API', async () => {
+    mockGetConfig.mockResolvedValue({
+      llm: { model: 'gpt-4', base_url: 'http://x', api_key: 'k' },
+      processing: { chunk_size: 5000, chunk_overlap: 500, max_workers: 2, output_format: 'spr' },
+      prompts: [],
+      current_prompt_name: '',
+    })
+
+    const store = useConfigStore()
+    await store.loadConfig()
+
+    expect(store.llm.model).toBe('gpt-4')
+    expect(store.processing.chunk_size).toBe(5000)
+    expect(store.loaded).toBe(true)
+  })
+
+  it('save sends correct update to API', async () => {
+    mockGetConfig.mockResolvedValue({
+      llm: { model: 'a', base_url: 'b', api_key: 'c' },
+      processing: { chunk_size: 1, chunk_overlap: 1, max_workers: 1, output_format: 'spr' },
+      prompts: [],
+      current_prompt_name: '',
+    })
+    mockSaveConfig.mockResolvedValue({
+      llm: { model: 'updated', base_url: 'b', api_key: 'c' },
+      processing: { chunk_size: 1, chunk_overlap: 1, max_workers: 1, output_format: 'spr' },
+      prompts: [],
+      current_prompt_name: '',
+    })
+
+    const store = useConfigStore()
+    await store.loadConfig()
+    store.updateLLM({ model: 'updated' })
+    await store.save()
+
+    expect(mockSaveConfig).toHaveBeenCalledWith({
+      llm: { model: 'updated', base_url: 'b', api_key: 'c' },
+      processing: { chunk_size: 1, chunk_overlap: 1, max_workers: 1, output_format: 'spr' },
+    })
+  })
+
+  it('updateLLM merges partial state', () => {
+    const store = useConfigStore()
+    store.updateLLM({ model: 'new-model' })
+
+    expect(store.llm.model).toBe('new-model')
+    expect(store.llm.base_url).toBe('')
+  })
+
+  it('updateProcessing merges partial state', () => {
+    const store = useConfigStore()
+    store.updateProcessing({ max_workers: 4 })
+
+    expect(store.processing.max_workers).toBe(4)
+    expect(store.processing.chunk_size).toBe(10000)
+  })
+})

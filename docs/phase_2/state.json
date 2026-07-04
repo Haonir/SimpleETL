@@ -34,9 +34,9 @@
       "id": "task-004",
       "title": "Pinia stores (config, files, prompts, job, ui)",
       "status": "completed",
-      "coder_iterations": 2,
+      "coder_iterations": 3,
       "started_at": "2026-07-04T13:35:00Z",
-      "completed_at": "2026-07-04T13:40:00Z",
+      "completed_at": "2026-07-04T16:15:00Z",
       "error_log": null
     },
     {
@@ -68,9 +68,9 @@
     }
   ],
   "test_results": {
-    "last_run_at": "2026-07-04T14:15:00Z",
-    "total": 22,
-    "passed": 22,
+    "last_run_at": "2026-07-04T16:15:00Z",
+    "total": 21,
+    "passed": 21,
     "failed": 0,
     "failures": []
   },
@@ -139,7 +139,7 @@
       "timestamp": "2026-07-04T14:10:00Z",
       "event": "Task task-005 completed: 6 UI components + 18 tests (Button, Input, Select, Checkbox, Modal, ProgressBar)",
       "actor": "coder"
-    },
+      },
       {
         "timestamp": "2026-07-04T13:45:00Z",
         "event": "Task task-004 fix completed: job.test.ts rewritten with vi.hoisted() — mockConnect/mockDisconnect/mockSend now properly hoisted before vi.mock factory runs"
@@ -148,6 +148,11 @@
         "timestamp": "2026-07-04T14:15:00Z",
         "event": "Tests task-005: 18/18 UI component tests passed + 4/4 api.test.ts passed = 22/22 total",
         "actor": "orchestrator"
+      },
+      {
+        "timestamp": "2026-07-04T16:15:00Z",
+        "event": "Task task-004 completed: 5 Pinia stores + 17 tests. All 21 tests pass.",
+        "actor": "orchestrator"
       }
-  ]
+    ]
 }

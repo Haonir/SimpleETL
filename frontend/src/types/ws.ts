@@ -56,5 +56,12 @@ export type WSServerMessage =
   | WSDoneMessage
   | WSErrorMessage
 
+/** Timestamped log entry for the UI log panel. */
+export interface LogEntry {
+  timestamp: string
+  level: 'info' | 'warning' | 'error'
+  message: string
+}
+
 /** Union of all client-to-server WebSocket messages. */
 export type WSClientMessage = WSStopMessage
