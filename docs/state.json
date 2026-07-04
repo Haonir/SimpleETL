@@ -1,221 +1,106 @@
 {
   "schema_version": "2.1",
   "phase": {
-    "id": "phase-1-config-service",
-    "title": "Backend Foundation — Config Service",
-    "status": "completed",
-    "started_at": "2026-07-03T12:00:00Z",
-    "updated_at": "2026-07-03T18:20:00Z"
+    "id": "phase-2-frontend-core",
+    "title": "Phase 2: Frontend Core",
+    "started_at": "2026-07-04T12:00:00Z",
+    "updated_at": "2026-07-04T12:00:00Z",
+    "status": "executing"
   },
   "plan_approved": true,
-  "plan_snapshot": "Phase 1: Backend Foundation — Config Service (reuse core/config_manager.py + Pydantic schemas)",
+  "plan_snapshot": "Phase 2: Frontend Core (Week 2) — Vue 3 + TypeScript + Pinia + Vite setup, component library, dashboard layout, config/prompt/file stores, settings panels, file list with drag-drop, log panel",
   "todo": [
     {
       "id": "task-001",
-      "title": "Create Pydantic schemas for config (LLMConfig, ProcessingConfig, PromptEntry, ConfigResponse, ConfigUpdateRequest)",
+      "title": "Scaffold Vue 3 + Vite + TypeScript project",
       "status": "completed",
-      "coder_iterations": 3,
-      "started_at": "2026-07-03T12:01:00Z",
-      "completed_at": "2026-07-03T20:00:00Z",
+      "coder_iterations": 1,
+      "started_at": "2026-07-04T12:05:00Z",
+      "completed_at": "2026-07-04T12:10:00Z",
       "error_log": null
     },
     {
       "id": "task-002",
-      "title": "Create AppSettings with pydantic-settings (env + config.json path)",
-      "status": "completed",
-      "coder_iterations": 2,
-      "started_at": "2026-07-03T20:10:00Z",
-      "completed_at": "2026-07-03T17:20:00Z",
+      "title": "TypeScript types (mirror Pydantic schemas)",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
       "error_log": null
     },
     {
       "id": "task-003",
-      "title": "Create ConfigService class (load/save/get_prompts/add_prompt/delete_prompt)",
-      "status": "completed",
-      "coder_iterations": 2,
-      "started_at": "2026-07-03T17:30:00Z",
-      "completed_at": "2026-07-03T17:35:00Z",
+      "title": "API service + Axios setup",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
       "error_log": null
     },
     {
       "id": "task-004",
-      "title": "Create REST endpoints (GET/POST /config, GET/POST/DELETE /prompts)",
-      "status": "completed",
-      "coder_iterations": 1,
-      "started_at": "2026-07-03T21:20:00Z",
-      "completed_at": "2026-07-03T21:25:00Z",
+      "title": "Pinia stores (config, files, prompts, job, ui)",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
       "error_log": null
     },
     {
       "id": "task-005",
-      "title": "Create FastAPI main.py with lifespan, CORS, router inclusion",
-      "status": "completed",
-      "coder_iterations": 2,
-      "started_at": "2026-07-03T20:00:00Z",
-      "completed_at": "2026-07-03T18:15:00Z",
-      "error_log": null
-    },
-    {
-      "id": "task-fix-broadcast-test",
-      "title": "Fix test_broadcast_sends_to_all — check send_text instead of receive_text",
-      "status": "completed",
-      "coder_iterations": 1,
-      "started_at": "2026-07-03T18:25:00Z",
+      "title": "UI component library (Button, Input, Select, Checkbox, Modal, ProgressBar)",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
       "completed_at": null,
       "error_log": null
     },
     {
       "id": "task-006",
-      "title": "WebSocket manager + /ws/{job_id} endpoint",
-      "status": "completed",
-      "coder_iterations": 3,
-      "started_at": "2026-07-03T20:30:00Z",
-      "completed_at": "2026-07-03T21:15:00Z",
+      "title": "Dashboard layout + File list component",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
+      "error_log": null
+    },
+    {
+      "id": "task-007",
+      "title": "Settings panels + Prompt library + Log panel",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
       "error_log": null
     }
   ],
   "global_variables_file": "docs/global_variables.json",
   "test_results": {
-    "last_run_at": "2026-07-03T21:15:00Z",
-    "total": 17,
-    "passed": 16,
+    "last_run_at": "2026-07-04T12:10:00Z",
+    "total": 0,
+    "passed": 0,
     "failed": 0,
     "failures": []
   },
   "review": {
-    "last_review_at": "2026-07-03T21:25:00Z",
-    "verdict": "pass",
-    "report": {"verdict":"pass","total":58,"passed":58,"failed":0,"failures":[],"plan_compliance":{"total_tasks":6,"completed":6,"failed":0,"missing":[],"deviations":[]},"integration_issues":[],"architecture_notes":["Architecture follows plan: schemas → settings → service → API → main","All Pydantic v2 schemas properly validated","ConfigService reuses core/config_manager.py logic","CORS middleware configured for all origins","Lifespan context manager handles startup/shutdown"],"recommendations":[],"reviewed_at":"2026-07-03T21:25:00Z","summary":"All 58 tests pass across 7 test files. Architecture follows approved plan. Global variables properly registered."}
+    "last_review_at": null,
+    "verdict": "",
+    "report": null
   },
   "history": [
     {
-      "timestamp": "2026-07-03T12:00:00Z",
-      "event": "Plan approved, execution started for Config Service",
+      "timestamp": "2026-07-04T12:00:00Z",
+      "event": "Phase 2 plan approved, execution started",
       "actor": "orchestrator"
     },
     {
-      "timestamp": "2026-07-03T12:01:00Z",
-      "event": "Task task-001 started: Create Pydantic schemas for config",
+      "timestamp": "2026-07-04T12:05:00Z",
+      "event": "Task task-001 started: Scaffold Vue 3 + Vite + TypeScript project",
       "actor": "orchestrator"
     },
     {
-      "timestamp": "2026-07-03T19:45:00Z",
-      "event": "Task task-001 completed: Created Pydantic v2 schemas (config.py) + validation tests (test_schemas_config.py)",
-      "actor": "coder"
-    },
-    {
-      "timestamp": "2026-07-03T19:55:00Z",
-      "event": "Fix #3 for task-001: fixed chunk_overlap constraint + test",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T20:00:00Z",
-      "event": "Tests task-001: 15/15 passed",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T20:00:00Z",
-      "event": "task-001 completed",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T20:10:00Z",
-      "event": "Task task-002 started: Create AppSettings with pydantic-settings",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T17:15:00Z",
-      "event": "Fix #2 for task-002: fixed 4 test failures (JSONDecodeError not caught, default_prompts_dict_empty used real config path, env_nested_delimiter invalid for flat fields, config_path_default compared with relative instead of absolute path)",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T17:20:00Z",
-      "event": "Tests task-002: 13/13 passed",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T17:20:00Z",
-      "event": "task-002 completed",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T17:30:00Z",
-      "event": "Task task-003 started: Create ConfigService class",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T18:00:00Z",
-      "event": "Tests task-003: 15/15 passed (functional verification)",
-      "actor": "coder"
-    },
-    {
-      "timestamp": "2026-07-03T18:00:00Z",
-      "event": "task-003 completed",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T17:32:00Z",
-      "event": "Fix #2 for task-003: added JSONDecodeError to add_prompt except",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T17:35:00Z",
-      "event": "Tests task-003: 16/16 passed",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T17:35:00Z",
-      "event": "task-003 completed",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T18:14:00Z",
-      "event": "Tests task-005: 2/2 passed",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T18:14:00Z",
-      "event": "Full test run: 56/56 passed",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T18:15:00Z",
-      "event": "task-005 completed",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T18:15:00Z",
-      "event": "Phase status updated to reviewing. All 5 tasks completed.",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T18:20:00Z",
-      "event": "Review: pass — all 56 tests pass, architecture compliant",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T18:20:00Z",
-      "event": "Phase 1 completed successfully",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T18:25:00Z",
-      "event": "Fix task-fix-broadcast-test: rewrote test_broadcast_sends_to_all to check send_text instead of receive_text queue",
-      "actor": "coder"
-    },
-    {
-      "timestamp": "2026-07-03T21:15:00Z",
-      "event": "Task task-006 completed: WebSocket manager + /ws/{job_id} endpoint — 16/17 tests passed (1 skipped)",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T21:25:00Z",
-      "event": "Task task-004 completed: REST endpoints (GET/POST /config, GET/POST/DELETE /prompts) — 58/58 tests passed",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-03T21:25:00Z",
-      "event": "Review updated: pass — all 58 tests pass across 7 test files, architecture compliant",
+      "timestamp": "2026-07-04T12:10:00Z",
+      "event": "Task task-001 completed: Scaffold Vue 3 + Vite + TypeScript project (tsc + build verified, no unit tests)",
       "actor": "orchestrator"
     }
   ]

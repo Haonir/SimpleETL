@@ -1,0 +1,15 @@
+:root {
+  --bg-main: #eef1f5;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --fg-title: #1a1a2e;
+  --fg-label: #374151;
+  --fg-header: #2c323a;
+  --border: #d1d5db;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-disabled: #93c5fd;
+  --btn-bg: #e5e7eb;
+  --btn-fg: #1f2937;
+  --btn-hover: #d1d5db;
+}
