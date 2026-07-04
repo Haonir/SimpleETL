@@ -1,7 +1,7 @@
 {
   "schema_version": "3.0",
   "plan_approved": true,
-  "plan_snapshot": "Phase 1: Backend Foundation — FastAPI project setup, config service, REST endpoints, WebSocket manager, file upload, job service, ETL runner",
+  "plan_snapshot": "Phase 1: Backend Foundation \u2014 FastAPI project setup, config service, REST endpoints, WebSocket manager, file upload, job service, ETL runner",
   "todo": [
     {
       "id": "task-001",
@@ -41,7 +41,7 @@
     },
     {
       "id": "task-005",
-      "title": "File upload endpoint (multipart → temp dir)",
+      "title": "File upload endpoint (multipart \u2192 temp dir)",
       "status": "completed",
       "coder_iterations": 0,
       "started_at": null,
@@ -51,33 +51,60 @@
     {
       "id": "task-006",
       "title": "Job service with in-memory registry",
-      "status": "pending",
-      "coder_iterations": 0,
-      "started_at": null,
-      "completed_at": null,
+      "status": "completed",
+      "coder_iterations": 3,
+      "started_at": "2026-07-04T01:00:00Z",
+      "completed_at": "2026-07-04T01:39:24Z",
       "error_log": null
     },
     {
       "id": "task-007",
       "title": "ETL runner: async wrapper around process_batch with WS callbacks",
-      "status": "pending",
+      "status": "failed",
       "coder_iterations": 0,
       "started_at": null,
       "completed_at": null,
-      "error_log": null
+      "error_log": "Skipped per user request \u2014 reviewed without ETL runner"
     }
   ],
   "test_results": {
-    "last_run_at": null,
-    "total": 0,
-    "passed": 0,
+    "last_run_at": "2026-07-04T01:39:24Z",
+    "total": 39,
+    "passed": 39,
     "failed": 0,
     "failures": []
   },
   "review": {
-    "last_review_at": "2026-07-04T00:59:16Z",
+    "last_review_at": "2026-07-04T01:48:08Z",
     "verdict": "pass",
-    "report": {"verdict":"pass","total":110,"passed":110,"failed":0,"failures":[],"plan_compliance":{"total_tasks":5,"completed":5,"failed":0,"missing":[],"deviations":[]},"integration_issues":[],"architecture_notes":["Clean 4-layer separation: routers → services → schemas → settings","Singleton pattern used consistently for shared state","WebSocket manager properly uses asyncio.Lock for concurrent safety","ConfigService handles legacy flat format migration gracefully"],"recommendations":["Update HTTP_422_UNPROCESSABLE_ENTITY → HTTP_422_UNPROCESSABLE_CONTENT in api/v1/files.py:36 (Starlette deprecation)","WebSocket schemas defined but not yet consumed — expected since task-007 is pending"],"reviewed_at":"2026-07-04T00:59:16Z","summary":"All 110 tests passed. All 5 completed tasks match the plan architecture exactly with clean layer separation, proper async patterns, and correct global variable compliance."}
+    "report": {
+      "verdict": "pass",
+      "total": 149,
+      "passed": 149,
+      "failed": 0,
+      "failures": [],
+      "plan_compliance": {
+        "total_tasks": 7,
+        "completed": 6,
+        "failed": 1,
+        "missing": [],
+        "deviations": []
+      },
+      "integration_issues": [],
+      "architecture_notes": [
+        "Clean FastAPI layering: routers \u2192 services \u2192 schemas with proper separation of concerns",
+        "Singleton pattern for service instances consistent across all modules",
+        "Async WebSocket support via ConnectionManager with asyncio.Lock thread-safety",
+        "API contract fully matches PLAN.md section 2.3",
+        "No circular dependencies between modules"
+      ],
+      "recommendations": [
+        "Register global variables in docs/global_variables.json",
+        "Task-007 (ETL runner) was skipped per user request"
+      ],
+      "reviewed_at": "2026-07-04T01:48:08Z",
+      "summary": "All 149 tests passed. 6/7 tasks completed, task-007 skipped per user request. No integration issues."
+    }
   },
   "history": [
     {
@@ -87,7 +114,42 @@
     },
     {
       "timestamp": "2026-07-04T00:59:16Z",
-      "event": "Review: pass — 110/110 tests passed, 5/5 completed tasks verified",
+      "event": "Review: pass \u2014 110/110 tests passed, 5/5 completed tasks verified",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T01:00:00Z",
+      "event": "Task task-006 started",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T01:00:00Z",
+      "event": "Task task-006: created schemas/job.py and services/job_service.py",
+      "actor": "coder"
+    },
+    {
+      "timestamp": "2026-07-04T01:01:00Z",
+      "event": "Task task-006: created API endpoints and wired routers",
+      "actor": "coder"
+    },
+    {
+      "timestamp": "2026-07-04T01:02:00Z",
+      "event": "Task task-006: wrote schema and service tests",
+      "actor": "coder"
+    },
+    {
+      "timestamp": "2026-07-04T01:39:24Z",
+      "event": "Task task-006 completed: 39/39 tests passed",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T01:40:00Z",
+      "event": "Task task-007 marked as failed \u2014 skipped per user request",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T01:48:08Z",
+      "event": "Review: pass \u2014 149/149 tests passed, 6/7 tasks completed",
       "actor": "orchestrator"
     }
   ]

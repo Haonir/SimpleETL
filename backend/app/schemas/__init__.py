@@ -13,6 +13,8 @@ from .config import (
 
 from .file import FileItem, FileListResponse, FileUploadResponse
 
+from .job import JobItem, JobListResponse, JobResponse, JobStatus
+
 __all__ = [
     "LLMConfig",
     "ProcessingConfig",
@@ -25,4 +27,8 @@ __all__ = [
     "FileItem",
     "FileListResponse",
     "FileUploadResponse",
+    "JobItem",
+    "JobListResponse",
+    "JobResponse",
+    "JobStatus",
 ]
