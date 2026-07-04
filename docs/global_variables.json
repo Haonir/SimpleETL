@@ -1,1 +1,28 @@
-{ "variables": [] }
+{
+  "variables": [
+    {
+      "name": "ALLOWED_EXTENSIONS",
+      "type": "array",
+      "value": [".txt", ".md", ".docx", ".doc", ".pdf"],
+      "file": "app/services/file_service.py:20",
+      "description": "Set of allowed file extensions for upload.",
+      "modules_used_in": ["file_service"]
+    },
+    {
+      "name": "DEFAULT_MAX_FILE_SIZE",
+      "type": "integer",
+      "value": 104857600,
+      "file": "app/services/file_service.py:23",
+      "description": "Maximum upload file size in bytes (100 MB).",
+      "modules_used_in": ["file_service"]
+    },
+    {
+      "name": "OCR_AVAILABLE",
+      "type": "boolean",
+      "value": "dynamic — checked at import time",
+      "file": "app/etl/extractor.py:43",
+      "description": "Whether Tesseract OCR is available for scanned PDF processing.",
+      "modules_used_in": ["extractor"]
+    }
+  ]
+}
