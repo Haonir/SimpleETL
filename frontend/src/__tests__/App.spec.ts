@@ -3,6 +3,29 @@ import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import App from '../App.vue'
 
+vi.mock('@/services/api', () => ({
+  getConfig: vi.fn().mockResolvedValue({
+    llm: { model: '', base_url: '', api_key: '' },
+    processing: { chunk_size: 10000, chunk_overlap: 1500, max_workers: 1, output_format: 'spr' },
+    prompts: [],
+    current_prompt_name: '',
+  }),
+  saveConfig: vi.fn().mockResolvedValue({}),
+  getFiles: vi.fn().mockResolvedValue({ files: [], total: 0 }),
+  uploadFiles: vi.fn().mockResolvedValue({ files: [], total: 0, message: 'ok' }),
+  deleteFile: vi.fn().mockResolvedValue(undefined),
+  getPrompts: vi.fn().mockResolvedValue({ prompts: [], total: 0 }),
+  createPrompt: vi.fn().mockResolvedValue({ name: '', text: '' }),
+  deletePrompt: vi.fn().mockResolvedValue({ deleted: '', message: 'ok' }),
+  createJob: vi.fn().mockResolvedValue({ job: { id: 'test-id', status: 'pending' } }),
+  getJobs: vi.fn().mockResolvedValue({ jobs: [], total: 0 }),
+  getJob: vi.fn().mockResolvedValue({ job: null }),
+  stopJob: vi.fn().mockResolvedValue({ job: null }),
+  getJobFiles: vi.fn().mockResolvedValue({ job_id: '', files: [], total: 0 }),
+  downloadJobFile: vi.fn().mockResolvedValue(new Blob()),
+  downloadJobZip: vi.fn().mockResolvedValue(new Blob()),
+}))
+
 describe('App.vue', () => {
   beforeEach(() => {
     setActivePinia(createPinia())

@@ -4,6 +4,9 @@ import { useJobStore } from '@/stores/job'
 import { useFilesStore } from '@/stores/files'
 import { useConfigStore } from '@/stores/config'
 import { usePromptsStore } from '@/stores/prompts'
+import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
+import PromptLibrary from '@/components/PromptLibrary/PromptLibrary.vue'
+import LogPanel from '@/components/LogPanel/LogPanel.vue'
 import { onMounted } from 'vue'
 
 const uiStore = useUiStore()
@@ -45,14 +48,14 @@ async function handleStart() {
     },
   }
   try {
-    const response = await fetch('/api/v1/jobs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
-    })
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const data = (await response.json()) as { job: { id: string } }
-    jobStore.startJob(data.job.id)
+    await jobStore.createAndStartJob(
+      filesStore.selectedIds,
+      {
+        llm: configStore.llm,
+        processing: configStore.processing,
+        prompt_text: promptsStore.currentPrompt?.text ?? '',
+      }
+    )
   } catch (err) {
     uiStore.showNotification('error', `Failed to start job: ${err instanceof Error ? err.message : String(err)}`)
   }
@@ -132,9 +135,9 @@ onMounted(async () => {
       <!-- Main content area -->
       <main class="app-main">
         <FileList v-if="uiStore.activePanel === 'files'" />
-        <div v-else-if="uiStore.activePanel === 'settings'" class="panel-placeholder">Settings — coming in task-007</div>
-        <div v-else-if="uiStore.activePanel === 'prompts'" class="panel-placeholder">Prompts — coming in task-007</div>
-        <div v-else-if="uiStore.activePanel === 'logs'" class="panel-placeholder">Logs — coming in task-007</div>
+        <SettingsPanel v-else-if="uiStore.activePanel === 'settings'" />
+        <PromptLibrary v-else-if="uiStore.activePanel === 'prompts'" />
+        <LogPanel v-else-if="uiStore.activePanel === 'logs'" />
       </main>
     </div>
   </div>

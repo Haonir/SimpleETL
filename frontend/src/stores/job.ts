@@ -3,6 +3,8 @@ import { ref, computed } from 'vue'
 import { WSConnection } from '@/services/websocket'
 import type { WSServerMessage, LogEntry } from '@/types/ws'
 import type { JobStatus } from '@/types/job'
+import { createJob as apiCreateJob, getJobs as apiGetJobs, getJobFiles as apiGetJobFiles } from '@/services/api'
+import type { JobCreateRequest, JobItem, JobFileItem } from '@/types/job'
 
 export const useJobStore = defineStore('job', () => {
   const currentJobId = ref<string | null>(null)
@@ -12,8 +14,32 @@ export const useJobStore = defineStore('job', () => {
   const logs = ref<LogEntry[]>([])
   const ws = ref<WSConnection | null>(null)
 
+  // ── REST API state ───────────────────────────────────────────────────────
+  const jobs = ref<JobItem[]>([])
+  const currentJobFiles = ref<JobFileItem[]>([])
+
   const isRunning = computed(() => status.value === 'running')
   const isCompleted = computed(() => status.value === 'completed')
+
+  // ── REST API actions ──────────────────────────────────────────────────────
+
+  async function createAndStartJob(fileIds: string[], config: Record<string, unknown>): Promise<string> {
+    const response = await apiCreateJob({ file_ids: fileIds, config })
+    startJob(response.job.id)
+    return response.job.id
+  }
+
+  async function fetchJobs(): Promise<void> {
+    const response = await apiGetJobs()
+    jobs.value = response.jobs
+  }
+
+  async function fetchJobFiles(jobId: string): Promise<void> {
+    const response = await apiGetJobFiles(jobId)
+    currentJobFiles.value = response.files
+  }
+
+  // ── WebSocket actions (existing) ──────────────────────────────────────────
 
   function startJob(jobId: string) {
     currentJobId.value = jobId
@@ -76,7 +102,9 @@ export const useJobStore = defineStore('job', () => {
 
   return {
     currentJobId, status, progress, globalProgress, logs,
+    jobs, currentJobFiles,
     isRunning, isCompleted,
     startJob, stopJob, connectWS, disconnectWS, addLog,
+    createAndStartJob, fetchJobs, fetchJobFiles,
   }
 })

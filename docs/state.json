@@ -10,7 +10,7 @@
     {
       "id": "phase-2-frontend-core",
       "title": "Phase 2: Frontend Core",
-      "status": "executing",
+      "status": "completed",
       "state_file": "docs/phase_2/state.json"
     }
   ]
