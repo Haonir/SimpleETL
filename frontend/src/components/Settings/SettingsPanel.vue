@@ -52,7 +52,7 @@ async function handleImport(event: Event) {
         :class="['tab', { 'tab--active': activeTab === 'llm' }]"
         @click="activeTab = 'llm'"
       >
-        LLM
+        Providers
       </button>
       <button
         :class="['tab', { 'tab--active': activeTab === 'processing' }]"

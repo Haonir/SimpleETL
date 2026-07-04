@@ -18,10 +18,23 @@ function getBaseURL(): string {
   return import.meta.env.VITE_API_BASE_URL || ''
 }
 
+function getApiKey(): string {
+  return localStorage.getItem('simpleetl_api_server_key') || ''
+}
+
 const api = axios.create({
   baseURL: getBaseURL(),
   timeout: 30_000,
   headers: { 'Content-Type': 'application/json' },
+})
+
+// ── Request interceptor: attach API key ────────────────────────────────────
+api.interceptors.request.use((config) => {
+  const key = getApiKey()
+  if (key) {
+    config.headers['X-API-Key'] = key
+  }
+  return config
 })
 
 // ── Response interceptor (structured errors) ──────────────────────────────

@@ -1,4 +1,5 @@
 .opencode
 build
 dist
-config.json
+backend/config.json
+.env

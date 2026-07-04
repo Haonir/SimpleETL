@@ -23,6 +23,8 @@ class AppSettings(BaseSettings):
         env_nested_delimiter="__",
         case_sensitive=False,
         extra="ignore",
+        env_file=".env",
+        env_file_encoding="utf-8",
     )
 
     # ── Paths ────────────────────────────────────────────────────────────────
@@ -42,6 +44,9 @@ class AppSettings(BaseSettings):
 
     # ── Prompts ──────────────────────────────────────────────────────────────
     prompts_file: Optional[str] = None  # path to prompts JSON (optional)
+
+    # ── API Key ──────────────────────────────────────────────────────────────
+    api_key: str = ""  # APP_API_KEY — if set, enables X-API-Key auth
 
     @property
     def _config_path(self) -> Path:

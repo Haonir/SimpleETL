@@ -22,8 +22,17 @@ async function checkHealth() {
   try {
     const stored = localStorage.getItem('simpleetl_api_base_url')
     const base = stored || import.meta.env.VITE_API_BASE_URL || ''
-    await axios.get(`${base}/health`, { timeout: 5000 })
-    state.value = 'connected'
+    const key = localStorage.getItem('simpleetl_api_server_key') || ''
+    const url = `${base}/health`
+    const headers: Record<string, string> = {}
+    if (key) headers['X-API-Key'] = key
+    const res = await axios.get(url, { timeout: 5000, headers })
+    // Verify it's actually our backend (not Vite SPA returning index.html)
+    if (res.data?.status === 'ok') {
+      state.value = 'connected'
+    } else {
+      state.value = 'disconnected'
+    }
   } catch {
     state.value = 'disconnected'
   }
