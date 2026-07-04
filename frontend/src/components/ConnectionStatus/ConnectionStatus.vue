@@ -20,7 +20,8 @@ let timer: ReturnType<typeof setInterval> | null = null
 
 async function checkHealth() {
   try {
-    const base = import.meta.env.VITE_API_BASE_URL || ''
+    const stored = localStorage.getItem('simpleetl_api_base_url')
+    const base = stored || import.meta.env.VITE_API_BASE_URL || ''
     await axios.get(`${base}/health`, { timeout: 5000 })
     state.value = 'connected'
   } catch {

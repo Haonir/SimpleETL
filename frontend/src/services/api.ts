@@ -12,8 +12,16 @@ import type { JobCreateRequest, JobResponse, JobListResponse, JobFilesResponse }
 
 // ── Axios instance ────────────────────────────────────────────────────────
 
+const STORAGE_KEY = 'simpleetl_api_base_url'
+
+function getBaseURL(): string {
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (stored) return stored
+  return import.meta.env.VITE_API_BASE_URL || ''
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '', // empty string → dev proxy handles /api/*
+  baseURL: getBaseURL(),
   timeout: 30_000,
   headers: { 'Content-Type': 'application/json' },
 })

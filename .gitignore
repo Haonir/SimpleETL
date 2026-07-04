@@ -1,11 +1,4 @@
-__pycache__
-.venv
-.venv-win
-.venv-core
-.pytest_cache
 .opencode
 build
 dist
-main_ui.spec
 config.json
-backend/run_etl.py

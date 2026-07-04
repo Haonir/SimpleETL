@@ -16,7 +16,6 @@ const uiStore = useUiStore()
 
 const selectedPromptName = ref(promptsStore.currentPromptName || '')
 const selectedFormat = ref<OutputFormat>(configStore.processing.output_format)
-const skipLlm = ref(configStore.processing.skip_llm)
 
 const formatOptions: { value: OutputFormat; label: string }[] = [
   { value: 'spr', label: 'SPR' },
@@ -31,7 +30,8 @@ async function handleStart() {
 
   // Apply toolbar selections to config
   configStore.processing.output_format = selectedFormat.value
-  configStore.processing.skip_llm = skipLlm.value
+  const noPrompt = !selectedPromptName.value
+  configStore.processing.skip_llm = noPrompt
 
   if (selectedPromptName.value) {
     promptsStore.setCurrentPrompt(selectedPromptName.value)
@@ -46,7 +46,7 @@ async function handleStart() {
         llm: configStore.llm,
         processing: configStore.processing,
         prompt_text: promptEntry?.text ?? '',
-        skip_llm: skipLlm.value,
+        skip_llm: noPrompt,
       },
     )
   } catch (err) {
@@ -66,6 +66,7 @@ function handleStop() {
       variant="primary"
       size="md"
       :disabled="!filesStore.hasFiles"
+      class="toolbar-start-btn"
       @click="handleStart"
     >
       ▶ Start
@@ -74,20 +75,13 @@ function handleStop() {
       v-else
       variant="secondary"
       size="md"
+      class="toolbar-start-btn"
       @click="handleStop"
     >
       ⏹ Stop
     </Button>
 
     <div class="toolbar-separator" />
-
-    <label class="toolbar-label">Prompt</label>
-    <select v-model="selectedPromptName" class="toolbar-select">
-      <option value="">— None —</option>
-      <option v-for="p in promptsStore.prompts" :key="p.name" :value="p.name">
-        {{ p.name }}
-      </option>
-    </select>
 
     <label class="toolbar-label">Format</label>
     <select v-model="selectedFormat" class="toolbar-select toolbar-select--sm">
@@ -96,10 +90,14 @@ function handleStop() {
       </option>
     </select>
 
-    <label class="toolbar-checkbox">
-      <input type="checkbox" v-model="skipLlm" />
-      <span>No LLM</span>
-    </label>
+    <label class="toolbar-label">Prompt</label>
+    <select v-model="selectedPromptName" class="toolbar-select">
+      <option value="">— None / No LLM —</option>
+      <option v-for="p in promptsStore.prompts" :key="p.name" :value="p.name">
+        {{ p.name }}
+      </option>
+    </select>
+    <span v-if="!selectedPromptName" class="toolbar-hint">⚡ LLM step will be skipped</span>
   </div>
 </template>
 
@@ -130,6 +128,10 @@ function handleStop() {
   flex-shrink: 0;
 }
 
+.toolbar-start-btn {
+  min-width: 180px;
+}
+
 .toolbar-select {
   height: 30px;
   padding: 0 8px;
@@ -151,18 +153,15 @@ function handleStop() {
   max-width: 140px;
 }
 
-.toolbar-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+.toolbar-hint {
   font-size: 12px;
-  color: var(--fg-title);
-  cursor: pointer;
+  color: #f5740b;
   white-space: nowrap;
-  margin-left: auto;
+  animation: fadeIn 0.2s ease;
 }
 
-.toolbar-checkbox input {
-  accent-color: var(--accent);
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 </style>

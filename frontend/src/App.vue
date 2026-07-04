@@ -85,11 +85,12 @@ onMounted(async () => {
             {{ panel.label }}
           </button>
         </nav>
-
-        <button class="sidebar__toggle" @click="uiStore.toggleSidebar()">
-          {{ uiStore.sidebarCollapsed ? '▸' : '◂' }}
-        </button>
       </aside>
+
+      <!-- Sidebar toggle -->
+      <button class="sidebar__toggle" @click="uiStore.toggleSidebar()">
+        {{ uiStore.sidebarCollapsed ? '▸' : '◂' }}
+      </button>
 
       <!-- Main content area -->
       <main class="app-main">
@@ -161,12 +162,14 @@ onMounted(async () => {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  transition: margin-left 0.2s ease, width 0.2s ease;
+  overflow: hidden;
+  transition: min-width 0.2s ease, width 0.2s ease;
 }
 
 .sidebar--collapsed {
-  margin-left: -200px;
-  pointer-events: none;
+  width: 0;
+  min-width: 0;
+  border-right: none;
 }
 
 .sidebar__nav {
@@ -202,15 +205,20 @@ onMounted(async () => {
 }
 
 .sidebar__toggle {
-  margin: 0 8px 8px;
-  width: 100%;
+  flex-shrink: 0;
+  width: 18px;
+  align-self: center;
   height: 34px;
   border: 1px solid var(--border);
-  background: transparent;
+  border-radius: 0 6px 6px 0;
+  background: var(--bg-card);
   color: var(--fg-label);
-  font-size: 16px;
+  font-size: 12px;
   cursor: pointer;
-  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -1px;
 }
 
 .sidebar__toggle:hover {

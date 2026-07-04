@@ -102,6 +102,10 @@ defineEmits<{
   align-items: center;
 }
 
+.input-row .settings-input {
+  flex: 2;
+}
+
 .btn--icon {
   background: none;
   border: 1px solid var(--border);
