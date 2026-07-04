@@ -14,6 +14,7 @@ from app.etl.callbacks import (
     make_progress_cb,
     make_stop_cb,
 )
+from app.schemas.websocket import WSProgressMessage
 
 
 @pytest.fixture
@@ -42,7 +43,7 @@ class TestMakeProgressCb:
     """Tests for make_progress_cb."""
 
     def test_broadcasts_progress_message(self, mock_ws_manager, event_loop):
-        """Progress callback broadcasts correct WS message."""
+        """Progress callback broadcasts correct WS message with new field names."""
         cb = make_progress_cb(mock_ws_manager, "job-123", event_loop)
         cb(50, 25, 0)
 
@@ -54,9 +55,27 @@ class TestMakeProgressCb:
         assert call_args[0][0] == "job-123"
         msg = call_args[0][1]
         assert msg["type"] == "progress"
+        assert msg["file_idx"] == 0
         assert msg["chunk_pct"] == 50
         assert msg["global_pct"] == 25
-        assert msg["file_idx"] == 0
+
+    def test_broadcast_message_is_valid_pydantic_model(self, mock_ws_manager, event_loop):
+        """Broadcast message can be validated as WSProgressMessage."""
+        cb = make_progress_cb(mock_ws_manager, "job-123", event_loop)
+        cb(70, 40, 2)
+
+        # Allow async task to complete
+        event_loop.run_until_complete(asyncio.sleep(0.01))
+
+        mock_ws_manager.broadcast.assert_called_once()
+        msg = mock_ws_manager.broadcast.call_args[0][1]
+        # Verify the message is a valid WSProgressMessage by attempting validation
+        validated = WSProgressMessage.model_validate(msg)
+        assert validated.type == "progress"
+        assert validated.job_id == "job-123"
+        assert validated.file_idx == 2
+        assert validated.chunk_pct == 70
+        assert validated.global_pct == 40
 
     def test_does_not_raise_on_broadcast_error(self, mock_ws_manager, event_loop):
         """Progress callback does not raise if broadcast fails."""

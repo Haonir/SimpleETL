@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 from app.etl.callbacks import create_callbacks
+from app.schemas.websocket import WSDoneMessage, WSErrorMessage
 from app.etl.extractor import extract_all, extract_text
 from app.etl.llm_processor import copy_chunks_to_processed, process_with_llm
 from app.etl.packer import pack_outputs
@@ -103,11 +104,11 @@ async def run_etl_job(
             log_cb("🎉 ETL job completed successfully!")
             
             # Broadcast done message
-            await ws_manager.broadcast(job_id, {
-                "type": "done",
-                "job_id": job_id,
-                "output_dir": _get_output_dir(file_paths[0], config) if file_paths else "",
-            })
+            await ws_manager.broadcast(job_id, WSDoneMessage(
+                type="done",
+                job_id=job_id,
+                output_dir=_get_output_dir(file_paths[0], config) if file_paths else "",
+            ).model_dump())
         elif stop_cb():
             job_service.update_status(job_id, JobStatus.stopped)
             log_cb("⚠️ ETL job stopped by user.")
@@ -119,11 +120,11 @@ async def run_etl_job(
         logger.exception("Critical error in ETL job %s", job_id)
         job_service.update_status(job_id, JobStatus.error, error_message=str(e))
         
-        await ws_manager.broadcast(job_id, {
-            "type": "error",
-            "job_id": job_id,
-            "message": str(e),
-        })
+        await ws_manager.broadcast(job_id, WSErrorMessage(
+            type="error",
+            job_id=job_id,
+            message=str(e),
+        ).model_dump())
 
 
 async def _process_single_file(

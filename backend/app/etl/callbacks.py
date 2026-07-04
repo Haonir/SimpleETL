@@ -15,6 +15,8 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
+from app.schemas.websocket import WSLogMessage, WSProgressMessage
+
 if TYPE_CHECKING:
     from app.services.job_service import JobService
     from app.services.websocket_manager import ConnectionManager
@@ -42,14 +44,15 @@ def make_progress_cb(
     """
     def cb(chunk_pct: int, global_pct: int, file_idx: int) -> None:
         try:
+            msg = WSProgressMessage(
+                type="progress",
+                job_id=job_id,
+                file_idx=file_idx,
+                chunk_pct=chunk_pct,
+                global_pct=global_pct,
+            )
             asyncio.run_coroutine_threadsafe(
-                ws_manager.broadcast(job_id, {
-                    "type": "progress",
-                    "job_id": job_id,
-                    "file_idx": file_idx,
-                    "chunk_pct": chunk_pct,
-                    "global_pct": global_pct,
-                }),
+                ws_manager.broadcast(job_id, msg.model_dump()),
                 loop,
             )
         except Exception as e:
@@ -78,13 +81,14 @@ def make_log_cb(
     """
     def cb(message: str) -> None:
         try:
+            msg = WSLogMessage(
+                type="log",
+                job_id=job_id,
+                level="info",
+                message=message,
+            )
             asyncio.run_coroutine_threadsafe(
-                ws_manager.broadcast(job_id, {
-                    "type": "log",
-                    "job_id": job_id,
-                    "level": "info",
-                    "message": message,
-                }),
+                ws_manager.broadcast(job_id, msg.model_dump()),
                 loop,
             )
         except Exception as e:
@@ -107,13 +111,14 @@ def make_log_error_cb(
     """
     def cb(message: str) -> None:
         try:
+            msg = WSLogMessage(
+                type="log",
+                job_id=job_id,
+                level="error",
+                message=message,
+            )
             asyncio.run_coroutine_threadsafe(
-                ws_manager.broadcast(job_id, {
-                    "type": "log",
-                    "job_id": job_id,
-                    "level": "error",
-                    "message": message,
-                }),
+                ws_manager.broadcast(job_id, msg.model_dump()),
                 loop,
             )
         except Exception as e:

@@ -12,6 +12,12 @@
       "title": "Phase 2: Frontend Core",
       "status": "completed",
       "state_file": "docs/phase_2/state.json"
+    },
+    {
+      "id": "phase-3-integration-realtime",
+      "title": "Phase 3: Integration & Real-time Fixes",
+      "status": "completed",
+      "state_file": "docs/phase_3/state.json"
     }
   ],
   "coder_iterations": 1

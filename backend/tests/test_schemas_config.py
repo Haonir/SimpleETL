@@ -56,6 +56,10 @@ class TestProcessingConfig:
         with pytest.raises(Exception):
             ProcessingConfig(output_format="xml")
 
+    def test_valid_html_format(self):
+        cfg = ProcessingConfig(output_format="html")
+        assert cfg.output_format == "html"
+
 
 # ── PromptEntry ─────────────────────────────────────────────────────────────
 

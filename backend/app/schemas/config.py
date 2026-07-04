@@ -21,9 +21,9 @@ class ProcessingConfig(BaseModel):
     chunk_size: int = Field(default=10_000, ge=1, le=10_000_000, description="Max tokens/characters per chunk.")
     chunk_overlap: int = Field(default=1_500, ge=0, description="Overlap between adjacent chunks.")
     max_workers: int = Field(default=1, ge=1, description="Number of parallel processing workers.")
-    output_format: Literal["spr", "frontmatter", "markdown"] = Field(
+    output_format: Literal["spr", "frontmatter", "markdown", "html"] = Field(
         default="spr",
-        description="Output format for generated markdown files.",
+        description="Output format for generated markdown files (spr, frontmatter, markdown, html).",
     )
 
 

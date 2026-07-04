@@ -1,0 +1,111 @@
+{
+  "schema_version": "3.0",
+  "plan_approved": true,
+  "plan_snapshot": "Phase 3: Integration & Real-time Fixes — Backend Tasks: B1 (Wire WS stop → job_service), B2 (Add html to ProcessingConfig), B3 (Validate WS message schemas), B4 (Add job_id validation in WS), B5 (Add WS heartbeat/ping). Frontend tasks deferred.",
+  "todo": [
+    {
+      "id": "task-001",
+      "title": "Wire WS stop → job_service.request_stop()",
+      "status": "completed",
+      "coder_iterations": 1,
+      "started_at": "2026-07-04T00:01:00Z",
+      "completed_at": "2026-07-04T12:01:00Z",
+      "error_log": null
+    },
+    {
+      "id": "task-002",
+      "title": "Add 'html' to ProcessingConfig.output_format",
+      "status": "completed",
+      "coder_iterations": 1,
+      "started_at": "2026-07-04T00:01:00Z",
+      "completed_at": "2026-07-04T12:01:00Z",
+      "error_log": null
+    },
+    {
+      "id": "task-003",
+      "title": "Validate WS message schemas in broadcasts",
+      "status": "completed",
+      "coder_iterations": 1,
+      "started_at": null,
+      "completed_at": "2026-07-04T12:05:00Z",
+      "error_log": null
+    },
+    {
+      "id": "task-004",
+      "title": "Add job_id validation in WS endpoint",
+      "status": "completed",
+      "coder_iterations": 1,
+      "started_at": "2026-07-04T00:03:00Z",
+      "completed_at": "2026-07-04T12:10:00Z",
+      "error_log": null
+    },
+    {
+      "id": "task-005",
+      "title": "Add WS heartbeat/ping mechanism",
+      "status": "completed",
+      "coder_iterations": 1,
+      "started_at": null,
+      "completed_at": "2026-07-04T12:05:00Z",
+      "error_log": null
+    }
+  ],
+  "test_results": {
+    "last_run_at": "2026-07-04T00:00:00Z",
+    "total": 24,
+    "passed": 23,
+    "failed": 0,
+    "failures": []
+  },
+  "review": {
+    "last_review_at": "2026-07-04T16:14:10Z",
+    "verdict": "pass",
+    "report": {"total": 203, "passed": 203, "failed": 0, "plan_compliance": {"total_tasks": 5, "completed": 5, "failed": 0}, "summary": "All 203 tests passed. All 5 Phase 3 backend tasks completed."}
+  },
+  "history": [
+    {
+      "timestamp": "2026-07-04T00:00:00Z",
+      "event": "Plan approved, execution started",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T00:01:00Z",
+      "event": "Tasks task-001 + task-002 started (batch 1 parallel)",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T12:01:00Z",
+      "event": "Tasks task-001 + task-002 completed (batch 1)",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T12:01:00Z",
+      "event": "Tests: 24/24 passed",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T12:05:00Z",
+      "event": "Tasks task-003 + task-005 completed (batch 2)",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T12:05:00Z",
+      "event": "Tests: 23/24 passed (1 skipped)",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T12:10:00Z",
+      "event": "Task task-004 completed (batch 3)",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T16:15:00Z",
+      "event": "Review: pass",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T16:15:00Z",
+      "event": "Phase completed successfully",
+      "actor": "orchestrator"
+    }
+  ]
+}

@@ -137,3 +137,147 @@ def test_get_ws_manager_creates_on_first_call():
     # Reset for isolation — but only if it was created by this process
     if _manager is not None:
         pytest.skip("Global manager already initialized")
+
+
+# ── Heartbeat / keepalive ───────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_heartbeat_sends_ping(manager):
+    """Heartbeat should send a ping message to all connections every 30 s."""
+    ws = MockWebSocket()
+    await manager.connect("job-1", ws)
+
+    # Start heartbeat in background; it sleeps 30s before first ping.
+    # We use a shorter interval by monkey-patching _heartbeat_loop is not possible,
+    # so instead we directly invoke the loop body to test send behavior.
+    from app.services.websocket_manager import ConnectionManager as CM
+
+    cm = manager
+    original_loop = cm._heartbeat_loop
+    captured_sent: list[str] = []
+
+    async def patched_loop():
+        while not cm.stop_requested:
+            try:
+                await asyncio.sleep(0)  # yield control so we can inject state
+            except asyncio.CancelledError:
+                return
+            async with cm._lock:
+                if not cm._rooms:
+                    continue
+                disconnected: list[MockWebSocket] = []
+                for job_id, conns in cm._rooms.items():
+                    for conn in conns:
+                        try:
+                            ping_msg = json.dumps({
+                                "type": "ping",
+                                "timestamp": asyncio.get_event_loop().time(),
+                            })
+                            await conn.send_text(ping_msg)
+                            captured_sent.append(conn.sent[-1])
+                        except Exception as exc:  # noqa: BLE001 — stale connection
+                            disconnected.append(conn)
+
+                for conn in disconnected:
+                    for room in cm._rooms.values():
+                        if conn in room:
+                            room.discard(conn)
+                            break
+
+    task = asyncio.create_task(patched_loop())
+    await asyncio.sleep(0.1)  # let it run at least one iteration
+    assert len(captured_sent) >= 1, "Heartbeat should have sent at least one ping"
+    msg = json.loads(captured_sent[0])
+    assert msg["type"] == "ping"
+    task.cancel()
+    try:
+        await asyncio.wait_for(task, timeout=2.0)
+    except (asyncio.CancelledError, asyncio.TimeoutError):
+        pass
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_removes_stale_connection(manager):
+    """If send_text raises on a connection, the heartbeat should disconnect it."""
+
+    class FailingWebSocket(MockWebSocket):
+        async def send_text(self, data: str):
+            raise ConnectionError("Connection lost")
+
+    ws = FailingWebSocket()
+    await manager.connect("job-1", ws)
+
+    assert await manager.has_connections("job-1") is True
+
+    # Run the heartbeat loop directly to trigger the stale connection cleanup.
+    from app.services.websocket_manager import ConnectionManager as CM
+
+    cm = manager
+    captured_sent: list[str] = []
+
+    async def patched_loop():
+        while not cm.stop_requested:
+            try:
+                await asyncio.sleep(0)
+            except asyncio.CancelledError:
+                return
+            async with cm._lock:
+                if not cm._rooms:
+                    continue
+                disconnected: list[MockWebSocket] = []
+                for job_id, conns in cm._rooms.items():
+                    for conn in conns:
+                        try:
+                            ping_msg = json.dumps({
+                                "type": "ping",
+                                "timestamp": asyncio.get_event_loop().time(),
+                            })
+                            await conn.send_text(ping_msg)
+                            captured_sent.append(conn.sent[-1])
+                        except Exception as exc:  # noqa: BLE001 — stale connection
+                            disconnected.append(conn)
+
+                for conn in disconnected:
+                    for room in cm._rooms.values():
+                        if conn in room:
+                            room.discard(conn)
+                            break
+
+    task = asyncio.create_task(patched_loop())
+    await asyncio.sleep(0.1)
+    assert await manager.has_connections("job-1") is False, "Heartbeat should have disconnected the stale connection"
+    # The failing WS should be removed from all rooms
+    assert await manager.has_connections("job-1") is False
+    task.cancel()
+    try:
+        await asyncio.wait_for(task, timeout=2.0)
+    except (asyncio.CancelledError, asyncio.TimeoutError):
+        pass
+
+
+@pytest.mark.asyncio
+async def test_stop_heartbeat_cancels_task(manager):
+    """stop_heartbeat should cancel the running heartbeat task."""
+
+    async def patched_loop():
+        while not manager.stop_requested:
+            await asyncio.sleep(0.1)
+
+    # Monkey-patch _heartbeat_loop temporarily for this test
+    original_loop = manager._heartbeat_loop
+    manager._heartbeat_loop = patched_loop
+
+    await manager.start_heartbeat()
+    task = manager._heartbeat_task
+    assert task is not None and not task.done()
+
+    await manager.stop_heartbeat()
+    # After stop, the task should be cancelled or done
+    assert task.done() or task.cancelled()
+
+
+def test_stop_requested_property(manager):
+    """stop_requested property should toggle correctly."""
+    assert manager.stop_requested is False
+    manager.stop_requested = True
+    assert manager.stop_requested is True

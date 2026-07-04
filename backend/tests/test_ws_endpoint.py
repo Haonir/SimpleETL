@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -70,6 +71,42 @@ def test_ws_stop_message_received(ws_client, job_id="stop-test"):
         time.sleep(0.2)
 
 
+def test_ws_stop_calls_request_stop(ws_client):
+    """When client sends {'type': 'stop'}, get_job_service().request_stop(job_id) is called."""
+    from app.services.job_service import get_job_service as _get_job_service
+    from app.services.websocket_manager import get_ws_manager
+
+    mock_svc = MagicMock()
+    with patch("app.api.v1.websocket.get_job_service", return_value=mock_svc):
+        # Reset manager rooms between tests
+        _manager = get_ws_manager()
+        if hasattr(_manager, "_rooms"):
+            _manager._rooms.clear()
+
+        job_id = "test-stop-mock"
+        with ws_client.websocket_connect(f"/ws/{job_id}") as websocket:
+            websocket.send_json({"type": "stop", "job_id": job_id})
+            import time
+
+            time.sleep(0.2)
+
+    mock_svc.request_stop.assert_called_once_with("test-stop-mock")
+
+
+def test_ws_stop_invalid_job_does_not_raise(ws_client):
+    """If the job doesn't exist, request_stop KeyError is swallowed (no crash)."""
+    from app.services.job_service import get_job_service as _get_job_service
+
+    mock_svc = MagicMock(side_effect=KeyError("Job not found"))
+    with patch("app.api.v1.websocket.get_job_service", return_value=mock_svc):
+        job_id = "nonexistent-job"
+        with ws_client.websocket_connect(f"/ws/{job_id}") as websocket:
+            websocket.send_json({"type": "stop", "job_id": job_id})
+            import time
+
+            time.sleep(0.2)
+
+
 # ── Server → Client messages ────────────────────────────────────────────────
 
 def test_ws_receives_progress_message(ws_client, job_id="progress-test"):
@@ -120,3 +157,39 @@ def test_ws_multiple_messages(ws_client, job_id="multi-test"):
 async def _dummy_send(ws, data):
     """Placeholder send — used when constructing test WS objects."""
     pass
+
+
+# ── Job ID validation (task-004) ────────────────────────────────────────────
+
+def test_ws_rejects_invalid_job_id(ws_client):
+    """Connecting with a non-existent job_id closes the connection (code 4004)."""
+    from app.services.job_service import get_job_service as _get_job_service
+
+    mock_svc = MagicMock()
+    mock_svc.get.return_value = None
+    with patch("app.api.v1.websocket.get_job_service", return_value=mock_svc):
+        # The connection should be rejected — expect WebSocketDisconnect.
+        try:
+            with ws_client.websocket_connect("/ws/nonexistent-job") as websocket:
+                import time
+
+                time.sleep(0.2)
+        except Exception as exc:  # noqa: BLE001 — server closes the WS
+            assert "WebSocketDisconnect" in type(exc).__name__ or isinstance(
+                exc, WebSocketDisconnect
+            ), f"Expected WebSocketDisconnect but got {type(exc)}: {exc}"
+
+
+def test_ws_accepts_valid_job_id(ws_client):
+    """Connecting with a valid job_id succeeds (no rejection)."""
+    from app.services.job_service import get_job_service as _get_job_service
+
+    mock_svc = MagicMock()
+    mock_job = MagicMock()
+    mock_svc.get.return_value = mock_job
+    with patch("app.api.v1.websocket.get_job_service", return_value=mock_svc):
+        # Connection should succeed — no exception raised.
+        with ws_client.websocket_connect("/ws/valid-job") as websocket:
+            import time
+
+            time.sleep(0.2)

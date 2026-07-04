@@ -7,6 +7,7 @@ import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from app.services.job_service import get_job_service
 from app.services.websocket_manager import ConnectionManager, get_ws_manager
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,14 @@ async def websocket_endpoint(ws: WebSocket, job_id: str) -> None:
 
     try:
         await ws.accept()
+
+        # Validate that the job exists before connecting a WS room.
+        job = get_job_service().get(job_id)
+        if job is None:
+            logger.warning("WS rejected for non-existent job %s", job_id)
+            await ws.close(code=4004, reason="Job not found")
+            return
+
         await manager.connect(job_id, ws)
         logger.info("WS connected for job %s", job_id)
     except WebSocketDisconnect as exc:  # noqa: BLE001 — accept may raise on close
@@ -38,6 +47,10 @@ async def websocket_endpoint(ws: WebSocket, job_id: str) -> None:
             msg = json.loads(raw)
             if msg.get("type") == "stop":
                 logger.info("Client requested stop for job %s", job_id)
+                try:
+                    get_job_service().request_stop(job_id)
+                except KeyError:
+                    pass  # job not found — nothing to stop
                 break
     except WebSocketDisconnect as exc:  # noqa: BLE001 — receive may raise on close
         logger.warning("WS disconnected for job %s: %s", job_id, exc)

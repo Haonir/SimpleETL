@@ -14,10 +14,9 @@ class WSProgressMessage(BaseModel):
 
     type: Literal["progress"] = "progress"
     job_id: str
-    file_name: str
-    chunk_index: int
-    total_chunks: int
-    percent: float
+    file_idx: int
+    chunk_pct: int
+    global_pct: int
 
 
 class WSLogMessage(BaseModel):
@@ -34,7 +33,7 @@ class WSStatusMessage(BaseModel):
 
     type: Literal["status"] = "status"
     job_id: str
-    status: Literal["queued", "running", "paused", "stopped"]
+    status: Literal["pending", "running", "completed", "stopped", "error"]
     file_name: str | None = None
 
 
@@ -43,10 +42,7 @@ class WSDoneMessage(BaseModel):
 
     type: Literal["done"] = "done"
     job_id: str
-    file_name: str
-    total_chunks: int
-    processed_chunks: int
-    error_count: int = 0
+    output_dir: str
 
 
 class WSErrorMessage(BaseModel):
@@ -54,7 +50,6 @@ class WSErrorMessage(BaseModel):
 
     type: Literal["error"] = "error"
     job_id: str
-    file_name: str | None = None
     message: str
 
 
