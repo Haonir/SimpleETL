@@ -4,6 +4,7 @@ import { usePromptsStore } from '@/stores/prompts'
 import { useUiStore } from '@/stores/ui'
 import type { PromptEntry } from '@/types/config'
 import PromptEditor from './PromptEditor.vue'
+import Button from '@/components/UI/Button.vue'
 
 const promptsStore = usePromptsStore()
 const uiStore = useUiStore()

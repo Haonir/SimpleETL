@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { PromptEntry } from '@/types/config'
+import Modal from '@/components/UI/Modal.vue'
+import Input from '@/components/UI/Input.vue'
+import Button from '@/components/UI/Button.vue'
 
 interface Props {
   show: boolean

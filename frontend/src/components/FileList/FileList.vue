@@ -6,6 +6,10 @@ import Button from '@/components/UI/Button.vue'
 import Checkbox from '@/components/UI/Checkbox.vue'
 import FileProgressBar from '@/components/Progress/FileProgressBar.vue'
 
+defineEmits<{
+  'toggle-select': [checked: boolean, fileId: string]
+}>()
+
 const store = useFilesStore()
 const jobStore = useJobStore()
 

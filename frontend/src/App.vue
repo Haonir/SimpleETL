@@ -12,6 +12,7 @@ import GlobalProgressBar from '@/components/Progress/GlobalProgressBar.vue'
 import JobOutput from '@/components/JobOutput/JobOutput.vue'
 import JobHistory from '@/components/JobHistory/JobHistory.vue'
 import ConnectionStatus from '@/components/ConnectionStatus/ConnectionStatus.vue'
+import Button from '@/components/UI/Button.vue'
 import { onMounted } from 'vue'
 
 const uiStore = useUiStore()

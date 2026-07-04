@@ -17,7 +17,7 @@ export const useUiStore = defineStore('ui', () => {
   let notificationTimer: ReturnType<typeof setTimeout> | null = null
 
   // Layout navigation state
-  type PanelId = 'files' | 'settings' | 'prompts' | 'logs'
+  type PanelId = 'files' | 'settings' | 'prompts' | 'logs' | 'output' | 'history'
   const activePanel = ref<PanelId>('files')
   const sidebarCollapsed = ref<boolean>(false)
   type LogFilter = 'all' | 'info' | 'warning' | 'error'
