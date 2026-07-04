@@ -304,12 +304,12 @@ function createWindow() {
 - [x] Config service (reuse `core/config_manager.py` + Pydantic schemas)
 - [x] REST endpoints: `/config`, `/prompts` CRUD
 - [x] WebSocket manager + `/ws/{job_id}` endpoint
-- [ ] File upload endpoint (multipart → temp dir)
+- [x] File upload endpoint (multipart → temp dir)
 - [ ] Job service with in-memory registry
 - [ ] ETL runner: async wrapper around `process_batch` with WS callbacks
 
 ### Phase 2: Frontend Core (Week 2)
-- [ ] Vue 3 + TypeScript + Pinia + Vite setup
+- [x] Vue 3 + TypeScript + Pinia + Vite setup
 - [ ] Component library (Button, Input, Select, Checkbox, Modal, ProgressBar)
 - [ ] Layout: Dashboard with left panel (scrollable) + right panel
 - [ ] Config store + REST sync (load/save settings)
