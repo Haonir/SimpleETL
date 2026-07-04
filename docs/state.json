@@ -18,7 +18,13 @@
       "title": "Phase 3: Integration & Real-time Fixes",
       "status": "completed",
       "state_file": "docs/phase_3/state.json"
+    },
+    {
+      "id": "phase-4-config-migration",
+      "title": "Phase 4: Config Migration (Backend → Frontend)",
+      "status": "completed",
+      "state_file": "docs/phase_4/state.json"
     }
   ],
-  "coder_iterations": 1
+  "coder_iterations": 3
 }

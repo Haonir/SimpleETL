@@ -3,8 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // ── Mock setup ────────────────────────────────────────────────────────────
 // vi.hoisted() ensures these are hoisted alongside vi.mock(), so they exist
 // when the factory runs (vitest hoists both above variable declarations).
-const { mockGet, mockPost, mockDelete } = vi.hoisted(() => ({
-  mockGet: vi.fn(),
+const { mockPost, mockDelete } = vi.hoisted(() => ({
   mockPost: vi.fn(),
   mockDelete: vi.fn(),
 }))
@@ -12,7 +11,7 @@ const { mockGet, mockPost, mockDelete } = vi.hoisted(() => ({
 vi.mock('axios', () => ({
   default: {
     create: vi.fn(() => ({
-      get: mockGet,
+      get: vi.fn(),
       post: mockPost,
       delete: mockDelete,
       interceptors: { response: { use: vi.fn() } },
@@ -21,35 +20,13 @@ vi.mock('axios', () => ({
   },
 }))
 
-import { getConfig, saveConfig, uploadFiles, deleteFile } from '@/services/api'
+import { uploadFiles, deleteFile } from '@/services/api'
 
 describe('api.ts — REST client', () => {
   beforeEach(() => {
     // Clear call history only — don't destroy the mock references
-    mockGet.mockClear()
     mockPost.mockClear()
     mockDelete.mockClear()
-  })
-
-  it('getConfig calls GET /api/v1/config', async () => {
-    const fakeConfig = { llm: {}, processing: {}, prompts: [], current_prompt_name: '' }
-    mockGet.mockResolvedValue({ data: fakeConfig })
-
-    const result = await getConfig()
-
-    expect(mockGet).toHaveBeenCalledWith('/api/v1/config')
-    expect(result).toEqual(fakeConfig)
-  })
-
-  it('saveConfig calls POST /api/v1/config with body', async () => {
-    const update = { llm: { model: 'gpt-4', base_url: 'http://x', api_key: 'k' } }
-    const fakeConfig = { llm: update.llm, processing: {}, prompts: [], current_prompt_name: '' }
-    mockPost.mockResolvedValue({ data: fakeConfig })
-
-    const result = await saveConfig(update)
-
-    expect(mockPost).toHaveBeenCalledWith('/api/v1/config', update)
-    expect(result).toEqual(fakeConfig)
   })
 
   it('uploadFiles sends FormData to POST /api/v1/files/upload', async () => {

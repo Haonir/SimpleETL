@@ -3,19 +3,14 @@ import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import SettingsPanel from '../SettingsPanel.vue'
 
-vi.mock('@/services/api', () => ({
-  getConfig: vi.fn().mockResolvedValue({
-    llm: { model: '', base_url: '', api_key: '' },
-    processing: { chunk_size: 10000, chunk_overlap: 1500, max_workers: 1, output_format: 'spr' },
-    prompts: [],
-    current_prompt_name: '',
-  }),
-  saveConfig: vi.fn().mockResolvedValue({
-    llm: { model: '', base_url: '', api_key: '' },
-    processing: { chunk_size: 10000, chunk_overlap: 1500, max_workers: 1, output_format: 'spr' },
-    prompts: [],
-    current_prompt_name: '',
-  }),
+const { mockLoadConfigFile, mockSaveConfigFile } = vi.hoisted(() => ({
+  mockLoadConfigFile: vi.fn(),
+  mockSaveConfigFile: vi.fn(),
+}))
+
+vi.mock('@/services/configFile', () => ({
+  loadConfigFile: mockLoadConfigFile,
+  saveConfigFile: mockSaveConfigFile,
 }))
 
 describe('SettingsPanel.vue', () => {
@@ -72,10 +67,11 @@ describe('SettingsPanel.vue', () => {
     })
     await wrapper.vm.$nextTick()
 
-    const saveButton = wrapper.findAll('button')[wrapper.findAll('button').length - 1]
-    expect(saveButton.text()).toBe('Save')
+    // Find the Save button by text content (not index), since Export/Import buttons follow it
+    const saveButton = wrapper.findAll('button').find((btn) => btn.text() === 'Save')
+    expect(saveButton).toBeDefined()
 
-    await saveButton.trigger('click')
+    await saveButton!.trigger('click')
     await wrapper.vm.$nextTick()
 
     expect(store.save).toHaveBeenCalled()

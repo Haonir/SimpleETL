@@ -41,32 +41,3 @@ export interface ConfigResponse {
   /** Name of the currently active prompt. */
   current_prompt_name: string
 }
-
-/** Partial configuration update (all fields optional for PATCH semantics). */
-export interface ConfigUpdateRequest {
-  llm?: LLMConfig
-  processing?: ProcessingConfig
-  prompts?: PromptEntry[]
-  current_prompt_name?: string
-}
-
-/** Request body for creating a new prompt in the library. */
-export interface PromptCreateRequest {
-  name: string
-  text: string
-}
-
-/** Confirmation response after deleting a prompt by name. */
-export interface PromptDeleteResponse {
-  /** Name of the deleted prompt. */
-  deleted: string
-  /** Human-readable confirmation. */
-  message: string
-}
-
-/** List of all prompts in the library with total count. */
-export interface PromptLibraryResponse {
-  prompts: PromptEntry[]
-  /** Total number of prompts in the library. */
-  total: number
-}

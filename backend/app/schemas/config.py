@@ -25,6 +25,7 @@ class ProcessingConfig(BaseModel):
         default="spr",
         description="Output format for generated markdown files (spr, frontmatter, markdown, html).",
     )
+    skip_llm: bool = Field(default=False, description="Skip LLM processing — chunks are packed directly.")
 
 
 class PromptEntry(BaseModel):

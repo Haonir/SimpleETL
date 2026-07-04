@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getPrompts, createPrompt, deletePrompt, saveConfig } from '@/services/api'
 import type { PromptEntry } from '@/types/config'
+import { useConfigStore } from './config'
 import { useUiStore } from './ui'
 
 export const usePromptsStore = defineStore('prompts', () => {
@@ -13,10 +13,15 @@ export const usePromptsStore = defineStore('prompts', () => {
   )
   const promptNames = computed(() => prompts.value.map(p => p.name))
 
+  const configStore = useConfigStore()
+
   async function fetchPrompts() {
     try {
-      const response = await getPrompts()
-      prompts.value = response.prompts
+      if (!configStore.loaded) {
+        await configStore.loadConfig()
+      }
+      prompts.value = configStore.prompts
+      currentPromptName.value = configStore.currentPromptName
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load prompt library'
       useUiStore().showNotification('error', message)
@@ -25,8 +30,13 @@ export const usePromptsStore = defineStore('prompts', () => {
 
   async function addPrompt(name: string, text: string) {
     try {
-      const entry = await createPrompt({ name, text })
-      prompts.value.push(entry)
+      if (prompts.value.some(p => p.name === name)) {
+        const ui = useUiStore()
+        ui.showNotification('error', `Prompt "${name}" already exists`)
+        return
+      }
+      prompts.value.push({ name, text })
+      await configStore.save()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save prompt'
       useUiStore().showNotification('error', message)
@@ -35,11 +45,11 @@ export const usePromptsStore = defineStore('prompts', () => {
 
   async function removePrompt(name: string) {
     try {
-      await deletePrompt(name)
       prompts.value = prompts.value.filter(p => p.name !== name)
       if (currentPromptName.value === name) {
         currentPromptName.value = prompts.value[0]?.name || ''
       }
+      await configStore.save()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to delete prompt'
       useUiStore().showNotification('error', message)
@@ -48,12 +58,7 @@ export const usePromptsStore = defineStore('prompts', () => {
 
   async function setCurrentPrompt(name: string) {
     currentPromptName.value = name
-    try {
-      await saveConfig({ current_prompt_name: name })
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to save current prompt'
-      useUiStore().showNotification('error', message)
-    }
+    await configStore.save()
   }
 
   return {

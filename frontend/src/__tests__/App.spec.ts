@@ -12,20 +12,20 @@ vi.mock('@/services/websocket', () => ({
   },
 }))
 
-vi.mock('@/services/api', () => ({
-  getConfig: vi.fn().mockResolvedValue({
+vi.mock('@/services/configFile', () => ({
+  loadConfigFile: vi.fn().mockResolvedValue({
     llm: { model: '', base_url: '', api_key: '' },
     processing: { chunk_size: 10000, chunk_overlap: 1500, max_workers: 1, output_format: 'spr' },
     prompts: [],
     current_prompt_name: '',
   }),
-  saveConfig: vi.fn().mockResolvedValue({}),
+  saveConfigFile: vi.fn(),
+}))
+
+vi.mock('@/services/api', () => ({
   getFiles: vi.fn().mockResolvedValue({ files: [], total: 0 }),
   uploadFiles: vi.fn().mockResolvedValue({ files: [], total: 0, message: 'ok' }),
   deleteFile: vi.fn().mockResolvedValue(undefined),
-  getPrompts: vi.fn().mockResolvedValue({ prompts: [], total: 0 }),
-  createPrompt: vi.fn().mockResolvedValue({ name: '', text: '' }),
-  deletePrompt: vi.fn().mockResolvedValue({ deleted: '', message: 'ok' }),
   createJob: vi.fn().mockResolvedValue({ job: { id: 'test-id', status: 'pending' } }),
   getJobs: vi.fn().mockResolvedValue({ jobs: [], total: 0 }),
   getJob: vi.fn().mockResolvedValue({ job: null }),
@@ -79,7 +79,11 @@ describe('App.vue', () => {
 
   it('start button disabled when no files', async () => {
     const wrapper = mount(App, { global: { stubs: { teleport: true } } })
-    // The start button uses Button component with text "▶ Start"
+    // Switch to files panel so FileList (with JobToolbar) renders
+    const uiStore = (wrapper.vm as any).uiStore
+    uiStore.setPanel('files')
+    await wrapper.vm.$nextTick()
+
     const startButton = wrapper.findAll('button').find(b => b.text().includes('Start'))
     expect(startButton).toBeDefined()
     expect(startButton!.attributes('disabled')).toBeDefined()

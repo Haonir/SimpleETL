@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
-const { mockGetConfig, mockSaveConfig } = vi.hoisted(() => ({
-  mockGetConfig: vi.fn(),
-  mockSaveConfig: vi.fn(),
+const { mockLoadConfigFile, mockSaveConfigFile } = vi.hoisted(() => ({
+  mockLoadConfigFile: vi.fn(),
+  mockSaveConfigFile: vi.fn(),
 }))
 
-vi.mock('@/services/api', () => ({
-  getConfig: mockGetConfig,
-  saveConfig: mockSaveConfig,
+vi.mock('@/services/configFile', () => ({
+  loadConfigFile: mockLoadConfigFile,
+  saveConfigFile: mockSaveConfigFile,
 }))
 
 import { useConfigStore } from '@/stores/config'
@@ -16,12 +16,12 @@ import { useConfigStore } from '@/stores/config'
 describe('config store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    mockGetConfig.mockClear()
-    mockSaveConfig.mockClear()
+    mockLoadConfigFile.mockClear()
+    mockSaveConfigFile.mockClear()
   })
 
   it('loadConfig populates state from API', async () => {
-    mockGetConfig.mockResolvedValue({
+    mockLoadConfigFile.mockResolvedValue({
       llm: { model: 'gpt-4', base_url: 'http://x', api_key: 'k' },
       processing: { chunk_size: 5000, chunk_overlap: 500, max_workers: 2, output_format: 'spr' },
       prompts: [],
@@ -37,14 +37,8 @@ describe('config store', () => {
   })
 
   it('save sends correct update to API', async () => {
-    mockGetConfig.mockResolvedValue({
+    mockLoadConfigFile.mockResolvedValue({
       llm: { model: 'a', base_url: 'b', api_key: 'c' },
-      processing: { chunk_size: 1, chunk_overlap: 1, max_workers: 1, output_format: 'spr' },
-      prompts: [],
-      current_prompt_name: '',
-    })
-    mockSaveConfig.mockResolvedValue({
-      llm: { model: 'updated', base_url: 'b', api_key: 'c' },
       processing: { chunk_size: 1, chunk_overlap: 1, max_workers: 1, output_format: 'spr' },
       prompts: [],
       current_prompt_name: '',
@@ -55,9 +49,11 @@ describe('config store', () => {
     store.updateLLM({ model: 'updated' })
     await store.save()
 
-    expect(mockSaveConfig).toHaveBeenCalledWith({
+    expect(mockSaveConfigFile).toHaveBeenCalledWith({
       llm: { model: 'updated', base_url: 'b', api_key: 'c' },
       processing: { chunk_size: 1, chunk_overlap: 1, max_workers: 1, output_format: 'spr' },
+      prompts: [],
+      current_prompt_name: '',
     })
   })
 

@@ -44,7 +44,6 @@ defineExpose({ save })
       Leave empty to use the Vite dev proxy (default for local development).
       Set to a full URL (e.g. <code>http://192.168.1.100:8000</code>) for remote servers.
     </p>
-    <p v-if="saved" class="settings-saved">✓ Saved to browser storage</p>
   </div>
 </template>
 

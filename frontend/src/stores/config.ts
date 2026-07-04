@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { getConfig, saveConfig } from '@/services/api'
-import type { LLMConfig, ProcessingConfig, ConfigUpdateRequest } from '@/types/config'
+import { loadConfigFile, saveConfigFile, downloadConfigFile, importConfigFile, clearConfigFile } from '@/services/configFile'
+import type { LLMConfig, ProcessingConfig, ConfigResponse, PromptEntry } from '@/types/config'
 import { useUiStore } from './ui'
 
 export const useConfigStore = defineStore('config', () => {
@@ -13,19 +13,18 @@ export const useConfigStore = defineStore('config', () => {
     output_format: 'spr',
     skip_llm: false,
   })
+  const prompts = ref<PromptEntry[]>([])
+  const currentPromptName = ref('')
   const loaded = ref(false)
 
   async function loadConfig() {
     try {
-      const config = await getConfig()
+      const config = await loadConfigFile()
       llm.value = config.llm
       processing.value = config.processing
+      prompts.value = config.prompts || []
+      currentPromptName.value = config.current_prompt_name || ''
       loaded.value = true
-      // Restore current_prompt_name into the prompts store
-      if (config.current_prompt_name) {
-        const { usePromptsStore } = await import('./prompts')
-        usePromptsStore().currentPromptName = config.current_prompt_name
-      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load configuration'
       useUiStore().showNotification('error', message)
@@ -34,10 +33,13 @@ export const useConfigStore = defineStore('config', () => {
 
   async function save() {
     try {
-      const update: ConfigUpdateRequest = { llm: llm.value, processing: processing.value }
-      const config = await saveConfig(update)
-      llm.value = config.llm
-      processing.value = config.processing
+      const fullConfig: ConfigResponse = {
+        llm: llm.value,
+        processing: processing.value,
+        prompts: prompts.value,
+        current_prompt_name: currentPromptName.value,
+      }
+      saveConfigFile(fullConfig)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save configuration'
       useUiStore().showNotification('error', message)
@@ -52,5 +54,41 @@ export const useConfigStore = defineStore('config', () => {
     processing.value = { ...processing.value, ...partial }
   }
 
-  return { llm, processing, loaded, loadConfig, save, updateLLM, updateProcessing }
+  async function exportConfig() {
+    const { usePromptsStore } = await import('./prompts')
+    const promptsStore = usePromptsStore()
+    const fullConfig: ConfigResponse = {
+      llm: llm.value,
+      processing: processing.value,
+      prompts: promptsStore.prompts,
+      current_prompt_name: promptsStore.currentPromptName,
+    }
+    downloadConfigFile(fullConfig)
+  }
+
+  async function importConfig(file: File) {
+    const config = await importConfigFile(file)
+    llm.value = config.llm
+    processing.value = config.processing
+    loaded.value = true
+    if (config.current_prompt_name) {
+      const { usePromptsStore } = await import('./prompts')
+      usePromptsStore().currentPromptName = config.current_prompt_name
+    }
+  }
+
+  function clearConfig() {
+    clearConfigFile()
+    llm.value = { model: '', base_url: '', api_key: '' }
+    processing.value = {
+      chunk_size: 10000,
+      chunk_overlap: 1500,
+      max_workers: 1,
+      output_format: 'spr',
+      skip_llm: false,
+    }
+    loaded.value = false
+  }
+
+  return { llm, processing, loaded, loadConfig, save, updateLLM, updateProcessing, exportConfig, importConfig, clearConfig, prompts, currentPromptName }
 })

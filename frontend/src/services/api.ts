@@ -1,12 +1,10 @@
 /**
  * Axios REST client for the SimpleETL API backend.
  *
- * Provides typed functions for all CRUD operations on config, prompts, files, and jobs.
+ * Provides typed functions for CRUD operations on files and jobs.
  */
 
 import axios, { type AxiosError } from 'axios'
-import type { ConfigResponse, ConfigUpdateRequest } from '@/types/config'
-import type { PromptLibraryResponse, PromptCreateRequest, PromptEntry, PromptDeleteResponse } from '@/types/config'
 import type { FileListResponse, FileUploadResponse } from '@/types/file'
 import type { JobCreateRequest, JobResponse, JobListResponse, JobFilesResponse } from '@/types/job'
 
@@ -39,35 +37,6 @@ api.interceptors.response.use(
     throw structured as Error
   },
 )
-
-// ── Config endpoints ──────────────────────────────────────────────────────
-
-export async function getConfig(): Promise<ConfigResponse> {
-  const res = await api.get<ConfigResponse>('/api/v1/config')
-  return res.data
-}
-
-export async function saveConfig(update: ConfigUpdateRequest): Promise<ConfigResponse> {
-  const res = await api.post<ConfigResponse>('/api/v1/config', update)
-  return res.data
-}
-
-// ── Prompt library endpoints ──────────────────────────────────────────────
-
-export async function getPrompts(): Promise<PromptLibraryResponse> {
-  const res = await api.get<PromptLibraryResponse>('/api/v1/prompts')
-  return res.data
-}
-
-export async function createPrompt(req: PromptCreateRequest): Promise<PromptEntry> {
-  const res = await api.post<PromptEntry>('/api/v1/prompts', req)
-  return res.data
-}
-
-export async function deletePrompt(name: string): Promise<PromptDeleteResponse> {
-  const res = await api.delete<PromptDeleteResponse>(`/api/v1/prompts/${encodeURIComponent(name)}`)
-  return res.data
-}
 
 // ── File endpoints ────────────────────────────────────────────────────────
 

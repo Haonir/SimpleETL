@@ -57,7 +57,7 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
     <FileDropZone :disabled="jobStore.isRunning.value" />
 
     <!-- Job toolbar (Start, prompt, format, skip LLM) -->
-    <JobToolbar v-if="store.hasFiles" />
+    <JobToolbar />
 
     <!-- Empty state -->
     <div v-if="!store.hasFiles" class="file-list__empty">

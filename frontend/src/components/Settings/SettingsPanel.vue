@@ -5,17 +5,15 @@ import { useUiStore } from '@/stores/ui'
 import type { LLMConfig, ProcessingConfig } from '@/types/config'
 import LLMSettings from './LLMSettings.vue'
 import ProcessingSettings from './ProcessingSettings.vue'
-import ServerSettings from './ServerSettings.vue'
 
 const configStore = useConfigStore()
 const uiStore = useUiStore()
 
-type TabId = 'llm' | 'processing' | 'server'
+type TabId = 'llm' | 'processing'
 const activeTab = ref<TabId>('llm')
 
 const llmValue = ref<LLMConfig>(configStore.llm)
 const processingValue = ref<ProcessingConfig>(configStore.processing)
-const serverSettingsRef = ref<InstanceType<typeof ServerSettings>>()
 
 onMounted(() => {
   if (!configStore.loaded) {
@@ -26,9 +24,23 @@ onMounted(() => {
 async function saveSettings() {
   configStore.llm = llmValue.value
   configStore.processing = processingValue.value
-  serverSettingsRef.value?.save()
   await configStore.save()
   uiStore.showNotification('success', 'Settings saved')
+}
+
+async function handleImport(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  try {
+    await configStore.importConfig(file)
+    llmValue.value = configStore.llm
+    processingValue.value = configStore.processing
+    uiStore.showNotification('success', 'Config imported')
+  } catch (err) {
+    uiStore.showNotification('error', 'Failed to import config')
+  }
+  input.value = ''
 }
 </script>
 
@@ -48,23 +60,25 @@ async function saveSettings() {
       >
         Processing
       </button>
-      <button
-        :class="['tab', { 'tab--active': activeTab === 'server' }]"
-        @click="activeTab = 'server'"
-      >
-        Server
-      </button>
     </div>
 
     <!-- Tab content -->
     <div class="tab-content">
       <LLMSettings v-model="llmValue" :disabled="false" v-if="activeTab === 'llm'" />
       <ProcessingSettings v-model="processingValue" :disabled="false" v-if="activeTab === 'processing'" />
-      <ServerSettings ref="serverSettingsRef" :disabled="false" v-if="activeTab === 'server'" />
     </div>
 
     <!-- Save button -->
     <button class="btn btn--primary btn--md" @click="saveSettings">Save</button>
+
+    <!-- Export / Import config -->
+    <div class="config-actions">
+      <button class="btn btn--secondary btn--md" @click="configStore.exportConfig()">Export Config</button>
+      <label class="btn btn--secondary btn--md import-label">
+        Import Config
+        <input type="file" accept=".json" class="hidden-input" @change="handleImport" />
+      </label>
+    </div>
   </div>
 </template>
 
@@ -131,5 +145,20 @@ async function saveSettings() {
 .btn--primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.config-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.import-label {
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.hidden-input {
+  display: none;
 }
 </style>
