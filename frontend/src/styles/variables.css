@@ -12,4 +12,37 @@
   --btn-bg: #e5e7eb;
   --btn-fg: #1f2937;
   --btn-hover: #d1d5db;
+
+  /* Layout */
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 60px;
+  --header-height: 56px;
+  --panel-padding: 24px;
+
+  /* Typography */
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  --font-size-sm: 0.8125rem;
+  --font-size-md: 0.875rem;
+  --font-size-lg: 1rem;
+
+  /* Status colors */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+
+  /* Z-index scale */
+  --z-sidebar: 100;
+  --z-header: 200;
+  --z-modal: 1000;
+  --z-notification: 1100;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
 }

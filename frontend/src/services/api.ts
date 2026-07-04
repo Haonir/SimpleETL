@@ -1,13 +1,14 @@
 /**
  * Axios REST client for the SimpleETL API backend.
  *
- * Provides typed functions for all CRUD operations on config, prompts, and files.
+ * Provides typed functions for all CRUD operations on config, prompts, files, and jobs.
  */
 
 import axios, { type AxiosError } from 'axios'
 import type { ConfigResponse, ConfigUpdateRequest } from '@/types/config'
 import type { PromptLibraryResponse, PromptCreateRequest, PromptEntry, PromptDeleteResponse } from '@/types/config'
 import type { FileListResponse, FileUploadResponse } from '@/types/file'
+import type { JobCreateRequest, JobResponse, JobListResponse, JobFilesResponse } from '@/types/job'
 
 // ── Axios instance ────────────────────────────────────────────────────────
 
@@ -88,4 +89,45 @@ export async function getFiles(): Promise<FileListResponse> {
 export async function deleteFile(fileId: string): Promise<void> {
   // Server returns 204 No Content — no body to parse
   await api.delete(`/api/v1/files/${encodeURIComponent(fileId)}`)
+}
+
+// ── Job endpoints ────────────────────────────────────────────────────────
+
+export async function createJob(request: JobCreateRequest): Promise<JobResponse> {
+  const res = await api.post<JobResponse>('/api/v1/jobs', request)
+  return res.data
+}
+
+export async function getJobs(): Promise<JobListResponse> {
+  const res = await api.get<JobListResponse>('/api/v1/jobs')
+  return res.data
+}
+
+export async function getJob(jobId: string): Promise<JobResponse> {
+  const res = await api.get<JobResponse>(`/api/v1/jobs/${encodeURIComponent(jobId)}`)
+  return res.data
+}
+
+export async function stopJob(jobId: string): Promise<JobResponse> {
+  const res = await api.delete<JobResponse>(`/api/v1/jobs/${encodeURIComponent(jobId)}`)
+  return res.data
+}
+
+export async function getJobFiles(jobId: string): Promise<JobFilesResponse> {
+  const res = await api.get<JobFilesResponse>(`/api/v1/jobs/${encodeURIComponent(jobId)}/files`)
+  return res.data
+}
+
+export async function downloadJobFile(jobId: string, filename: string): Promise<Blob> {
+  const res = await api.get(`/api/v1/jobs/${encodeURIComponent(jobId)}/files/${encodeURIComponent(filename)}`, {
+    responseType: 'blob',
+  })
+  return res.data as Blob
+}
+
+export async function downloadJobZip(jobId: string): Promise<Blob> {
+  const res = await api.get(`/api/v1/jobs/${encodeURIComponent(jobId)}/download`, {
+    responseType: 'blob',
+  })
+  return res.data as Blob
 }

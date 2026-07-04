@@ -51,10 +51,10 @@
     {
       "id": "task-006",
       "title": "Dashboard layout + File list component",
-      "status": "pending",
-      "coder_iterations": 0,
-      "started_at": null,
-      "completed_at": null,
+      "status": "completed",
+      "coder_iterations": 6,
+      "started_at": "2026-07-04T16:20:00Z",
+      "completed_at": "2026-07-04T16:53:00Z",
       "error_log": null
     },
     {
@@ -191,6 +191,21 @@
     {
       "timestamp": "2026-07-04T13:23:10Z",
       "event": "Review: pass — tasks 1-5 verified by reviewer",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T16:20:00Z",
+      "event": "Task task-006 started",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T16:41:00Z",
+      "event": "Task task-006: types fixed, api functions added, ui store extended, FileList + FileDropZone created, App.vue layout shell, CSS variables added, 39/39 tests pass",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T16:53:00Z",
+      "event": "Task task-006 completed: types fixed, jobs API added, ui store extended, FileList + FileDropZone created, App.vue layout shell, CSS variables, 53/53 tests pass",
       "actor": "orchestrator"
     }
   ]

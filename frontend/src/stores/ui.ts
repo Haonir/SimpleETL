@@ -16,6 +16,25 @@ export const useUiStore = defineStore('ui', () => {
   const modal = ref<Modal | null>(null)
   let notificationTimer: ReturnType<typeof setTimeout> | null = null
 
+  // Layout navigation state
+  type PanelId = 'files' | 'settings' | 'prompts' | 'logs'
+  const activePanel = ref<PanelId>('files')
+  const sidebarCollapsed = ref<boolean>(false)
+  type LogFilter = 'all' | 'info' | 'warning' | 'error'
+  const logFilter = ref<LogFilter>('all')
+
+  function setPanel(id: PanelId) {
+    activePanel.value = id
+  }
+
+  function toggleSidebar() {
+    sidebarCollapsed.value = !sidebarCollapsed.value
+  }
+
+  function setLogFilter(filter: LogFilter) {
+    logFilter.value = filter
+  }
+
   function showNotification(type: Notification['type'], message: string) {
     if (notificationTimer) clearTimeout(notificationTimer)
     notification.value = { type, message }
@@ -41,5 +60,18 @@ export const useUiStore = defineStore('ui', () => {
     modal.value = null
   }
 
-  return { notification, modal, showNotification, clearNotification, openModal, closeModal }
+  return {
+    notification,
+    modal,
+    showNotification,
+    clearNotification,
+    openModal,
+    closeModal,
+    activePanel,
+    sidebarCollapsed,
+    logFilter,
+    setPanel,
+    toggleSidebar,
+    setLogFilter,
+  }
 })
