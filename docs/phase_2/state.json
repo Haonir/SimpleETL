@@ -33,19 +33,19 @@
     {
       "id": "task-004",
       "title": "Pinia stores (config, files, prompts, job, ui)",
-      "status": "in_progress",
-      "coder_iterations": 0,
+      "status": "completed",
+      "coder_iterations": 2,
       "started_at": "2026-07-04T13:35:00Z",
-      "completed_at": null,
+      "completed_at": "2026-07-04T13:40:00Z",
       "error_log": null
     },
     {
       "id": "task-005",
       "title": "UI component library (Button, Input, Select, Checkbox, Modal, ProgressBar)",
-      "status": "pending",
-      "coder_iterations": 0,
-      "started_at": null,
-      "completed_at": null,
+      "status": "completed",
+      "coder_iterations": 5,
+      "started_at": "2026-07-04T13:35:00Z",
+      "completed_at": "2026-07-04T14:10:00Z",
       "error_log": null
     },
     {
@@ -68,9 +68,9 @@
     }
   ],
   "test_results": {
-    "last_run_at": "2026-07-04T13:32:00Z",
-    "total": 4,
-    "passed": 4,
+    "last_run_at": "2026-07-04T14:15:00Z",
+    "total": 22,
+    "passed": 22,
     "failed": 0,
     "failures": []
   },
@@ -120,20 +120,34 @@
       "event": "Task task-003 coder implementation complete",
       "actor": "coder"
     },
+    {
+      "timestamp": "2026-07-04T13:30:00Z",
+      "event": "Fix #2 for task-003: vitest config + jsdom + vi.hoisted() + test rewrite — 4/4 tests pass, vue-tsc --noEmit clean",
+      "actor": "coder"
+    },
+    {
+      "timestamp": "2026-07-04T13:32:00Z",
+      "event": "Tests task-003: 4/4 passed (vitest + vue-tsc clean). Fix #2 successful.",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T13:35:00Z",
+      "event": "Task task-004 is in progress",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T14:10:00Z",
+      "event": "Task task-005 completed: 6 UI components + 18 tests (Button, Input, Select, Checkbox, Modal, ProgressBar)",
+      "actor": "coder"
+    },
       {
-        "timestamp": "2026-07-04T13:30:00Z",
-        "event": "Fix #2 for task-003: vitest config + jsdom + vi.hoisted() + test rewrite — 4/4 tests pass, vue-tsc --noEmit clean",
-        "actor": "coder"
+        "timestamp": "2026-07-04T13:45:00Z",
+        "event": "Task task-004 fix completed: job.test.ts rewritten with vi.hoisted() — mockConnect/mockDisconnect/mockSend now properly hoisted before vi.mock factory runs"
       },
       {
-        "timestamp": "2026-07-04T13:32:00Z",
-        "event": "Tests task-003: 4/4 passed (vitest + vue-tsc clean). Fix #2 successful.",
-        "actor": "orchestrator"
-      },
-      {
-        "timestamp": "2026-07-04T13:35:00Z",
-        "event": "Task task-004 is in progress",
+        "timestamp": "2026-07-04T14:15:00Z",
+        "event": "Tests task-005: 18/18 UI component tests passed + 4/4 api.test.ts passed = 22/22 total",
         "actor": "orchestrator"
       }
-    ]
+  ]
 }
