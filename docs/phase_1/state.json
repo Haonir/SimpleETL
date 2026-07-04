@@ -61,7 +61,7 @@
       "id": "task-007",
       "title": "ETL runner: async wrapper around process_batch with WS callbacks",
       "status": "completed",
-      "coder_iterations": 7,
+      "coder_iterations": 8,
       "started_at": null,
       "completed_at": "2026-07-04T15:00:00Z",
       "error_log": null
@@ -151,8 +151,8 @@
     },
     {
       "timestamp": "2026-07-04T15:30:00Z",
-      "event": "Review: pass — 193/193 tests passed, 7/7 tasks completed, no core/ imports",
+      "event": "Review: pass \u2014 193/193 tests passed, 7/7 tasks completed, no core/ imports",
       "actor": "orchestrator"
     }
-    ]
+  ]
 }

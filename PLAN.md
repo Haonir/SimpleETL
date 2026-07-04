@@ -332,11 +332,11 @@ function createWindow() {
 ### Phase 2: Frontend Core (Week 2)
 - [x] Vue 3 + TypeScript + Pinia + Vite setup
 - [x] Component library (Button, Input, Select, Checkbox, Modal, ProgressBar)
-- [ ] Layout: Dashboard with left panel (scrollable) + right panel
-- [ ] Config store + REST sync (load/save settings)
-- [ ] Prompt library store + UI (selector, editor, save/delete dialogs)
-- [ ] File list with drag-drop, tooltips, selection
-- [ ] Log panel with auto-scroll
+- [x] Layout: Dashboard with left panel (scrollable) + right panel
+- [x] Config store + REST sync (load/save settings)
+- [x] Prompt library store + UI (selector, editor, save/delete dialogs)
+- [x] File list with drag-drop, tooltips, selection
+- [x] Log panel with auto-scroll
 
 ### Phase 3: Integration & Real-time (Week 3)
 - [ ] WebSocket connection in `job` store
