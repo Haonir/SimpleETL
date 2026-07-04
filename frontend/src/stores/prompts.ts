@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getPrompts, createPrompt, deletePrompt } from '@/services/api'
+import { getPrompts, createPrompt, deletePrompt, saveConfig } from '@/services/api'
 import type { PromptEntry } from '@/types/config'
 import { useUiStore } from './ui'
 
@@ -46,8 +46,14 @@ export const usePromptsStore = defineStore('prompts', () => {
     }
   }
 
-  function setCurrentPrompt(name: string) {
+  async function setCurrentPrompt(name: string) {
     currentPromptName.value = name
+    try {
+      await saveConfig({ current_prompt_name: name })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save current prompt'
+      useUiStore().showNotification('error', message)
+    }
   }
 
   return {

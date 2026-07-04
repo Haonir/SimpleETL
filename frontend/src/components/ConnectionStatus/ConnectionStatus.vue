@@ -1,19 +1,40 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useJobStore } from '@/stores/job'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import axios from 'axios'
 
-const jobStore = useJobStore()
+type ConnState = 'connected' | 'disconnected' | 'checking'
+
+const state = ref<ConnState>('checking')
 
 const statusText = computed(() => {
-  if (!jobStore.currentJobId) return 'Disconnected'
-  if (jobStore.ws?.isConnected) return 'Connected'
-  return 'Reconnecting...'
+  switch (state.value) {
+    case 'connected':    return 'Connected'
+    case 'disconnected': return 'Disconnected'
+    default:             return 'Checking…'
+  }
 })
 
-const statusClass = computed(() => {
-  if (!jobStore.currentJobId) return 'connection-status--disconnected'
-  if (jobStore.ws?.isConnected) return 'connection-status--connected'
-  return 'connection-status--reconnecting'
+const statusClass = computed(() => `connection-status--${state.value}`)
+
+let timer: ReturnType<typeof setInterval> | null = null
+
+async function checkHealth() {
+  try {
+    const base = import.meta.env.VITE_API_BASE_URL || ''
+    await axios.get(`${base}/health`, { timeout: 5000 })
+    state.value = 'connected'
+  } catch {
+    state.value = 'disconnected'
+  }
+}
+
+onMounted(() => {
+  checkHealth()
+  timer = setInterval(checkHealth, 15_000)
+})
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
 })
 </script>
 
@@ -38,7 +59,7 @@ const statusClass = computed(() => {
   border-radius: 50%;
 }
 .connection-status--connected .connection-status__dot { background: #22c55e; }
-.connection-status--reconnecting .connection-status__dot { background: #f59e0b; animation: pulse 1s infinite; }
+.connection-status--checking .connection-status__dot { background: #f59e0b; animation: pulse 1s infinite; }
 .connection-status--disconnected .connection-status__dot { background: #6b7280; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 </style>

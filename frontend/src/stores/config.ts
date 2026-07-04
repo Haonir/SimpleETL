@@ -11,6 +11,7 @@ export const useConfigStore = defineStore('config', () => {
     chunk_overlap: 1500,
     max_workers: 1,
     output_format: 'spr',
+    skip_llm: false,
   })
   const loaded = ref(false)
 
@@ -20,6 +21,11 @@ export const useConfigStore = defineStore('config', () => {
       llm.value = config.llm
       processing.value = config.processing
       loaded.value = true
+      // Restore current_prompt_name into the prompts store
+      if (config.current_prompt_name) {
+        const { usePromptsStore } = await import('./prompts')
+        usePromptsStore().currentPromptName = config.current_prompt_name
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load configuration'
       useUiStore().showNotification('error', message)

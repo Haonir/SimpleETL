@@ -12,7 +12,6 @@ import GlobalProgressBar from '@/components/Progress/GlobalProgressBar.vue'
 import JobOutput from '@/components/JobOutput/JobOutput.vue'
 import JobHistory from '@/components/JobHistory/JobHistory.vue'
 import ConnectionStatus from '@/components/ConnectionStatus/ConnectionStatus.vue'
-import Button from '@/components/UI/Button.vue'
 import { onMounted } from 'vue'
 
 const uiStore = useUiStore()
@@ -44,41 +43,12 @@ function statusBadgeText(status: string | null): string {
   }
 }
 
-async function handleStart() {
-  if (!filesStore.hasFiles) return
-  filesStore.selectAll()
-  const request = {
-    file_ids: filesStore.selectedIds,
-    config: {
-      llm: configStore.llm,
-      processing: configStore.processing,
-      prompt_text: promptsStore.currentPrompt || '',
-    },
-  }
-  try {
-    await jobStore.createAndStartJob(
-      filesStore.selectedIds,
-      {
-        llm: configStore.llm,
-        processing: configStore.processing,
-        prompt_text: promptsStore.currentPrompt?.text ?? '',
-      }
-    )
-  } catch (err) {
-    uiStore.showNotification('error', `Failed to start job: ${err instanceof Error ? err.message : String(err)}`)
-  }
-}
-
-function handleStop() {
-  if (!jobStore.isRunning.value && !jobStore.isCompleted.value) return
-  jobStore.stopJob()
-}
-
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
 onMounted(async () => {
   await configStore.loadConfig()
   await promptsStore.fetchPrompts()
+  await filesStore.fetchFiles()
 })
 </script>
 
@@ -116,26 +86,6 @@ onMounted(async () => {
           </button>
         </nav>
 
-        <div class="sidebar__actions">
-          <Button
-            variant="primary"
-            size="md"
-            :disabled="!filesStore.hasFiles || jobStore.isRunning.value"
-            @click="handleStart"
-          >
-            ▶ Start
-          </Button>
-          <Button
-            v-if="jobStore.isRunning.value || jobStore.isCompleted.value"
-            variant="secondary"
-            size="md"
-            :disabled="!jobStore.isRunning.value"
-            @click="handleStop"
-          >
-            ⏹ Stop
-          </Button>
-        </div>
-
         <button class="sidebar__toggle" @click="uiStore.toggleSidebar()">
           {{ uiStore.sidebarCollapsed ? '▸' : '◂' }}
         </button>
@@ -146,7 +96,7 @@ onMounted(async () => {
         <GlobalProgressBar />
         <FileList v-if="uiStore.activePanel === 'files'" />
         <SettingsPanel v-else-if="uiStore.activePanel === 'settings'" />
-        <PromptLibrary v-else-if="uiStore.activePanel === 'prompts'" />
+        <PromptLibrary v-else-if="uiStore.activePanel === 'prompts'" @select="promptsStore.setCurrentPrompt($event.name)" />
         <LogPanel v-else-if="uiStore.activePanel === 'logs'" />
         <JobOutput v-else-if="uiStore.activePanel === 'output'" />
         <JobHistory v-else-if="uiStore.activePanel === 'history'" />
@@ -249,14 +199,6 @@ onMounted(async () => {
 .sidebar__item--active {
   background: var(--accent);
   color: white;
-}
-
-.sidebar__actions {
-  margin-top: auto;
-  padding: 12px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 .sidebar__toggle {

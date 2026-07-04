@@ -90,9 +90,10 @@ function handleFileSelected(e: Event) {
       @drop.prevent="handleDrop"
     >
       <div class="drop-area__content">
-        <svg class="drop-area__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M7 16a4 4 0 0 1-8 0V4a4 4 0 0 1 8 0v12Z" />
-          <path d="M3 8h18M3 12h12" />
+        <svg class="drop-area__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
         </svg>
         <p class="drop-area__text">Drag files here or</p>
       </div>

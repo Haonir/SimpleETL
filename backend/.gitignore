@@ -21,6 +21,7 @@ simple_etl_backend.egg-info/
 .pytest_cache
 
 # Virtual environments
+..venv/
 .venv/
 venv/
 env/

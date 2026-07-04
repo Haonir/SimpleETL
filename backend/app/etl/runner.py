@@ -168,11 +168,19 @@ async def _process_single_file(
     if not text.strip():
         raise Exception("File is empty or contains no readable text.")
     
+    # Flatten nested config: frontend sends {"llm": {...}, "processing": {...}, "prompt_text": "..."}
+    # but pipeline expects flat keys like "model", "base_url", etc.
+    llm_cfg = config.get("llm", {})
+    proc_cfg = config.get("processing", {})
+    flat_config = {**proc_cfg, **llm_cfg}
+    if "prompt_text" in config:
+        flat_config.setdefault("prompt", config["prompt_text"])
+
     # Step 2: Split into chunks
     log_cb("--- Step 2: Splitting into chunks ---")
     
-    chunk_size = config.get("chunk_size", 10000)
-    chunk_overlap = config.get("chunk_overlap", 1500)
+    chunk_size = flat_config.get("chunk_size", 10000)
+    chunk_overlap = flat_config.get("chunk_overlap", 1500)
     
     def _split():
         return split_to_chunks(
@@ -190,7 +198,7 @@ async def _process_single_file(
         return False
     
     # Step 3: LLM processing (optional)
-    skip_llm = config.get("skip_llm", False)
+    skip_llm = flat_config.get("skip_llm", False)
     
     if skip_llm:
         log_cb("--- Step 3: LLM skipped (copying chunks) ---")
@@ -205,10 +213,10 @@ async def _process_single_file(
                 chunks_dir=chunks_dir,
                 processed_dir=processed_dir,
                 base_name=base_name,
-                model=config.get("model", "llama3"),
-                base_url=config.get("base_url", "http://localhost:11434/v1"),
-                api_key=config.get("api_key", "ollama"),
-                prompt=config.get("prompt", "Analyze this text."),
+                model=flat_config.get("model", "llama3"),
+                base_url=flat_config.get("base_url", "http://localhost:11434/v1"),
+                api_key=flat_config.get("api_key", "ollama"),
+                prompt=flat_config.get("prompt", "Analyze this text."),
                 log_callback=log_cb,
                 stop_check_callback=stop_cb,
             )
@@ -222,7 +230,7 @@ async def _process_single_file(
     
     # Step 4: Pack outputs
     log_cb("--- Step 4: Packing outputs ---")
-    output_format = config.get("output_format", "spr")
+    output_format = flat_config.get("output_format", "spr")
     
     def _pack():
         return pack_outputs(
@@ -236,7 +244,7 @@ async def _process_single_file(
     output_files = await loop.run_in_executor(None, _pack)
     
     # Step 5: Cleanup (optional)
-    if config.get("cleanup", True):
+    if flat_config.get("cleanup", True):
         log_cb("--- Step 5: Cleanup ---")
         import shutil
         for d in [chunks_dir, processed_dir]:

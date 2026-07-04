@@ -1,5 +1,5 @@
 /** Output format for generated markdown files. */
-export type OutputFormat = "spr" | "frontmatter" | "markdown"
+export type OutputFormat = "spr" | "frontmatter" | "markdown" | "html"
 
 /** LLM provider configuration (model name, base URL, API key). */
 export interface LLMConfig {
@@ -21,6 +21,8 @@ export interface ProcessingConfig {
   max_workers: number
   /** Output format for generated markdown files. */
   output_format: OutputFormat
+  /** Skip LLM processing — chunks are packed directly. */
+  skip_llm: boolean
 }
 
 /** A single prompt entry in the library (name + text). */

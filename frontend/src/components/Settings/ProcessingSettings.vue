@@ -17,6 +17,7 @@ const outputOptions: Option[] = [
   { value: 'spr', label: 'SPR' },
   { value: 'frontmatter', label: 'Frontmatter' },
   { value: 'markdown', label: 'Raw Markdown' },
+  { value: 'html', label: 'HTML' },
 ]
 
 defineEmits<{

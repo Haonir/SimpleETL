@@ -5,6 +5,8 @@ import { useJobStore } from '@/stores/job'
 import Button from '@/components/UI/Button.vue'
 import Checkbox from '@/components/UI/Checkbox.vue'
 import FileProgressBar from '@/components/Progress/FileProgressBar.vue'
+import FileDropZone from '@/components/FileList/FileDropZone.vue'
+import JobToolbar from '@/components/FileList/JobToolbar.vue'
 
 defineEmits<{
   'toggle-select': [checked: boolean, fileId: string]
@@ -51,6 +53,12 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
 
 <template>
   <div class="file-list">
+    <!-- Drop zone (always visible) -->
+    <FileDropZone :disabled="jobStore.isRunning.value" />
+
+    <!-- Job toolbar (Start, prompt, format, skip LLM) -->
+    <JobToolbar v-if="store.hasFiles" />
+
     <!-- Empty state -->
     <div v-if="!store.hasFiles" class="file-list__empty">
       <p class="file-list__empty-text">Нет загруженных файлов</p>
@@ -105,6 +113,9 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
 
 <style scoped>
 .file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   font-family: 'Segoe UI', system-ui, sans-serif;
 }
 
