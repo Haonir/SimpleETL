@@ -9,7 +9,7 @@ import type { JobCreateRequest, JobItem, JobFileItem } from '@/types/job'
 export const useJobStore = defineStore('job', () => {
   const currentJobId = ref<string | null>(null)
   const status = ref<JobStatus | null>(null)
-  const progress = ref<Record<string, number>>({})
+  const progress = ref<Record<number, number>>({})
   const globalProgress = ref(0)
   const logs = ref<LogEntry[]>([])
   const ws = ref<WSConnection | null>(null)
@@ -78,13 +78,8 @@ export const useJobStore = defineStore('job', () => {
   function handleMessage(msg: WSServerMessage) {
     switch (msg.type) {
       case 'progress':
-        progress.value[msg.file_name] = msg.percent
-        {
-          const values = Object.values(progress.value)
-          globalProgress.value = values.length
-            ? values.reduce((a, b) => a + b, 0) / values.length
-            : 0
-        }
+        progress.value[msg.file_idx] = msg.chunk_pct
+        globalProgress.value = msg.global_pct
         break
       case 'log':
         addLog({ timestamp: new Date().toISOString(), level: msg.level, message: msg.message })

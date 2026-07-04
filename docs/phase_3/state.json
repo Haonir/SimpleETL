@@ -47,19 +47,91 @@
       "started_at": null,
       "completed_at": "2026-07-04T12:05:00Z",
       "error_log": null
+    },
+    {
+      "id": "task-006",
+      "title": "Wire ProgressBar into UI (GlobalProgressBar + FileProgressBar)",
+      "status": "completed",
+      "coder_iterations": 2,
+      "started_at": "2026-07-04T17:01:00Z",
+      "completed_at": "2026-07-04T17:05:00Z",
+      "error_log": null
+    },
+    {
+      "id": "task-007",
+      "title": "Per-file progress in FileList during processing",
+      "status": "completed",
+      "coder_iterations": 2,
+      "started_at": "2026-07-04T17:01:00Z",
+      "completed_at": "2026-07-04T17:05:00Z",
+      "error_log": null
+    },
+    {
+      "id": "task-008",
+      "title": "Job output browser/downloader component",
+      "status": "completed",
+      "coder_iterations": 1,
+      "started_at": "2026-07-04T17:06:00Z",
+      "completed_at": "2026-07-04T17:08:00Z",
+      "error_log": null
+    },
+    {
+      "id": "task-009",
+      "title": "Job history/queue view component",
+      "status": "completed",
+      "coder_iterations": 1,
+      "started_at": "2026-07-04T17:06:00Z",
+      "completed_at": "2026-07-04T17:08:00Z",
+      "error_log": null
+    },
+    {
+      "id": "task-010",
+      "title": "WS connection status indicator",
+      "status": "completed",
+      "coder_iterations": 1,
+      "started_at": "2026-07-04T17:09:00Z",
+      "completed_at": "2026-07-04T17:10:00Z",
+      "error_log": null
+    },
+    {
+      "id": "task-011",
+      "title": "Create composables (useWebSocket, useFileUpload)",
+      "status": "completed",
+      "coder_iterations": 1,
+      "started_at": "2026-07-04T17:09:00Z",
+      "completed_at": "2026-07-04T17:10:00Z",
+      "error_log": null
+    },
+    {
+      "id": "task-012",
+      "title": "Add test scripts to package.json",
+      "status": "completed",
+      "coder_iterations": 1,
+      "started_at": "2026-07-04T17:09:00Z",
+      "completed_at": "2026-07-04T17:10:00Z",
+      "error_log": null
+    },
+    {
+      "id": "task-013",
+      "title": "Update .env.example with VITE_WS_BASE_URL",
+      "status": "completed",
+      "coder_iterations": 1,
+      "started_at": "2026-07-04T17:09:00Z",
+      "completed_at": "2026-07-04T17:10:00Z",
+      "error_log": null
     }
   ],
   "test_results": {
-    "last_run_at": "2026-07-04T00:00:00Z",
-    "total": 24,
-    "passed": 23,
+    "last_run_at": "2026-07-04T19:36:00Z",
+    "total": 76,
+    "passed": 76,
     "failed": 0,
     "failures": []
   },
   "review": {
-    "last_review_at": "2026-07-04T16:14:10Z",
+    "last_review_at": "2026-07-04T16:41:39Z",
     "verdict": "pass",
-    "report": {"total": 203, "passed": 203, "failed": 0, "plan_compliance": {"total_tasks": 5, "completed": 5, "failed": 0}, "summary": "All 203 tests passed. All 5 Phase 3 backend tasks completed."}
+    "report": {"total": 279, "passed": 278, "failed": 1, "plan_compliance": {"total_tasks": 13, "completed": 13, "failed": 0}, "summary": "All 278 tests passed. All 13 Phase 3 tasks completed."}
   },
   "history": [
     {
@@ -106,6 +178,61 @@
       "timestamp": "2026-07-04T16:15:00Z",
       "event": "Phase completed successfully",
       "actor": "orchestrator"
-    }
-  ]
-}
+    },
+      {
+        "timestamp": "2026-07-04T17:00:00Z",
+        "event": "Frontend tasks (task-006 through task-013) added to plan",
+        "actor": "orchestrator"
+      },
+      {
+        "timestamp": "2026-07-04T17:01:00Z",
+        "event": "Tasks task-006 + task-007 started (batch 1 frontend)",
+        "actor": "orchestrator"
+      },
+      {
+        "timestamp": "2026-07-04T17:05:00Z",
+        "event": "Tasks task-006 + task-007 completed (batch 1 frontend)",
+        "actor": "orchestrator"
+      },
+      {
+        "timestamp": "2026-07-04T17:05:00Z",
+        "event": "Tests: 76/76 passed",
+        "actor": "orchestrator"
+      },
+      {
+        "timestamp": "2026-07-04T17:06:00Z",
+        "event": "Tasks task-008 + task-009 started (batch 2 frontend)",
+        "actor": "orchestrator"
+      },
+      {
+        "timestamp": "2026-07-04T17:08:00Z",
+        "event": "Tasks task-008 + task-009 completed (batch 2 frontend)",
+        "actor": "orchestrator"
+      },
+      {
+        "timestamp": "2026-07-04T17:09:00Z",
+        "event": "Tasks task-010 + task-011 + task-012 + task-013 started (batch 3 frontend)",
+        "actor": "orchestrator"
+      },
+      {
+        "timestamp": "2026-07-04T17:10:00Z",
+        "event": "Tasks task-010 + task-011 + task-012 + task-013 completed (batch 3 frontend)",
+        "actor": "orchestrator"
+      },
+      {
+        "timestamp": "2026-07-04T17:10:00Z",
+        "event": "All Phase 3 tasks completed",
+        "actor": "orchestrator"
+      },
+      {
+        "timestamp": "2026-07-04T17:11:00Z",
+        "event": "Review: pass",
+        "actor": "orchestrator"
+      },
+      {
+        "timestamp": "2026-07-04T17:11:00Z",
+        "event": "Phase completed successfully",
+        "actor": "orchestrator"
+      }
+    ]
+  }

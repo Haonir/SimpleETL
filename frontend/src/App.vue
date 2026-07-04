@@ -8,6 +8,10 @@ import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
 import PromptLibrary from '@/components/PromptLibrary/PromptLibrary.vue'
 import LogPanel from '@/components/LogPanel/LogPanel.vue'
 import FileList from '@/components/FileList/FileList.vue'
+import GlobalProgressBar from '@/components/Progress/GlobalProgressBar.vue'
+import JobOutput from '@/components/JobOutput/JobOutput.vue'
+import JobHistory from '@/components/JobHistory/JobHistory.vue'
+import ConnectionStatus from '@/components/ConnectionStatus/ConnectionStatus.vue'
 import { onMounted } from 'vue'
 
 const uiStore = useUiStore()
@@ -24,6 +28,8 @@ const panels: PanelDef[] = [
   { id: 'settings', label: 'Settings' },
   { id: 'prompts', label: 'Prompts' },
   { id: 'logs', label: 'Logs' },
+  { id: 'output', label: 'Output' },
+  { id: 'history', label: 'History' },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -88,6 +94,7 @@ onMounted(async () => {
     <!-- Header -->
     <header class="app-header">
       <h1 class="app-header__title">SimpleETL</h1>
+      <ConnectionStatus />
       <span :class="['status-badge', `status-badge--${jobStore.status || 'idle'}`]">
         {{ statusBadgeText(jobStore.status) }}
       </span>
@@ -135,10 +142,13 @@ onMounted(async () => {
 
       <!-- Main content area -->
       <main class="app-main">
+        <GlobalProgressBar />
         <FileList v-if="uiStore.activePanel === 'files'" />
         <SettingsPanel v-else-if="uiStore.activePanel === 'settings'" />
         <PromptLibrary v-else-if="uiStore.activePanel === 'prompts'" />
         <LogPanel v-else-if="uiStore.activePanel === 'logs'" />
+        <JobOutput v-else-if="uiStore.activePanel === 'output'" />
+        <JobHistory v-else-if="uiStore.activePanel === 'history'" />
       </main>
     </div>
   </div>

@@ -3,6 +3,38 @@ import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import FileList from '../FileList.vue'
 
+vi.mock('@/services/websocket', () => ({
+  WSConnection: class {
+    connect = vi.fn()
+    disconnect = vi.fn()
+    send = vi.fn()
+    isConnected = true
+  },
+}))
+
+vi.mock('@/stores/job', () => {
+  const mock = {
+    currentJobId: null,
+    status: null,
+    progress: {},
+    globalProgress: 0,
+    logs: [],
+    jobs: [],
+    currentJobFiles: [],
+    isRunning: false,
+    isCompleted: false,
+    startJob: vi.fn(),
+    stopJob: vi.fn(),
+    connectWS: vi.fn(),
+    disconnectWS: vi.fn(),
+    addLog: vi.fn(),
+    createAndStartJob: vi.fn(),
+    fetchJobs: vi.fn(),
+    fetchJobFiles: vi.fn(),
+  }
+  return { useJobStore: () => mock }
+})
+
 vi.mock('@/services/api', () => ({
   getFiles: vi.fn().mockResolvedValue({ files: [], total: 0 }),
   uploadFiles: vi.fn().mockResolvedValue({ files: [], total: 0, message: 'ok' }),

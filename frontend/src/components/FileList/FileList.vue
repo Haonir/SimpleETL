@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useFilesStore } from '@/stores/files'
+import { useJobStore } from '@/stores/job'
 import Button from '@/components/UI/Button.vue'
 import Checkbox from '@/components/UI/Checkbox.vue'
+import FileProgressBar from '@/components/Progress/FileProgressBar.vue'
 
 const store = useFilesStore()
+const jobStore = useJobStore()
 
 function handleSelectAll(checked: boolean) {
   if (checked) store.selectAll()
@@ -67,7 +70,7 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
         </tr>
       </thead>
       <tbody>
-        <tr v-for="file in store.files" :key="file.id" class="file-list__row">
+        <tr v-for="(file, fileIndex) in store.files" :key="file.id" class="file-list__row">
           <td class="file-list__cell file-list__cell--checkbox">
             <Checkbox
               :modelValue="store.selectedIds.includes(file.id)"
@@ -79,6 +82,11 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
           <td class="file-list__cell file-list__cell--date">{{ formatDate(file.uploaded_at) }}</td>
           <td class="file-list__cell file-list__cell--actions">
             <Button variant="secondary" size="sm" @click="handleDelete(file.id)">Удалить</Button>
+          </td>
+        </tr>
+        <tr v-if="jobStore.isRunning.value" class="file-list__progress-row">
+          <td colspan="5">
+            <FileProgressBar :fileIdx="fileIndex" :fileName="file.filename" />
           </td>
         </tr>
       </tbody>

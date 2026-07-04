@@ -3,6 +3,15 @@ import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import App from '../App.vue'
 
+vi.mock('@/services/websocket', () => ({
+  WSConnection: class {
+    connect = vi.fn()
+    disconnect = vi.fn()
+    send = vi.fn()
+    isConnected = true
+  },
+}))
+
 vi.mock('@/services/api', () => ({
   getConfig: vi.fn().mockResolvedValue({
     llm: { model: '', base_url: '', api_key: '' },
@@ -25,6 +34,29 @@ vi.mock('@/services/api', () => ({
   downloadJobFile: vi.fn().mockResolvedValue(new Blob()),
   downloadJobZip: vi.fn().mockResolvedValue(new Blob()),
 }))
+
+vi.mock('@/stores/job', () => {
+  const mock = {
+    currentJobId: null,
+    status: null,
+    progress: {},
+    globalProgress: 0,
+    logs: [],
+    jobs: [],
+    currentJobFiles: [],
+    isRunning: false,
+    isCompleted: false,
+    startJob: vi.fn(),
+    stopJob: vi.fn(),
+    connectWS: vi.fn(),
+    disconnectWS: vi.fn(),
+    addLog: vi.fn(),
+    createAndStartJob: vi.fn(),
+    fetchJobs: vi.fn(),
+    fetchJobFiles: vi.fn(),
+  }
+  return { useJobStore: () => mock }
+})
 
 describe('App.vue', () => {
   beforeEach(() => {

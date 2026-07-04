@@ -42,16 +42,16 @@ describe('job store', () => {
     // Get the handleMessage callback that was passed to connect
     const onMessage = mockConnect.mock.calls[0][1]
 
-    onMessage({ type: 'progress', job_id: 'job-123', file_name: 'doc.txt', chunk_index: 1, total_chunks: 10, percent: 50 })
+    onMessage({ type: 'progress', job_id: 'job-123', file_idx: 0, chunk_pct: 50, global_pct: 50 })
 
-    expect(store.progress['doc.txt']).toBe(50)
+    expect(store.progress[0]).toBe(50)
     expect(store.globalProgress).toBe(50)
 
-    onMessage({ type: 'progress', job_id: 'job-123', file_name: 'doc.txt', chunk_index: 2, total_chunks: 10, percent: 100 })
+    onMessage({ type: 'progress', job_id: 'job-123', file_idx: 0, chunk_pct: 100, global_pct: 100 })
 
     expect(store.globalProgress).toBe(100)
 
-    onMessage({ type: 'done', job_id: 'job-123', file_name: 'doc.txt', total_chunks: 10, processed_chunks: 10, error_count: 0 })
+    onMessage({ type: 'done', job_id: 'job-123', output_dir: '/tmp/output' })
 
     expect(store.status).toBe('completed')
     expect(store.globalProgress).toBe(100)
