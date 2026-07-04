@@ -27,4 +27,4 @@ asyncio_mode = "auto"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["backend*"]
+include = ["app*"]

@@ -11,6 +11,8 @@ from .config import (
     PromptLibraryResponse,
 )
 
+from .file import FileItem, FileListResponse, FileUploadResponse
+
 __all__ = [
     "LLMConfig",
     "ProcessingConfig",
@@ -20,4 +22,7 @@ __all__ = [
     "PromptCreateRequest",
     "PromptDeleteResponse",
     "PromptLibraryResponse",
+    "FileItem",
+    "FileListResponse",
+    "FileUploadResponse",
 ]

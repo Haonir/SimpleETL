@@ -34,9 +34,10 @@ app.add_middleware(
 )
 
 # ── Routers ─────────────────────────────────────────────────────────────────
-from app.api.v1 import config_router, ws_router  # noqa: E402
+from app.api.v1 import config_router, files_router, ws_router  # noqa: E402
 
 app.include_router(config_router)
+app.include_router(files_router)
 app.include_router(ws_router)
 
 
