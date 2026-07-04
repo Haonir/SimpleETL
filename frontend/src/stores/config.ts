@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getConfig, saveConfig } from '@/services/api'
 import type { LLMConfig, ProcessingConfig, ConfigUpdateRequest } from '@/types/config'
+import { useUiStore } from './ui'
 
 export const useConfigStore = defineStore('config', () => {
   const llm = ref<LLMConfig>({ model: '', base_url: '', api_key: '' })
@@ -14,17 +15,27 @@ export const useConfigStore = defineStore('config', () => {
   const loaded = ref(false)
 
   async function loadConfig() {
-    const config = await getConfig()
-    llm.value = config.llm
-    processing.value = config.processing
-    loaded.value = true
+    try {
+      const config = await getConfig()
+      llm.value = config.llm
+      processing.value = config.processing
+      loaded.value = true
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load configuration'
+      useUiStore().showNotification('error', message)
+    }
   }
 
   async function save() {
-    const update: ConfigUpdateRequest = { llm: llm.value, processing: processing.value }
-    const config = await saveConfig(update)
-    llm.value = config.llm
-    processing.value = config.processing
+    try {
+      const update: ConfigUpdateRequest = { llm: llm.value, processing: processing.value }
+      const config = await saveConfig(update)
+      llm.value = config.llm
+      processing.value = config.processing
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save configuration'
+      useUiStore().showNotification('error', message)
+    }
   }
 
   function updateLLM(partial: Partial<LLMConfig>) {

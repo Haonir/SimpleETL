@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { WSConnection } from '@/services/websocket'
 import type { WSServerMessage, LogEntry } from '@/types/ws'
 import type { JobStatus } from '@/types/job'
-import { createJob as apiCreateJob, getJobs as apiGetJobs, getJobFiles as apiGetJobFiles } from '@/services/api'
+import { createJob as apiCreateJob, getJobs as apiGetJobs, getJobFiles as apiGetJobFiles, stopJob as stopJobApi } from '@/services/api'
 import type { JobCreateRequest, JobItem, JobFileItem } from '@/types/job'
 
 export const useJobStore = defineStore('job', () => {
@@ -50,7 +50,14 @@ export const useJobStore = defineStore('job', () => {
     connectWS(jobId)
   }
 
-  function stopJob() {
+  async function stopJob() {
+    if (currentJobId.value) {
+      try {
+        await stopJobApi(currentJobId.value)
+      } catch {
+        // Ignore REST errors — WS stop signal is still sent below
+      }
+    }
     if (ws.value && ws.value.isConnected) {
       ws.value.send({ type: 'stop', job_id: currentJobId.value! })
     }

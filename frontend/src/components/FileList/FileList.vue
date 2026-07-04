@@ -74,7 +74,7 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
               @update:modelValue="$emit('toggle-select', $event, file.id)"
             />
           </td>
-          <td class="file-list__cell file-list__cell--name">{{ file.filename }}</td>
+          <td class="file-list__cell file-list__cell--name" :title="file.filename">{{ file.filename }}</td>
           <td class="file-list__cell file-list__cell--size">{{ formatSize(file.size_bytes) }}</td>
           <td class="file-list__cell file-list__cell--date">{{ formatDate(file.uploaded_at) }}</td>
           <td class="file-list__cell file-list__cell--actions">
