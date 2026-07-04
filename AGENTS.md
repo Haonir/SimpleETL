@@ -232,17 +232,17 @@ Optional system deps: **Tesseract-OCR** (for scanned PDF OCR).
 
 ## Phase Lifecycle
 
-The `phase.status` field tracks the overall phase state. It is updated at specific milestones:
+The phase status is tracked in the registry `docs/state.json` → `phases[].status`. It is updated at specific milestones:
 
-| Event | phase.status |
-|-------|--------------|
+| Event | phases[].status |
+|-------|-----------------|
 | Plan approved, execution starts | `executing` |
 | A task completes (coder_iterations >= 5) AND other tasks remain pending | `testing` |
 | All tasks completed AND all tests passed | `reviewing` |
 | Global review passes | `completed` |
 | Strategic error detected | `blocked` |
 
-**Important:** Never set phase.status to a value that is not one of: `executing`, `testing`, `reviewing`, `blocked`, `completed`. The placeholder text `"executing\|testing\|reviewing\|blocked\|completed"` must be replaced with an actual status.
+**Important:** Never set phase status to a value that is not one of: `executing`, `testing`, `reviewing`, `blocked`, `completed`.
 
 ---
 
@@ -261,6 +261,6 @@ diff /tmp/used_vars.txt /tmp/registered_vars.txt
 ## Concise Reasoning
 
 1. **Be brief.** Answer directly — no unnecessary explanations, tables, or lists when a short answer suffices.
-2. **Don't repeat context.** Don't restate what's already in state.json, AGENTS.md, or PLAN.md.
+2. **Don't repeat context.** Don't restate what's already in per-phase state.json, AGENTS.md, or PLAN.md.
 3. **Skip obvious steps.** If you checked a file and it's fine, say "checked" — don't dump its contents.
 4. **One sentence > three paragraphs.** Prefer compact answers over verbose ones.

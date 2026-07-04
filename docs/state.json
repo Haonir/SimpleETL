@@ -1,107 +1,29 @@
 {
-  "schema_version": "2.1",
-  "phase": {
-    "id": "phase-2-frontend-core",
-    "title": "Phase 2: Frontend Core",
-    "started_at": "2026-07-04T12:00:00Z",
-    "updated_at": "2026-07-04T12:00:00Z",
-    "status": "executing"
-  },
-  "plan_approved": true,
-  "plan_snapshot": "Phase 2: Frontend Core (Week 2) — Vue 3 + TypeScript + Pinia + Vite setup, component library, dashboard layout, config/prompt/file stores, settings panels, file list with drag-drop, log panel",
-  "todo": [
+  "schema_version": "3.0",
+  "phases": [
     {
-      "id": "task-001",
-      "title": "Scaffold Vue 3 + Vite + TypeScript project",
-      "status": "completed",
-      "coder_iterations": 1,
-      "started_at": "2026-07-04T12:05:00Z",
-      "completed_at": "2026-07-04T12:10:00Z",
-      "error_log": null
+      "id": "phase-1-backend-foundation",
+      "title": "Phase 1: Backend Foundation",
+      "status": "executing",
+      "state_file": "docs/phase_1/state.json"
     },
     {
-      "id": "task-002",
-      "title": "TypeScript types (mirror Pydantic schemas)",
+      "id": "phase-2-frontend-core",
+      "title": "Phase 2: Frontend Core",
       "status": "pending",
-      "coder_iterations": 0,
-      "started_at": null,
-      "completed_at": null,
-      "error_log": null
+      "state_file": "docs/phase_2/state.json"
     },
     {
-      "id": "task-003",
-      "title": "API service + Axios setup",
+      "id": "phase-3-integration",
+      "title": "Phase 3: Integration & Real-time",
       "status": "pending",
-      "coder_iterations": 0,
-      "started_at": null,
-      "completed_at": null,
-      "error_log": null
+      "state_file": "docs/phase_3/state.json"
     },
     {
-      "id": "task-004",
-      "title": "Pinia stores (config, files, prompts, job, ui)",
+      "id": "phase-4-polish",
+      "title": "Phase 4: Polish & Electron Prep",
       "status": "pending",
-      "coder_iterations": 0,
-      "started_at": null,
-      "completed_at": null,
-      "error_log": null
-    },
-    {
-      "id": "task-005",
-      "title": "UI component library (Button, Input, Select, Checkbox, Modal, ProgressBar)",
-      "status": "pending",
-      "coder_iterations": 0,
-      "started_at": null,
-      "completed_at": null,
-      "error_log": null
-    },
-    {
-      "id": "task-006",
-      "title": "Dashboard layout + File list component",
-      "status": "pending",
-      "coder_iterations": 0,
-      "started_at": null,
-      "completed_at": null,
-      "error_log": null
-    },
-    {
-      "id": "task-007",
-      "title": "Settings panels + Prompt library + Log panel",
-      "status": "pending",
-      "coder_iterations": 0,
-      "started_at": null,
-      "completed_at": null,
-      "error_log": null
-    }
-  ],
-  "global_variables_file": "docs/global_variables.json",
-  "test_results": {
-    "last_run_at": "2026-07-04T12:10:00Z",
-    "total": 0,
-    "passed": 0,
-    "failed": 0,
-    "failures": []
-  },
-  "review": {
-    "last_review_at": null,
-    "verdict": "",
-    "report": null
-  },
-  "history": [
-    {
-      "timestamp": "2026-07-04T12:00:00Z",
-      "event": "Phase 2 plan approved, execution started",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-04T12:05:00Z",
-      "event": "Task task-001 started: Scaffold Vue 3 + Vite + TypeScript project",
-      "actor": "orchestrator"
-    },
-    {
-      "timestamp": "2026-07-04T12:10:00Z",
-      "event": "Task task-001 completed: Scaffold Vue 3 + Vite + TypeScript project (tsc + build verified, no unit tests)",
-      "actor": "orchestrator"
+      "state_file": "docs/phase_4/state.json"
     }
   ]
 }

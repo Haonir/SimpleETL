@@ -1,0 +1,83 @@
+{
+  "schema_version": "3.0",
+  "plan_approved": true,
+  "plan_snapshot": "Phase 2: Frontend Core (Week 2) — Vue 3 + TypeScript + Pinia + Vite setup, component library, dashboard layout, config/prompt/file stores, settings panels, file list with drag-drop, log panel",
+  "todo": [
+    {
+      "id": "task-001",
+      "title": "Scaffold Vue 3 + Vite + TypeScript project",
+      "status": "completed",
+      "coder_iterations": 1,
+      "started_at": "2026-07-04T12:05:00Z",
+      "completed_at": "2026-07-04T12:10:00Z",
+      "error_log": null
+    },
+    {
+      "id": "task-002",
+      "title": "TypeScript types (mirror Pydantic schemas)",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
+      "error_log": null
+    },
+    {
+      "id": "task-003",
+      "title": "API service + Axios setup",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
+      "error_log": null
+    },
+    {
+      "id": "task-004",
+      "title": "Pinia stores (config, files, prompts, job, ui)",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
+      "error_log": null
+    },
+    {
+      "id": "task-005",
+      "title": "UI component library (Button, Input, Select, Checkbox, Modal, ProgressBar)",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
+      "error_log": null
+    },
+    {
+      "id": "task-006",
+      "title": "Dashboard layout + File list component",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
+      "error_log": null
+    },
+    {
+      "id": "task-007",
+      "title": "Settings panels + Prompt library + Log panel",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
+      "error_log": null
+    }
+  ],
+  "test_results": {
+    "last_run_at": null,
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "failures": []
+  },
+  "review": {
+    "last_review_at": null,
+    "verdict": "",
+    "report": null
+  },
+  "history": []
+}

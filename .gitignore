@@ -2,6 +2,7 @@ __pycache__
 .venv
 .venv-win
 .venv-core
+.pytest_cache
 .opencode
 build
 dist
