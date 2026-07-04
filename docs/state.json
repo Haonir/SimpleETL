@@ -4,26 +4,14 @@
     {
       "id": "phase-1-backend-foundation",
       "title": "Phase 1: Backend Foundation",
-      "status": "executing",
+      "status": "completed",
       "state_file": "docs/phase_1/state.json"
     },
     {
       "id": "phase-2-frontend-core",
       "title": "Phase 2: Frontend Core",
-      "status": "pending",
+      "status": "executing",
       "state_file": "docs/phase_2/state.json"
-    },
-    {
-      "id": "phase-3-integration",
-      "title": "Phase 3: Integration & Real-time",
-      "status": "pending",
-      "state_file": "docs/phase_3/state.json"
-    },
-    {
-      "id": "phase-4-polish",
-      "title": "Phase 4: Polish & Electron Prep",
-      "status": "pending",
-      "state_file": "docs/phase_4/state.json"
     }
   ]
 }

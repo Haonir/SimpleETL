@@ -1,24 +1,24 @@
 {
   "schema_version": "3.0",
   "plan_approved": true,
-  "plan_snapshot": "Phase 2: Frontend Core (Week 2) — Vue 3 + TypeScript + Pinia + Vite setup, component library, dashboard layout, config/prompt/file stores, settings panels, file list with drag-drop, log panel",
+  "plan_snapshot": "Phase 2: Frontend Core \u2014 Vue 3 + TypeScript + Pinia + Vite setup, component library, layout, stores, and UI",
   "todo": [
     {
       "id": "task-001",
       "title": "Scaffold Vue 3 + Vite + TypeScript project",
       "status": "completed",
-      "coder_iterations": 1,
-      "started_at": "2026-07-04T12:05:00Z",
-      "completed_at": "2026-07-04T12:10:00Z",
+      "coder_iterations": 0,
+      "started_at": "2026-07-04T13:05:00Z",
+      "completed_at": "2026-07-04T13:10:00Z",
       "error_log": null
     },
     {
       "id": "task-002",
       "title": "TypeScript types (mirror Pydantic schemas)",
-      "status": "pending",
-      "coder_iterations": 0,
-      "started_at": null,
-      "completed_at": null,
+      "status": "completed",
+      "coder_iterations": 5,
+      "started_at": "2026-07-04T13:10:00Z",
+      "completed_at": "2026-07-04T13:15:00Z",
       "error_log": null
     },
     {
@@ -68,9 +68,9 @@
     }
   ],
   "test_results": {
-    "last_run_at": null,
-    "total": 0,
-    "passed": 0,
+    "last_run_at": "2026-07-04T13:16:00Z",
+    "total": 2,
+    "passed": 2,
     "failed": 0,
     "failures": []
   },
@@ -79,5 +79,36 @@
     "verdict": "",
     "report": null
   },
-  "history": []
+  "history": [
+    {
+      "timestamp": "2026-07-04T13:00:00Z",
+      "event": "Plan approved, execution started",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T13:05:00Z",
+      "event": "Task task-001 started",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T13:10:00Z",
+      "event": "Task task-001 completed",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T13:10:00Z",
+      "event": "Task task-002 started",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T13:15:00Z",
+      "event": "Task task-002 completed: 4 TypeScript type files created (config.ts, file.ts, ws.ts, job.ts) \u2014 all Pydantic schemas mirrored exactly",
+      "actor": "orchestrator"
+    },
+    {
+      "timestamp": "2026-07-04T13:16:00Z",
+      "event": "Tests task-002: 2/2 passed (tsc --noEmit + vue-tsc --noEmit)",
+      "actor": "orchestrator"
+    }
+  ]
 }
