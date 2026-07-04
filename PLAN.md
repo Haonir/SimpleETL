@@ -31,7 +31,7 @@ The **backend scaffold (`backend/app/`)** has already been created with the full
 │  └──────────┘  └──────────┘  └────┬─────┘  └────────────────┘  │
 │                                    │                              │
 │                           ┌────────▼────────┐                     │
-│                           │ core/etl_pipeline.py │ (async-adapted)     │
+│                           │ backend/app/etl/*    │ (modular async ETL)     │
 │                           └─────────────────┘                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -70,9 +70,14 @@ backend/
 │   │   ├── job_service.py       # Job lifecycle, background tasks
 │   │   └── websocket_manager.py # Connection manager for WS
 │   ├── etl/
-│   │   ├── __init__.py
-│   │   ├── runner.py      # Async wrapper around process_batch
-│   │   └── callbacks.py   # Progress/log callbacks → WS broadcast
+│   │   ├── __init__.py          # Public API exports
+│   │   ├── extractor.py         # extract_text() + extract_images() from docx/pdf/txt/md
+│   │   ├── splitter.py          # split_to_chunks() — text → chunks/*.md
+│   │   ├── llm_processor.py     # process_with_llm() — LLM analysis → processed/*.md
+│   │   ├── packer.py            # pack_outputs() — 4 formats (spr/frontmatter/markdown/html)
+│   │   ├── image_utils.py       # images_to_base64() — docx/PDF images → base64
+│   │   ├── runner.py            # run_etl_job() — async entry point, module orchestration
+│   │   └── callbacks.py         # WS callback bridge (sync → async broadcast)
 │   └── static/            # Vue build output (served in prod)
 ├── config.json            # Runtime config (same location)
 ├── requirements.txt
@@ -88,8 +93,13 @@ backend/
 | `file_service.py` | Save uploads to temp dir, cleanup | New: `tempfile` + background cleanup task |
 | `job_service.py` | Create/manage ETL jobs, track status | New: job registry (in-memory + persistence optional) |
 | `websocket_manager.py` | Broadcast progress/logs to clients | New: `ConnectionManager` class with `job_id` rooms |
-| `etl/runner.py` | Run `process_batch` in thread pool, emit callbacks | **Adapt** `etl_pipeline.process_batch` to async + callbacks |
-| `etl/callbacks.py` | Convert pipeline callbacks → WS messages | New: `ProgressCallback`, `LogCallback`, `StopCheckCallback` |
+| `etl/extractor.py` | Extract text + images from docx/pdf/txt/md | Rewrite from `core/etl_pipeline.py`; add Base64 image extraction |
+| `etl/splitter.py` | Split text into chunks → `chunks/*.md` | Rewrite; output directly as .md (no raw/*.txt) |
+| `etl/llm_processor.py` | LLM analysis of chunks → `processed/*.md` | Rewrite; OpenAI-compatible API with temperature 0.2 |
+| `etl/packer.py` | Pack to 4 formats: spr, frontmatter, markdown, html | Rewrite; add HTML via `markdown` library |
+| `etl/image_utils.py` | Convert docx/PDF images to Base64 | New; supports inline `![](data:image/...)` in markdown |
+| `etl/runner.py` | Async entry point, coordinate all ETL modules | New; replaces sync `process_batch` with modular async pipeline |
+| `etl/callbacks.py` | Sync → async WS broadcast bridge | New; `make_progress_cb`, `make_log_cb`, `make_stop_cb` |
 
 ### 2.3 API Contract (REST)
 
@@ -106,6 +116,9 @@ POST   /api/v1/jobs                → JobResponse (start ETL)
 GET    /api/v1/jobs                → JobListResponse
 GET    /api/v1/jobs/{id}           → JobResponse
 DELETE /api/v1/jobs/{id}           → 204 (stop job)
+GET    /api/v1/jobs/{id}/files         → JobFilesResponse (list output files)
+GET    /api/v1/jobs/{id}/files/{name}  → FileResponse (download single file)
+GET    /api/v1/jobs/{id}/download      → FileResponse (ZIP archive of all output)
 WS     /api/v1/ws/{job_id}         → WebSocket (progress, logs, done)
 ```
 
@@ -123,33 +136,41 @@ WS     /api/v1/ws/{job_id}         → WebSocket (progress, logs, done)
 {"type": "stop", "job_id": "..."}
 ```
 
-### 2.5 ETL Pipeline Adaptation
+### 2.5 ETL Pipeline — Modular Async Architecture
 
-Current `process_batch` is synchronous with threading. Need async wrapper:
+> **Note:** `core/` is DEPRECATED. All ETL logic lives in `backend/app/etl/`. No imports from `core/`.
 
+**Pipeline flow:**
+```
+extract → chunks/*.md → (LLM) → processed/*.md → pack → final/{spr|frontmatter|markdown|html}
+              ↓                    ↓
+        images → base64      images → base64 (preserved)
+```
+
+**Key design decisions:**
+- No `raw/` staging directory — chunks saved directly as `.md`
+- Images extracted from docx/PDF and embedded as Base64 in markdown
+- 4 output formats: spr, frontmatter, markdown, html (via `markdown` library)
+- Files stored in temp dir on server; downloaded via REST API (ZIP or individual)
+
+**Module responsibilities:**
+
+| Module | Input | Output | Notes |
+|--------|-------|--------|-------|
+| `extractor.py` | file path | text + images | Supports .txt/.md/.docx/.pdf; optional OCR via Tesseract |
+| `splitter.py` | text | `chunks/*.md` | `RecursiveCharacterTextSplitter`; images embedded inline |
+| `llm_processor.py` | `chunks/*.md` | `processed/*.md` | OpenAI-compatible API; temperature 0.2; optional |
+| `packer.py` | `processed/*.md` | `final/*.md` or `final/*.html` | 4 formats; HTML via `markdown` library |
+| `runner.py` | job config | orchestrates all modules | Async entry point; runs sync modules in thread pool |
+
+**Async bridge pattern:**
 ```python
-# etl/runner.py
-async def run_etl_job(job_id: str, file_paths: list[str], cfg: dict, ws_manager: WSManager):
+# runner.py — runs sync modules in thread pool
+async def run_etl_job(job_id, file_paths, config, job_service, ws_manager):
     loop = asyncio.get_event_loop()
-    
-    def progress_cb(chunk_pct, global_pct, file_idx):
-        asyncio.run_coroutine_threadsafe(
-            ws_manager.broadcast(job_id, {"type": "progress", ...}), loop
-        ).result()
-    
-    def log_cb(msg):
-        asyncio.run_coroutine_threadsafe(
-            ws_manager.broadcast(job_id, {"type": "log", "message": msg}), loop
-        ).result()
-    
-    def stop_cb():
-        return job_service.is_stopped(job_id)
-    
-    # Run sync process_batch in thread pool
-    await loop.run_in_executor(
-        None, 
-        lambda: process_batch(file_paths, cfg, progress_cb, log_cb, stop_cb, cfg["max_workers"])
-    )
+    callbacks = create_callbacks(ws_manager, job_id, loop, job_service)
+
+    await loop.run_in_executor(None, lambda: _run_pipeline(file_paths, config, callbacks))
 ```
 
 ---
@@ -305,8 +326,8 @@ function createWindow() {
 - [x] REST endpoints: `/config`, `/prompts` CRUD
 - [x] WebSocket manager + `/ws/{job_id}` endpoint
 - [x] File upload endpoint (multipart → temp dir)
-- [ ] Job service with in-memory registry
-- [ ] ETL runner: async wrapper around `process_batch` with WS callbacks
+- [x] Job service with in-memory registry
+- [ ] ETL pipeline: modular async architecture (extractor, splitter, llm_processor, packer, image_utils, runner, callbacks)
 
 ### Phase 2: Frontend Core (Week 2)
 - [x] Vue 3 + TypeScript + Pinia + Vite setup
@@ -341,11 +362,14 @@ function createWindow() {
 | Decision | Recommendation | Rationale |
 |----------|----------------|-----------|
 | **State sync** | Pinia + WS (server-authoritative) | Single source of truth; WS pushes updates |
-| **File storage** | Temp dir + cleanup job | Avoid DB for files; simple `tempfile` + TTL |
+| **File storage** | Temp dir + API download (ZIP/individual) | No DB for files; temp for processing, API for delivery |
 | **Job persistence** | In-memory (MVP) → SQLite later | Keep simple; add persistence if needed |
 | **Auth** | None (local dev) → optional API key | Add later if multi-user needed |
 | **PDF/OCR** | Backend-only (system deps) | Frontend never handles binary processing |
-| **Output files** | ZIP download endpoint | `/api/v1/jobs/{id}/download` → `FileResponse` |
+| **Output formats** | 4 formats: spr, frontmatter, markdown, html | HTML via `markdown` library; user selects at job creation |
+| **Image handling** | docx + PDF → Base64 inline in markdown | Preserves visual context for LLM; portable output |
+| **Raw chunks** | Eliminated — chunks saved directly as .md | Simplifies pipeline; no redundant .txt → .md conversion |
+| **ETL logic location** | `backend/app/etl/` (no `core/` imports) | `core/` is deprecated; backend must be self-contained |
 
 ---
 
@@ -354,7 +378,7 @@ function createWindow() {
 | Module | Action |
 |--------|--------|
 | `core/config_manager.py` | **Reuse** → `services/config_service.py` with Pydantic |
-| `core/etl_pipeline.py` | **Reuse** logic; wrap in `services/etl/runner.py` |
+| `core/etl_pipeline.py` | **Modular rewrite** in `backend/app/etl/` (extractor, splitter, llm_processor, packer, image_utils) |
 | `core/main_ui.py` GUI | **Rewrite** as Vue components |
 | `FileListBox` | **Rewrite** → `FileList` + `FileItem` (Vue) |
 | Prompt library UI | **Rewrite** → `PromptLibrary` components |
@@ -365,8 +389,10 @@ function createWindow() {
 
 ## 8. Open Questions
 
-1. **Output file access**: Should completed job results be downloadable as ZIP via API, or served from a static output directory?
-2. **Concurrent jobs**: Allow multiple simultaneous ETL jobs, or queue sequentially?
-3. **Config persistence**: Keep `config.json` as single source, or also mirror to frontend `localStorage` for offline resilience?
+1. ~~**Output file access**~~ → **Resolved:** Temp dir + REST API download (ZIP or individual files)
+2. ~~**Concurrent jobs**~~ → **Resolved:** Sequential for MVP; in-memory registry prevents overlap
+3. ~~**Config persistence**~~ → **Resolved:** `config.json` as single source; frontend syncs via REST
 4. **LLM streaming**: Current pipeline waits for full response. Want token-by-token streaming to UI (requires OpenAI `stream=True` + WS chunks)?
 5. **Testing**: Add minimal backend tests (pytest + httpx) and frontend component tests (Vitest + Vue Test Utils)?
+6. **Image storage**: Should Base64 images be inline in markdown (current plan) or stored separately with references?
+7. **HTML template**: Should HTML output use a base CSS template for styling, or raw unstyled HTML?

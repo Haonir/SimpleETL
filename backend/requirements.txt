@@ -3,3 +3,10 @@ uvicorn[standard]
 pydantic-settings
 python-multipart
 aiofiles
+openai
+langchain-text-splitters
+python-frontmatter
+python-docx
+PyMuPDF
+markdown
+Pillow

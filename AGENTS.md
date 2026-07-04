@@ -1,7 +1,7 @@
 # AGENTS.md — SimpleETL Development Guide
 
 ## Project Overview
-**SimpleETL** — Desktop ETL app (CustomTkinter GUI) for text chunking + LLM SPR generation → Markdown + YAML Front Matter output for RAG pipelines.
+**SimpleETL** — Desktop ETL app (CustomTkinter GUI) ⚠️ `core/` is **DEPRECATED** — kept for reference only. All new development goes to `backend/`. for text chunking + LLM SPR generation → Markdown + YAML Front Matter output for RAG pipelines.
 
 **Stack**: Python 3.10+, CustomTkinter, OpenAI-compatible API (Ollama/LM Studio/vLLM), LangChain text splitters, PyMuPDF, python-docx, python-frontmatter, pytesseract (optional OCR).
 
@@ -29,6 +29,8 @@ pyinstaller --onefile --windowed --name SimpleETL core/main_ui.py
 > **Note**: For PDF OCR, install system Tesseract-OCR separately (`apt install tesseract-ocr` / `brew install tesseract` / Windows installer).
 
 ---
+
+> ⚠️ **DEPRECATED**: The `core/` directory is a historical desktop app artifact. It is kept for reference only. All ETL logic for the web app must live in `backend/app/etl/`. Do NOT import from `core/` in `backend/`.
 
 ## Architecture
 
@@ -64,6 +66,7 @@ core/config_manager.py     → JSON config persistence (config.json, Frozen/non-
 | `core/pack/packer.py` | `pack_outputs()` — упаковка в 3 формата | Parses YAML Front Matter → spr/frontmatter/markdown |
 | `core/cleanup/cleaner.py` | `clean_temp_dirs()` — автоочистка | Removes raw/ and processed/ dirs after processing |
 | `core/config_manager.py:10` | `CONFIG_FILE` path | Handles PyInstaller `--onefile` via `sys.frozen` |
+| `core/` (entire directory) | **DEPRECATED** — desktop app, reference only | Do NOT import from `core/` in `backend/`. All ETL logic must live in `backend/app/etl/`. |
 
 ---
 
@@ -146,6 +149,8 @@ python -m core.main_ui
 
 ## Gotchas
 
+- **core/ is deprecated** — historical desktop app artifacts. Use only as reference for ETL logic. Backend must be self-contained with no imports from `core/`.
+- **run_etl.py is test-only** — `backend/run_etl.py` exists solely for manual integration testing. It is NOT part of the production backend. Do not commit it.
 - **config.json has secrets** — in `.gitignore`, don't commit
 - **PyInstaller frozen mode** — `core/config_manager.py:5-8` handles `sys._MEIPASS` / `sys.executable`
 - **Tkinter context menu** — right-click bindings on text widgets (`core/main_ui.py:252`)
@@ -257,6 +262,17 @@ jq -r '.variables[].name' docs/global_variables.json > /tmp/registered_vars.txt
 # Compare — differences indicate missing or dead registrations
 diff /tmp/used_vars.txt /tmp/registered_vars.txt
 ```
+
+## Parallel Coder Mode
+
+**MAX TWO CODERS CAN BE ACTIVE SIMULTANEOUSLY.**
+   - Two coders are invoked via parallel tool calls in one message
+   - After EACH coder completes — immediately @tester for its task
+   - Tester for task N does NOT wait for task N+1 to finish
+   - State updates happen per-task after each tester completes
+   - Fallback: sequential mode if tasks share file writes
+
+---
 
 ## Concise Reasoning
 

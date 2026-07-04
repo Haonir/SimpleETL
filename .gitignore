@@ -8,3 +8,4 @@ build
 dist
 main_ui.spec
 config.json
+backend/run_etl.py

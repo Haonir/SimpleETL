@@ -3,16 +3,24 @@
 from __future__ import annotations
 
 import logging
+import os
+import zipfile
+from io import BytesIO
+from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, BackgroundTasks
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app.schemas.job import (
     JobCreateRequest,
+    JobFileItem,
+    JobFilesResponse,
     JobItem,
     JobListResponse,
     JobResponse,
     JobStatus,
 )
+from app.services.file_service import get_file_service
 from app.services.job_service import get_job_service
 
 logger = logging.getLogger(__name__)
@@ -25,12 +33,18 @@ router = APIRouter(prefix="/api/v1", tags=["jobs"])
     response_model=JobResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_job(request: JobCreateRequest) -> JobResponse:
-    """Create a new ETL job.
+async def create_job(
+    request: JobCreateRequest,
+    background_tasks: BackgroundTasks,
+) -> JobResponse:
+    """Create a new ETL job and start processing in background.
 
     Validates that all file_ids reference existing uploaded files.
-    Job starts in 'pending' status; ETL runner transitions to 'running'.
+    Job starts in 'pending' status, then transitions to 'running' via ETL runner.
     """
+    from app.etl.runner import run_etl_job
+    from app.services.websocket_manager import get_ws_manager
+
     service = get_job_service()
     try:
         job = service.create(
@@ -43,6 +57,34 @@ async def create_job(request: JobCreateRequest) -> JobResponse:
             detail=str(exc),
         ) from exc
 
+    # Resolve file paths from file_ids
+    file_service = get_file_service()
+    file_paths = []
+    for fid in request.file_ids:
+        path = file_service.get_path(fid)
+        if path is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"File '{fid}' not found on disk.",
+            )
+        file_paths.append(str(path))
+
+    # Add output_dir to config
+    config = request.config.copy()
+    config["output_dir"] = job.output_dir
+
+    # Launch ETL runner in background
+    ws_manager = get_ws_manager()
+    background_tasks.add_task(
+        run_etl_job,
+        job_id=job.id,
+        file_paths=file_paths,
+        config=config,
+        job_service=service,
+        ws_manager=ws_manager,
+    )
+
+    logger.info("Job %s created and ETL runner launched", job.id)
     return JobResponse(job=job)
 
 
@@ -89,3 +131,99 @@ async def stop_job(job_id: str) -> JobResponse:
     # Terminal state: remove from registry
     service.delete(job_id)
     return JobResponse(job=job)
+
+
+@router.get("/jobs/{job_id}/files", response_model=JobFilesResponse)
+async def list_job_files(job_id: str) -> JobFilesResponse:
+    """List output files for a completed job."""
+    service = get_job_service()
+    job = service.get(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job '{job_id}' not found.",
+        )
+
+    if job.output_dir is None or not os.path.exists(job.output_dir):
+        return JobFilesResponse(job_id=job_id, files=[], total=0)
+
+    files: list[JobFileItem] = []
+    for root, _, filenames in os.walk(job.output_dir):
+        for fname in filenames:
+            fpath = os.path.join(root, fname)
+            rel_path = os.path.relpath(fpath, job.output_dir)
+            files.append(JobFileItem(
+                filename=fname,
+                path=rel_path,
+                size_bytes=os.path.getsize(fpath),
+            ))
+
+    return JobFilesResponse(job_id=job_id, files=files, total=len(files))
+
+
+@router.get("/jobs/{job_id}/files/{filename:path}")
+async def download_job_file(job_id: str, filename: str):
+    """Download a single output file from a job."""
+    service = get_job_service()
+    job = service.get(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job '{job_id}' not found.",
+        )
+
+    if job.output_dir is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job has no output directory.",
+        )
+
+    file_path = os.path.join(job.output_dir, filename)
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"File '{filename}' not found.",
+        )
+
+    return FileResponse(
+        path=file_path,
+        filename=os.path.basename(file_path),
+        media_type="application/octet-stream",
+    )
+
+
+@router.get("/jobs/{job_id}/download")
+async def download_job_zip(job_id: str):
+    """Download all output files for a job as a ZIP archive."""
+    service = get_job_service()
+    job = service.get(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job '{job_id}' not found.",
+        )
+
+    if job.output_dir is None or not os.path.exists(job.output_dir):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job has no output files.",
+        )
+
+    # Create ZIP in memory
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for root, _, filenames in os.walk(job.output_dir):
+            for fname in filenames:
+                fpath = os.path.join(root, fname)
+                arcname = os.path.relpath(fpath, job.output_dir)
+                zf.write(fpath, arcname)
+
+    zip_buffer.seek(0)
+
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="etl_job_{job_id[:8]}.zip"'
+        },
+    )

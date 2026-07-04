@@ -52,3 +52,19 @@ class JobListResponse(BaseModel):
 
     jobs: list[JobItem] = Field(default_factory=list)
     total: int = Field(..., ge=0)
+
+
+class JobFileItem(BaseModel):
+    """Represents a single output file from a completed job."""
+
+    filename: str = Field(..., description="Output filename.")
+    path: str = Field(..., description="Relative path from job output dir.")
+    size_bytes: int = Field(..., ge=0, description="File size in bytes.")
+
+
+class JobFilesResponse(BaseModel):
+    """List of output files for a job."""
+
+    job_id: str = Field(..., description="Job identifier.")
+    files: list[JobFileItem] = Field(default_factory=list)
+    total: int = Field(..., ge=0)

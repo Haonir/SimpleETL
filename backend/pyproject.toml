@@ -13,9 +13,19 @@ dependencies = [
     "pydantic-settings",
     "python-multipart",
     "aiofiles",
+    "openai",
+    "langchain-text-splitters",
+    "python-frontmatter",
+    "python-docx",
+    "PyMuPDF",
+    "markdown",
+    "Pillow",
 ]
 
 [project.optional-dependencies]
+ocr = [
+    "pytesseract",
+]
 dev = [
     "pytest",
     "httpx",

@@ -60,17 +60,17 @@
     {
       "id": "task-007",
       "title": "ETL runner: async wrapper around process_batch with WS callbacks",
-      "status": "failed",
-      "coder_iterations": 0,
+      "status": "completed",
+      "coder_iterations": 7,
       "started_at": null,
-      "completed_at": null,
-      "error_log": "Skipped per user request \u2014 reviewed without ETL runner"
+      "completed_at": "2026-07-04T15:00:00Z",
+      "error_log": null
     }
   ],
   "test_results": {
-    "last_run_at": "2026-07-04T01:39:24Z",
-    "total": 39,
-    "passed": 39,
+    "last_run_at": "2026-07-04T15:00:00Z",
+    "total": 193,
+    "passed": 193,
     "failed": 0,
     "failures": []
   },
@@ -147,10 +147,15 @@
       "event": "Task task-007 marked as failed \u2014 skipped per user request",
       "actor": "orchestrator"
     },
-    {
-      "timestamp": "2026-07-04T01:48:08Z",
-      "event": "Review: pass \u2014 149/149 tests passed, 6/7 tasks completed",
-      "actor": "orchestrator"
-    }
-  ]
+      {
+        "timestamp": "2026-07-04T01:48:08Z",
+        "event": "Review: pass \u2014 149/149 tests passed, 6/7 tasks completed",
+        "actor": "orchestrator"
+      },
+      {
+        "timestamp": "2026-07-04T15:00:00Z",
+        "event": "Task task-007 completed: modular ETL pipeline (8 modules + 4 test files, 193/193 tests passed)",
+        "actor": "orchestrator"
+      }
+    ]
 }
