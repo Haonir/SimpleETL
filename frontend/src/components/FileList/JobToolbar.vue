@@ -25,8 +25,7 @@ const formatOptions: { value: OutputFormat; label: string }[] = [
 ]
 
 async function handleStart() {
-  if (!filesStore.hasFiles) return
-  filesStore.selectAll()
+  if (!filesStore.hasFiles || filesStore.selectedIds.length === 0) return
 
   // Apply toolbar selections to config
   configStore.processing.output_format = selectedFormat.value
@@ -65,7 +64,7 @@ function handleStop() {
       v-if="!jobStore.isRunning"
       variant="primary"
       size="md"
-      :disabled="!filesStore.hasFiles"
+      :disabled="!filesStore.hasFiles || filesStore.selectedIds.length === 0"
       class="toolbar-start-btn"
       @click="handleStart"
     >

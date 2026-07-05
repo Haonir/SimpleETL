@@ -13,8 +13,13 @@ export const useFilesStore = defineStore('files', () => {
   const hasPdf = computed(() => files.value.some(f => f.filename.toLowerCase().endsWith('.pdf')))
 
   async function fetchFiles() {
-    const response = await getFiles()
-    files.value = response.files
+    try {
+      const response = await getFiles()
+      files.value = response.files
+    } catch {
+      // Backend unreachable or error — clear stale file list
+      files.value = []
+    }
   }
 
   async function upload(fileList: File[]) {

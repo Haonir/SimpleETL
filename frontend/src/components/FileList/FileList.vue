@@ -8,10 +8,6 @@ import FileProgressBar from '@/components/Progress/FileProgressBar.vue'
 import FileDropZone from '@/components/FileList/FileDropZone.vue'
 import JobToolbar from '@/components/FileList/JobToolbar.vue'
 
-defineEmits<{
-  'toggle-select': [checked: boolean, fileId: string]
-}>()
-
 const store = useFilesStore()
 const jobStore = useJobStore()
 
@@ -86,7 +82,7 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
           <td class="file-list__cell file-list__cell--checkbox">
             <Checkbox
               :modelValue="store.selectedIds.includes(file.id)"
-              @update:modelValue="$emit('toggle-select', $event, file.id)"
+              @update:modelValue="store.toggleSelect(file.id)"
             />
           </td>
           <td class="file-list__cell file-list__cell--name" :title="file.filename">{{ file.filename }}</td>

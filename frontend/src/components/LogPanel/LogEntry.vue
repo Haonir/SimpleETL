@@ -38,8 +38,9 @@ const colorMap: Record<string, string> = {
 
 <style scoped>
 .log-entry {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 0.5rem;
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);

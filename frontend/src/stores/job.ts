@@ -67,7 +67,10 @@ export const useJobStore = defineStore('job', () => {
 
   function connectWS(jobId: string) {
     ws.value = new WSConnection()
-    ws.value.connect(jobId, handleMessage)
+    ws.value.connect(jobId, handleMessage, undefined, () => {
+      // On close: do NOT auto-reconnect — job may no longer exist
+      ws.value?.clearReconnectState()
+    })
   }
 
   function disconnectWS() {

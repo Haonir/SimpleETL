@@ -145,6 +145,9 @@ async def _process_single_file(
     """
     loop = asyncio.get_event_loop()
     
+    # Brief pause to ensure WS client is connected before we start logging
+    await asyncio.sleep(0.2)
+    
     # Build file-specific config
     file_name = os.path.basename(file_path)
     base_name = Path(file_name).stem
