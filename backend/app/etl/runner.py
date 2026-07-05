@@ -122,11 +122,19 @@ async def run_etl_job(
             output_dir_path.mkdir(parents=True, exist_ok=True)
 
             # ── Phase 2: LLM (parallel) ──
-            log_cb("--- Phase 2: LLM Processing ---")
-            success = await _phase_llm(pool, registry, flat_config, log_cb, stop_cb, progress_cb)
+            if flat_config.get("skip_llm", False):
+                log_cb("--- Phase 2: Skipping LLM (skip_llm=True) ---")
+                from app.etl.llm_processor import copy_chunks_to_processed
+                for base_name, info in registry.items():
+                    copy_chunks_to_processed(
+                        info["chunks_dir"], info["processed_dir"], base_name, log_cb
+                    )
+            else:
+                log_cb("--- Phase 2: LLM Processing ---")
+                success = await _phase_llm(pool, registry, flat_config, log_cb, stop_cb, progress_cb)
 
-            if not success and stop_cb():
-                return
+                if not success and stop_cb():
+                    return
 
             # ── Phase 3: pack (parallel) ──
             log_cb("--- Phase 3: Packing ---")
