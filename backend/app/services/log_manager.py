@@ -3,10 +3,33 @@
 import json
 import logging
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 
 
 _lock = threading.Lock()
+
+
+class SQLiteLogHandler(logging.Handler):
+    """Write log entries to the job_logs SQLite table."""
+
+    def __init__(self, job_id: str) -> None:
+        super().__init__()
+        self.job_id = job_id
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            from app.db import get_cursor
+            timestamp = datetime.now(timezone.utc).isoformat()
+            message = record.getMessage()
+            level = record.levelname
+            with get_cursor() as cur:
+                cur.execute(
+                    "INSERT INTO job_logs (job_id, timestamp, level, message) VALUES (?, ?, ?, ?)",
+                    (self.job_id, timestamp, level, message),
+                )
+        except Exception:
+            pass  # Don't let DB errors break logging
 
 
 def create_job_logger(job_id: str, job_dir: Path) -> logging.Logger:
@@ -25,6 +48,10 @@ def create_job_logger(job_id: str, job_dir: Path) -> logging.Logger:
 
     log_path = Path(job_dir) / "logs.json"
     Path(job_dir).mkdir(parents=True, exist_ok=True)
+    from app.db import get_cursor
+    with get_cursor() as cur:
+        cur.execute("UPDATE jobs SET log_path = ? WHERE id = ?", (str(log_path), job_id))
+
     handler = logging.FileHandler(log_path, encoding="utf-8")
     formatter = logging.Formatter(
         '{"timestamp":"%(asctime)s","level":"%(levelname)s","message":"%(message)s"}',
@@ -32,6 +59,9 @@ def create_job_logger(job_id: str, job_dir: Path) -> logging.Logger:
     )
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+
+    sqlite_handler = SQLiteLogHandler(job_id)
+    logger.addHandler(sqlite_handler)
     return logger
 
 

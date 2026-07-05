@@ -130,7 +130,21 @@ async def run_etl_job(
 
             # ── Phase 3: pack (parallel) ──
             log_cb("--- Phase 3: Packing ---")
-            await _phase_pack(pool, registry, flat_config, log_cb)
+            output_files = await _phase_pack(pool, registry, flat_config, log_cb)
+
+            # Save output file records to SQLite
+            if output_files:
+                from app.services.job_service import get_job_service
+                output_records = []
+                for fpath in output_files:
+                    p = Path(fpath)
+                    output_records.append({
+                        "filename": p.name,
+                        "file_path": str(p),
+                        "size_bytes": p.stat().st_size if p.exists() else 0,
+                        "format": p.suffix.lstrip(".") or "unknown",
+                    })
+                get_job_service().save_outputs(job_id, output_records)
 
         # Final status
         if not stop_cb():
@@ -268,8 +282,8 @@ async def _phase_llm(
     counter = {"done": 0}
     lock = threading.Lock()
 
-    def process_chunk(chunk_path: Path, processed_path: Path, config: dict) -> Optional[str]:
-        """Process one chunk (sync, runs in thread)."""
+    def _process_one_chunk(chunk_path: Path, processed_path: Path, config: dict) -> Optional[str]:
+        """Process one chunk (sync, runs in thread pool via run_in_executor)."""
         if processed_path.exists():
             return "skip"
 
@@ -285,7 +299,7 @@ async def _phase_llm(
                 {"role": "system", "content": config.get("prompt", "Analyze this text.")},
                 {
                     "role": "user",
-                    "content": f"Process this text:\n\n{chunk_path.read_text(encoding='utf-8')}",
+                    "content": f"Process this text:\n\n{(Path(chunk_path)).read_text(encoding='utf-8')}",
                 },
             ],
             temperature=0.2,
@@ -297,14 +311,22 @@ async def _phase_llm(
             counter["done"] += 1
             progress_cb(counter["done"] * 100 // max(total, 1), 100, 0)
 
+    # Submit all chunks as thread pool workers via run_in_executor.
+    # This frees the event loop to handle heartbeats and broadcasts.
     futures = []
     for base_name, info in registry.items():
-        for chunk_path in info["chunk_paths"]:
-            processed_path = Path(info["processed_dir"]) / Path(chunk_path).name
-            future = pool.submit(process_chunk, chunk_path, processed_path, flat_config)
+        for chunk_path_str in info["chunk_paths"]:
+            processed_path = Path(info["processed_dir"]) / Path(chunk_path_str).name
+            future = loop.run_in_executor(
+                pool,
+                _process_one_chunk,
+                Path(chunk_path_str),
+                processed_path,
+                flat_config,
+            )
             futures.append(future)
 
-    for future in as_completed(futures):
+    for future in asyncio.as_completed(futures):
         if stop_cb():
             for f in futures:
                 try:
@@ -314,25 +336,32 @@ async def _phase_llm(
             return False
 
         try:
-            future.result()  # skip returns None, process returns "skip" or writes file
+            await future  # Non-blocking — event loop processes heartbeats while waiting
         except Exception as e:
             log_cb(f"⚠️ LLM error: {e}")  # fail-continue
 
     return True
 
 
-async def _phase_pack(pool, registry, flat_config, log_cb):
-    """Parallel pack for all files."""
+async def _phase_pack(pool, registry, flat_config, log_cb) -> list[str]:
+    """Parallel pack for all files. Returns list of output file paths."""
     output_format = flat_config.get("output_format", "spr")
+    all_outputs = []
     futures = []
     for base_name, info in registry.items():
         future = pool.submit(
             pack_outputs,
             info["processed_dir"], info["final_dir"], base_name, output_format, log_cb,
         )
-        futures.append(future)
-    for future in as_completed(futures):
-        future.result()
+        futures.append((future, info["final_dir"]))
+    for future, final_dir in futures:
+        try:
+            result = future.result()
+            if result:
+                all_outputs.extend(result)
+        except Exception as e:
+            log_cb(f"⚠️ Pack error: {e}")
+    return all_outputs
 
 
 def _get_output_dir(file_path: str, config: dict) -> str:

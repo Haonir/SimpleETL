@@ -251,39 +251,51 @@ class JobService:
         return True
 
     def get_logs(self, job_id: str) -> list[dict]:
-        """Read logs.json from the job directory. Returns empty list if not found."""
-        log_path = self._get_log_path(job_id)
-        if not log_path.exists():
+        """Read log entries from the job_logs table."""
+        try:
+            with get_cursor() as cur:
+                cur.execute(
+                    "SELECT timestamp, level, message FROM job_logs WHERE job_id = ? ORDER BY id",
+                    (job_id,)
+                )
+                rows = cur.fetchall()
+            return [{"timestamp": r["timestamp"], "level": r["level"], "message": r["message"]} for r in rows]
+        except Exception:
             return []
-        entries = []
-        for line in log_path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                try:
-                    entries.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
-        return entries
 
     def get_outputs(self, job_id: str) -> list[dict]:
-        """List output files for a completed job. Returns empty list if not found."""
-        job = self.get(job_id)
-        if job is None or job.output_dir is None:
+        """List output files from the job_outputs table."""
+        try:
+            with get_cursor() as cur:
+                cur.execute(
+                    "SELECT filename, file_path, size_bytes, format FROM job_outputs WHERE job_id = ? ORDER BY id",
+                    (job_id,)
+                )
+                rows = cur.fetchall()
+            return [{"filename": r["filename"], "file_path": r["file_path"], "size_bytes": r["size_bytes"], "format": r["format"]} for r in rows]
+        except Exception:
             return []
-        outputs = []
-        for root, _, filenames in os.walk(job.output_dir):
-            for fname in sorted(filenames):
-                fpath = os.path.join(root, fname)
-                rel_path = os.path.relpath(fpath, job.output_dir)
-                size_bytes = os.path.getsize(fpath)
-                # Infer format from file extension
-                ext = Path(fname).suffix.lower().lstrip(".")
-                outputs.append({
-                    "filename": fname,
-                    "file_path": rel_path,
-                    "size_bytes": size_bytes,
-                    "format": ext if ext else "unknown",
-                })
-        return outputs
+
+    def save_outputs(self, job_id: str, outputs: list[dict]) -> None:
+        """Save output file records to the job_outputs table.
+
+        Args:
+            job_id: Job identifier.
+            outputs: List of dicts with keys: filename, file_path, size_bytes, format
+        """
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+        try:
+            with get_cursor() as cur:
+                for output in outputs:
+                    cur.execute(
+                        """INSERT INTO job_outputs (job_id, filename, file_path, size_bytes, format, created_at)
+                           VALUES (?, ?, ?, ?, ?, ?)""",
+                        (job_id, output["filename"], output["file_path"],
+                         output.get("size_bytes", 0), output.get("format", ""), now)
+                    )
+        except Exception as e:
+            logger.warning("Failed to save outputs for job %s: %s", job_id, e)
 
     def delete_job_files(self, job_id: str) -> None:
         """Delete job directory from disk + DB records."""

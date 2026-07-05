@@ -100,6 +100,16 @@ def _create_tables(conn) -> None:
         );
 
         CREATE INDEX IF NOT EXISTS idx_job_outputs_job_id ON job_outputs(job_id);
+
+        CREATE TABLE IF NOT EXISTS job_logs (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id      TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+            timestamp   TEXT NOT NULL,
+            level       TEXT NOT NULL DEFAULT 'INFO',
+            message     TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_job_logs_job_id ON job_logs(job_id);
         """
     )
 

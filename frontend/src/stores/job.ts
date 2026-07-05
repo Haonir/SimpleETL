@@ -146,12 +146,12 @@ export const useJobStore = defineStore('job', () => {
       case 'done':
         status.value = 'completed'
         globalProgress.value = 100
-        localStorage.removeItem(JOB_STORAGE_KEY)
+        // Keep JOB_STORAGE_KEY so restoreJob() can restore logs/outputs on refresh
         break
       case 'error':
         status.value = 'error'
         addLog({ timestamp: new Date().toISOString(), level: 'error', message: msg.message })
-        localStorage.removeItem(JOB_STORAGE_KEY)
+        // Keep JOB_STORAGE_KEY so restoreJob() can restore logs/outputs on refresh
         break
     }
   }
