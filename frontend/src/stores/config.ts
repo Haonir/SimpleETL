@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { loadConfigFile, saveConfigFile, downloadConfigFile, importConfigFile, clearConfigFile } from '@/services/configFile'
-import type { LLMConfig, ProcessingConfig, ConfigResponse, PromptEntry } from '@/types/config'
+import type { LLMConfig, ProcessingConfig, CleanupConfig, ConfigResponse, PromptEntry } from '@/types/config'
 import { useUiStore } from './ui'
 
 export const useConfigStore = defineStore('config', () => {
@@ -15,6 +15,7 @@ export const useConfigStore = defineStore('config', () => {
   })
   const prompts = ref<PromptEntry[]>([])
   const currentPromptName = ref('')
+  const cleanup = ref<CleanupConfig>({ enabled: false, max_age_hours: 24 })
   const loaded = ref(false)
 
   async function loadConfig() {
@@ -24,6 +25,7 @@ export const useConfigStore = defineStore('config', () => {
       processing.value = config.processing
       prompts.value = config.prompts || []
       currentPromptName.value = config.current_prompt_name || ''
+      cleanup.value = config.cleanup || { enabled: false, max_age_hours: 24 }
       loaded.value = true
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load configuration'
@@ -38,6 +40,7 @@ export const useConfigStore = defineStore('config', () => {
         processing: processing.value,
         prompts: prompts.value,
         current_prompt_name: currentPromptName.value,
+        cleanup: cleanup.value,
       }
       saveConfigFile(fullConfig)
     } catch (err) {
@@ -90,5 +93,5 @@ export const useConfigStore = defineStore('config', () => {
     loaded.value = false
   }
 
-  return { llm, processing, loaded, loadConfig, save, updateLLM, updateProcessing, exportConfig, importConfig, clearConfig, prompts, currentPromptName }
+  return { llm, processing, loaded, loadConfig, save, updateLLM, updateProcessing, exportConfig, importConfig, clearConfig, prompts, currentPromptName, cleanup }
 })

@@ -17,6 +17,10 @@ from app.schemas.job import (
     JobFilesResponse,
     JobItem,
     JobListResponse,
+    JobLogEntry,
+    JobLogsResponse,
+    JobOutputItem,
+    JobOutputsResponse,
     JobResponse,
     JobStatus,
 )
@@ -227,3 +231,39 @@ async def download_job_zip(job_id: str):
             "Content-Disposition": f'attachment; filename="etl_job_{job_id[:8]}.zip"'
         },
     )
+
+
+@router.get("/jobs/{job_id}/logs", response_model=JobLogsResponse)
+async def get_job_logs(job_id: str) -> JobLogsResponse:
+    """Get log entries for a job."""
+    service = get_job_service()
+    job = service.get(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job '{job_id}' not found.",
+        )
+    logs = service.get_logs(job_id)
+    return JobLogsResponse(logs=logs, total=len(logs))
+
+
+@router.get("/jobs/{job_id}/outputs", response_model=JobOutputsResponse)
+async def get_job_outputs(job_id: str) -> JobOutputsResponse:
+    """List output files for a completed job."""
+    service = get_job_service()
+    job = service.get(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job '{job_id}' not found.",
+        )
+    outputs = service.get_outputs(job_id)
+    return JobOutputsResponse(outputs=outputs, total=len(outputs))
+
+
+@router.post("/jobs/cleanup")
+async def cleanup_jobs(max_age_hours: int = 24) -> dict:
+    """Clean up old completed/errored/stopped jobs and their files."""
+    service = get_job_service()
+    removed = service.cleanup(max_age_hours=max_age_hours)
+    return {"removed": removed}

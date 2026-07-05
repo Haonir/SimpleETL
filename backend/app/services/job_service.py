@@ -1,13 +1,18 @@
-"""JobService — create, list, get, stop, delete jobs. In-memory registry."""
+"""JobService — create, list, get, stop, delete jobs. SQLite-backed registry."""
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+import shutil
+import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from app.db import ensure_tables, get_cursor
 from app.schemas.job import JobItem, JobStatus
 from app.services.file_service import get_file_service
 
@@ -18,6 +23,7 @@ class JobService:
     """Service for managing ETL jobs.
 
     Singleton pattern: use get_job_service() to get the global instance.
+    Jobs are persisted in SQLite; stop flags remain in RAM for performance.
     """
 
     def __init__(self, output_base_dir: Optional[str | Path] = None):
@@ -25,7 +31,7 @@ class JobService:
 
         Args:
             output_base_dir: Base directory for job outputs.
-                           If None, uses system temp dir + 'SimpleETL/jobs'.
+                            If None, uses system temp dir + 'SimpleETL/jobs'.
         """
         import tempfile
 
@@ -35,12 +41,26 @@ class JobService:
             self._output_base = Path(tempfile.gettempdir()) / "SimpleETL" / "jobs"
         self._output_base.mkdir(parents=True, exist_ok=True)
 
-        # In-memory registry
-        self._jobs: dict[str, JobItem] = {}
-        # Stop flags: job_id -> True if stop requested
+        # Stop flags: job_id -> True if stop requested (kept in RAM for performance)
         self._stop_flags: dict[str, bool] = {}
 
         logger.info("JobService initialized with output_base: %s", self._output_base)
+
+    def _ensure_db(self):
+        """Ensure the SQLite database is initialized at startup.
+
+        Uses ensure_tables() instead of init_db() because ensure_tables()
+        only creates tables without running recovery. Recovery marks all
+        pending/running jobs as 'error', and since _ensure_db() is called
+        on every method invocation (not just startup), it would corrupt
+        active jobs.
+        """
+        db_path = str(self._output_base / "jobs.db")
+        ensure_tables(db_path)
+
+    def _get_log_path(self, job_id: str) -> Path:
+        """Return the log file path for a given job."""
+        return self._output_base / job_id / "logs.json"
 
     def create(self, file_ids: list[str], config: dict) -> JobItem:
         """Create a new job. Validates all file_ids exist in FileService.
@@ -48,6 +68,7 @@ class JobService:
         Raises:
             ValueError: If any file_id not found or file_ids is empty.
         """
+        self._ensure_db()
         if not file_ids:
             raise ValueError("At least one file_id is required.")
 
@@ -61,6 +82,15 @@ class JobService:
         now = datetime.now(timezone.utc)
         output_dir = str(self._output_base / job_id / "output")
 
+        # Persist job to SQLite
+        with get_cursor() as cur:
+            cur.execute(
+                """INSERT INTO jobs (id, status, file_ids, config, created_at, file_count, output_dir)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (job_id, JobStatus.pending.value, json.dumps(file_ids),
+                 json.dumps(config), now.isoformat(), len(file_ids), output_dir),
+            )
+
         job = JobItem(
             id=job_id,
             status=JobStatus.pending,
@@ -71,18 +101,93 @@ class JobService:
             output_dir=output_dir,
         )
 
-        self._jobs[job_id] = job
         self._stop_flags[job_id] = False
         logger.info("Created job %s with %d files", job_id, len(file_ids))
         return job
 
     def get(self, job_id: str) -> Optional[JobItem]:
         """Get job by ID. Returns None if not found."""
-        return self._jobs.get(job_id)
+        self._ensure_db()
+        try:
+            with get_cursor() as cur:
+                cur.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
+                row = cur.fetchone()
+        except sqlite3.Error:
+            return None
+
+        if row is None:
+            return None
+
+        data = dict(row)
+        # Parse JSON fields
+        file_ids = json.loads(data["file_ids"])
+        config = json.loads(data["config"])
+        output_dir = data.get("output_dir") or None
+        log_path_str = data.get("log_path") or None
+        if log_path_str:
+            log_path = Path(log_path_str)
+            if log_path.exists():
+                try:
+                    with open(log_path, "r", encoding="utf-8") as f:
+                        entries = [json.loads(line) for line in f.read().splitlines() if line.strip()]
+                    data["log_entries"] = entries
+                except (json.JSONDecodeError, OSError):
+                    data["log_entries"] = []
+
+        return JobItem(
+            id=data["id"],
+            status=JobStatus(data["status"]),
+            file_ids=file_ids,
+            config=config,
+            created_at=datetime.fromisoformat(data["created_at"]),
+            started_at=datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None,
+            completed_at=(datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None),
+            output_dir=output_dir,
+            error_message=data.get("error_message"),
+            file_count=int(data["file_count"]),
+        )
 
     def list_all(self) -> list[JobItem]:
-        """Return all jobs."""
-        return list(self._jobs.values())
+        """Return all jobs ordered by created_at DESC."""
+        self._ensure_db()
+        try:
+            with get_cursor() as cur:
+                cur.execute("SELECT * FROM jobs ORDER BY created_at DESC")
+                rows = cur.fetchall()
+        except sqlite3.Error:
+            return []
+
+        results = []
+        for row in rows:
+            data = dict(row)
+            file_ids = json.loads(data["file_ids"])
+            config = json.loads(data["config"])
+            output_dir = data.get("output_dir") or None
+            log_path_str = data.get("log_path") or None
+            if log_path_str:
+                log_path = Path(log_path_str)
+                if log_path.exists():
+                    try:
+                        with open(log_path, "r", encoding="utf-8") as f:
+                            entries = [json.loads(line) for line in f.read().splitlines() if line.strip()]
+                        data["log_entries"] = entries
+                    except (json.JSONDecodeError, OSError):
+                        data["log_entries"] = []
+
+            results.append(JobItem(
+                id=data["id"],
+                status=JobStatus(data["status"]),
+                file_ids=file_ids,
+                config=config,
+                created_at=datetime.fromisoformat(data["created_at"]),
+                started_at=(datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None),
+                completed_at=(datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None),
+                output_dir=output_dir,
+                error_message=data.get("error_message"),
+                file_count=int(data["file_count"]),
+            ))
+
+        return results
 
     def update_status(self, job_id: str, status: JobStatus, **kwargs) -> JobItem:
         """Update job status and optional fields.
@@ -90,23 +195,32 @@ class JobService:
         Raises:
             KeyError: If job_id not found.
         """
-        job = self._jobs.get(job_id)
+        self._ensure_db()
+        now = datetime.now(timezone.utc).isoformat()
+        try:
+            with get_cursor() as cur:
+                if status == JobStatus.running:
+                    cur.execute(
+                        """UPDATE jobs SET status = ?, started_at = ?,
+                           completed_at = CASE WHEN completed_at IS NOT NULL THEN completed_at ELSE ? END,
+                           error_message = ? WHERE id = ?""",
+                        (status.value, now, None, kwargs.get("error_message"), job_id),
+                    )
+                else:
+                    cur.execute(
+                        """UPDATE jobs SET status = ?, started_at = COALESCE(started_at, ?),
+                           completed_at = CASE WHEN completed_at IS NOT NULL THEN completed_at ELSE ? END,
+                           error_message = ? WHERE id = ?""",
+                        (status.value, None, now if status in (JobStatus.completed, JobStatus.error, JobStatus.stopped) else None,
+                         kwargs.get("error_message"), job_id),
+                    )
+        except sqlite3.Error as e:
+            raise KeyError(f"Failed to update job '{job_id}': {e}")
+
+        # Reload the full record
+        job = self.get(job_id)
         if job is None:
             raise KeyError(f"Job '{job_id}' not found.")
-
-        job.status = status
-
-        if status == JobStatus.running and job.started_at is None:
-            job.started_at = datetime.now(timezone.utc)
-
-        if status in (JobStatus.completed, JobStatus.error, JobStatus.stopped):
-            job.completed_at = datetime.now(timezone.utc)
-
-        # Update optional fields
-        if "error_message" in kwargs:
-            job.error_message = kwargs["error_message"]
-        if "output_dir" in kwargs:
-            job.output_dir = kwargs["output_dir"]
 
         logger.info("Job %s status -> %s", job_id, status.value)
         return job
@@ -117,7 +231,7 @@ class JobService:
         Raises:
             KeyError: If job_id not found.
         """
-        if job_id not in self._jobs:
+        if self.get(job_id) is None:
             raise KeyError(f"Job '{job_id}' not found.")
         self._stop_flags[job_id] = True
         logger.info("Stop requested for job %s", job_id)
@@ -128,12 +242,94 @@ class JobService:
 
     def delete(self, job_id: str) -> bool:
         """Delete a job from registry. Returns True if deleted."""
-        job = self._jobs.pop(job_id, None)
+        self._ensure_db()
+        job = self.get(job_id)
         if job is None:
             return False
+        with get_cursor() as cur:
+            cur.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+        # Also clean up stop flag in RAM
         self._stop_flags.pop(job_id, None)
         logger.info("Deleted job %s", job_id)
         return True
+
+    def get_logs(self, job_id: str) -> list[dict]:
+        """Read logs.json from the job directory. Returns empty list if not found."""
+        log_path = self._get_log_path(job_id)
+        if not log_path.exists():
+            return []
+        entries = []
+        for line in log_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                try:
+                    entries.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+        return entries
+
+    def get_outputs(self, job_id: str) -> list[dict]:
+        """List output files for a completed job. Returns empty list if not found."""
+        job = self.get(job_id)
+        if job is None or job.output_dir is None:
+            return []
+        outputs = []
+        for root, _, filenames in os.walk(job.output_dir):
+            for fname in sorted(filenames):
+                fpath = os.path.join(root, fname)
+                rel_path = os.path.relpath(fpath, job.output_dir)
+                size_bytes = os.path.getsize(fpath)
+                # Infer format from file extension
+                ext = Path(fname).suffix.lower().lstrip(".")
+                outputs.append({
+                    "filename": fname,
+                    "file_path": rel_path,
+                    "size_bytes": size_bytes,
+                    "format": ext if ext else "unknown",
+                })
+        return outputs
+
+    def delete_job_files(self, job_id: str) -> None:
+        """Delete job directory from disk + DB records."""
+        self._ensure_db()
+        job = self.get(job_id)
+        if job and job.output_dir:
+            shutil.rmtree(job.output_dir, ignore_errors=True)
+        with get_cursor() as cur:
+            cur.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+
+    def cleanup(self, max_age_hours: int = 24) -> int:
+        """Remove terminal-state jobs older than max_age_hours.
+
+        Args:
+            max_age_hours: Maximum age in hours before a job is cleaned up.
+
+        Returns:
+            Number of jobs removed.
+        """
+        from datetime import timedelta
+
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+        removed = 0
+
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT id, status, completed_at FROM jobs WHERE status IN ('completed', 'error', 'stopped')"
+            )
+            rows = cur.fetchall()
+
+        for row in rows:
+            job_id = row["id"]
+            completed_at = row["completed_at"]
+            if completed_at:
+                try:
+                    completed_dt = datetime.fromisoformat(completed_at)
+                    if completed_dt < cutoff:
+                        self.delete_job_files(job_id)
+                        removed += 1
+                except (ValueError, TypeError):
+                    continue
+
+        return removed
 
     @property
     def output_base_dir(self) -> Path:

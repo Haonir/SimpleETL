@@ -68,3 +68,40 @@ class JobFilesResponse(BaseModel):
     job_id: str = Field(..., description="Job identifier.")
     files: list[JobFileItem] = Field(default_factory=list)
     total: int = Field(..., ge=0)
+
+
+# -- Log schemas -------------------------------------------------------------
+
+
+class JobLogEntry(BaseModel):
+    """A single log entry from a job's logs.json."""
+
+    timestamp: str = Field(..., min_length=1, description="ISO 8601 UTC timestamp.")
+    level: str = Field(..., description="Log level (INFO, WARNING, ERROR).")
+    message: str = Field(..., description="Human-readable log message.")
+
+
+class JobLogsResponse(BaseModel):
+    """List of log entries for a job."""
+
+    logs: list[JobLogEntry] = Field(default_factory=list)
+    total: int = Field(..., ge=0)
+
+
+# -- Output schemas ----------------------------------------------------------
+
+
+class JobOutputItem(BaseModel):
+    """Represents a single output file from a completed job."""
+
+    filename: str = Field(..., description="Output filename.")
+    file_path: str = Field(..., description="Relative path from job output dir.")
+    size_bytes: int = Field(..., ge=0, description="File size in bytes.")
+    format: str = Field(..., description="Output format (e.g. spr, markdown).")
+
+
+class JobOutputsResponse(BaseModel):
+    """List of output files for a job."""
+
+    outputs: list[JobOutputItem] = Field(default_factory=list)
+    total: int = Field(..., ge=0)

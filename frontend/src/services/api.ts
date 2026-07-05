@@ -121,3 +121,8 @@ export async function downloadJobZip(jobId: string): Promise<Blob> {
   })
   return res.data as Blob
 }
+
+export async function cleanupJobs(maxAgeHours: number = 24): Promise<{ removed: number }> {
+  const res = await api.post<{ removed: number }>(`/api/v1/jobs/cleanup?max_age_hours=${maxAgeHours}`)
+  return res.data
+}

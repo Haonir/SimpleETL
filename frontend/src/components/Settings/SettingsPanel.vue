@@ -2,18 +2,20 @@
 import { ref, onMounted } from 'vue'
 import { useConfigStore } from '@/stores/config'
 import { useUiStore } from '@/stores/ui'
-import type { LLMConfig, ProcessingConfig } from '@/types/config'
+import type { LLMConfig, ProcessingConfig, CleanupConfig } from '@/types/config'
 import LLMSettings from './LLMSettings.vue'
 import ProcessingSettings from './ProcessingSettings.vue'
+import CleanupSettings from './CleanupSettings.vue'
 
 const configStore = useConfigStore()
 const uiStore = useUiStore()
 
-type TabId = 'llm' | 'processing'
+type TabId = 'llm' | 'processing' | 'cleanup'
 const activeTab = ref<TabId>('llm')
 
 const llmValue = ref<LLMConfig>(configStore.llm)
 const processingValue = ref<ProcessingConfig>(configStore.processing)
+const cleanupValue = ref<CleanupConfig>(configStore.cleanup)
 
 onMounted(() => {
   if (!configStore.loaded) {
@@ -24,8 +26,23 @@ onMounted(() => {
 async function saveSettings() {
   configStore.llm = llmValue.value
   configStore.processing = processingValue.value
+  configStore.cleanup = cleanupValue.value
   await configStore.save()
   uiStore.showNotification('success', 'Settings saved')
+}
+
+async function runCleanup() {
+  try {
+    const res = await fetch(`/api/v1/jobs/cleanup?max_age_hours=${cleanupValue.value.max_age_hours}`, { method: 'POST' })
+    if (res.ok) {
+      const data = await res.json()
+      uiStore.showNotification('success', `Cleaned up ${data.removed} old jobs`)
+    } else {
+      uiStore.showNotification('error', 'Cleanup failed')
+    }
+  } catch {
+    uiStore.showNotification('error', 'Cleanup request failed')
+  }
 }
 
 async function handleImport(event: Event) {
@@ -60,12 +77,19 @@ async function handleImport(event: Event) {
       >
         Processing
       </button>
+      <button
+        :class="['tab', { 'tab--active': activeTab === 'cleanup' }]"
+        @click="activeTab = 'cleanup'"
+      >
+        Cleanup
+      </button>
     </div>
 
     <!-- Tab content -->
     <div class="tab-content">
       <LLMSettings v-model="llmValue" :disabled="false" v-if="activeTab === 'llm'" />
       <ProcessingSettings v-model="processingValue" :disabled="false" v-if="activeTab === 'processing'" />
+      <CleanupSettings v-model="cleanupValue" @run-cleanup="runCleanup" v-if="activeTab === 'cleanup'" />
     </div>
 
     <!-- Save button -->

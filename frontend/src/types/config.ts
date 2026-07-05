@@ -40,4 +40,11 @@ export interface ConfigResponse {
   prompts: PromptEntry[]
   /** Name of the currently active prompt. */
   current_prompt_name: string
+  cleanup?: CleanupConfig
+}
+
+/** Auto-cleanup configuration for old jobs. */
+export interface CleanupConfig {
+  enabled: boolean
+  max_age_hours: number
 }

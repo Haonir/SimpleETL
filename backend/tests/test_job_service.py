@@ -23,6 +23,12 @@ def file_service(tmp_path: Path) -> FileService:
 @pytest.fixture
 def service(tmp_path: Path, file_service: FileService) -> JobService:
     """Create an isolated JobService with isolated output dir."""
+    from app.db import init_db
+
+    # Initialize DB at the path that JobService will use
+    db_path = str(tmp_path / "jobs" / "jobs.db")
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    init_db(db_path)
     return JobService(output_base_dir=tmp_path / "jobs")
 
 
@@ -37,25 +43,22 @@ def sample_config() -> dict:
 
 
 @pytest.fixture
-def registered_file_id(file_service: FileService, monkeypatch) -> str:
-    """Register a fake file in FileService and patch the global singleton."""
-    from app.services import job_service as js_mod
+def registered_file_id(tmp_path, service: JobService, monkeypatch) -> str:
+    """Register a test file ID in the same DB that service uses."""
+    from app.services.file_service import FileService
+    from app.db import get_cursor
 
-    # Reset singleton so get_file_service uses our patched version
-    js_mod._job_service = None
-
-    # Patch get_file_service to return our isolated file_service
-    monkeypatch.setattr(js_mod, "get_file_service", lambda: file_service)
-
+    fs = FileService(upload_dir=tmp_path / "uploads")
     file_id = "test-file-id-001"
-    item = FileItem(
-        id=file_id,
-        filename="test.txt",
-        size_bytes=100,
-        content_type="text/plain",
-        uploaded_at=datetime.now(timezone.utc),
-    )
-    file_service._files[file_id] = item
+
+    with get_cursor() as cur:
+        cur.execute(
+            "INSERT INTO files (id, filename, size_bytes, content_type, uploaded_at) VALUES (?, ?, ?, ?, ?)",
+            (file_id, "test.txt", 12, "text/plain", "2026-07-05T00:00:00"),
+        )
+
+    # Monkeypatch the import IN job_service module
+    monkeypatch.setattr("app.services.job_service.get_file_service", lambda: fs)
     return file_id
 
 
@@ -97,21 +100,25 @@ def test_create_job_output_dir(service: JobService, registered_file_id: str, sam
     assert job.output_dir.endswith(f"/{job.id}/output")
 
 
-def test_create_job_multiple_files(service: JobService, file_service: FileService, monkeypatch, sample_config: dict):
+def test_create_job_multiple_files(service: JobService, tmp_path, monkeypatch, sample_config: dict):
     """Creating a job with multiple valid file_ids succeeds."""
-    from app.services import job_service as js_mod
+    from app.services.file_service import FileService
+    from app.db import get_cursor
 
-    # Patch get_file_service to return our isolated file_service
-    monkeypatch.setattr(js_mod, "get_file_service", lambda: file_service)
-
+    fs = FileService(upload_dir=tmp_path / "uploads")
     ids = []
-    for i in range(3):
-        fid = f"file-{i}"
-        file_service._files[fid] = FileItem(
-            id=fid, filename=f"doc{i}.txt", size_bytes=10,
-            content_type="text/plain", uploaded_at=datetime.now(timezone.utc),
-        )
-        ids.append(fid)
+    db_path = str(tmp_path / "jobs" / "jobs.db")  # Same DB as service uses
+    with get_cursor() as cur:
+        for i in range(3):
+            fid = f"file-{i}"
+            cur.execute(
+                "INSERT INTO files (id, filename, size_bytes, content_type, uploaded_at) VALUES (?, ?, ?, ?, ?)",
+                (fid, f"file{i}.txt", 0, "text/plain", "2026-07-05T00:00:00"),
+            )
+            ids.append(fid)
+
+    # Monkeypatch the import IN job_service module
+    monkeypatch.setattr("app.services.job_service.get_file_service", lambda: fs)
     job = service.create(file_ids=ids, config=sample_config)
     assert job.file_count == 3
     assert len(job.file_ids) == 3
@@ -257,3 +264,87 @@ def test_singleton_returns_same_instance():
 def get_job_service():
     from app.services.job_service import get_job_service as _get
     return _get()
+
+
+# -- Get logs tests ----------------------------------------------------------
+
+
+def test_get_logs_empty(service: JobService, registered_file_id: str, sample_config: dict):
+    """get_logs() returns empty list when no log file exists."""
+    job = service.create(file_ids=[registered_file_id], config=sample_config)
+    assert service.get_logs(job.id) == []
+
+
+def test_get_logs_with_entries(service: JobService, registered_file_id: str, sample_config: dict):
+    """get_logs() reads and parses log entries from logs.json."""
+    import json
+
+    job = service.create(file_ids=[registered_file_id], config=sample_config)
+    log_path = service._get_log_path(job.id)
+    # Create parent directories for logs.json
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    # Write some test log entries
+    with open(log_path, "w", encoding="utf-8") as f:
+        f.write(json.dumps({"step": "extract", "message": "Reading file 1"}))
+        f.write("\n")
+        f.write(json.dumps({"step": "split", "message": "Chunked into 5 pieces"}))
+        f.write("\n")
+
+    entries = service.get_logs(job.id)
+    assert len(entries) == 2
+    assert entries[0]["step"] == "extract"
+    assert entries[1]["step"] == "split"
+
+
+def test_get_logs_invalid_json_ignored(service: JobService, registered_file_id: str, sample_config: dict):
+    """get_logs() skips lines that are not valid JSON."""
+    import json
+
+    job = service.create(file_ids=[registered_file_id], config=sample_config)
+    log_path = service._get_log_path(job.id)
+    # Create parent directories for logs.json
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "w", encoding="utf-8") as f:
+        f.write(json.dumps({"step": "ok"}))
+        f.write("\n")
+        f.write("not valid json\n")
+        f.write(json.dumps({"step": "also_ok"}))
+
+    entries = service.get_logs(job.id)
+    assert len(entries) == 2
+
+
+# -- Delete job files tests --------------------------------------------------
+
+
+def test_delete_job_files_removes_directory(service: JobService, registered_file_id: str, sample_config: dict):
+    """delete_job_files() removes the output directory from disk."""
+    import shutil
+
+    job = service.create(file_ids=[registered_file_id], config=sample_config)
+    output_dir = Path(job.output_dir)
+    # Create the output directory before writing a dummy file
+    output_dir.mkdir(parents=True, exist_ok=True)
+    # Create a dummy file in output dir to verify it gets deleted
+    (output_dir / "dummy.txt").write_text("test")
+    assert (output_dir / "dummy.txt").exists()
+
+    service.delete_job_files(job.id)
+    assert not (output_dir / "dummy.txt").exists()
+
+
+def test_delete_job_files_removes_from_db(service: JobService, registered_file_id: str, sample_config: dict):
+    """delete_job_files() removes the job record from SQLite."""
+    import shutil
+
+    job = service.create(file_ids=[registered_file_id], config=sample_config)
+    assert service.get(job.id) is not None
+
+    service.delete_job_files(job.id)
+    assert service.get(job.id) is None
+
+
+def test_delete_job_files_nonexistent(service: JobService):
+    """delete_job_files() does nothing for nonexistent job."""
+    # Should not raise
+    service.delete_job_files("nonexistent")

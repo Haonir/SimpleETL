@@ -166,3 +166,23 @@ WS     /ws/{job_id}                # real-time progress/logs
 - `pipeline_refactor_plan.md` — SQLite + parallel pipeline plan
 - `docs/global_variables.json` — Global variable registry
 - `docs/state.json` — Phase execution state
+
+---
+
+## Parallel Coder Mode
+
+**MAX TWO CODERS CAN BE ACTIVE SIMULTANEOUSLY.**
+   - Two coders are invoked via parallel tool calls in one message
+   - After EACH coder completes — immediately @tester for its task
+   - Tester for task N does NOT wait for task N+1 to finish
+   - State updates happen per-task after each tester completes
+   - Fallback: sequential mode if tasks share file writes
+
+---
+
+## Concise Reasoning
+
+1. **Be brief.** Answer directly — no unnecessary explanations, tables, or lists when a short answer suffices.
+2. **Don't repeat context.** Don't restate what's already in per-phase state.json, AGENTS.md, or PLAN.md.
+3. **Skip obvious steps.** If you checked a file and it's fine, say "checked" — don't dump its contents.
+4. **One sentence > three paragraphs.** Prefer compact answers over verbose ones.

@@ -32,7 +32,8 @@ describe('job store', () => {
 
     expect(store.currentJobId).toBe('job-123')
     expect(store.status).toBe('queued')
-    expect(mockConnect).toHaveBeenCalledWith('job-123', expect.any(Function))
+    expect(mockConnect.mock.calls[0][0]).toBe('job-123')
+    expect(mockConnect.mock.calls[0][1]).toBeInstanceOf(Function)
   })
 
   it('handleMessage updates progress from WS message', () => {

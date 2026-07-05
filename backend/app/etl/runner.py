@@ -2,6 +2,11 @@
 
 Entry point for ETL job execution. Runs sync modules in thread pool executor,
 bridges callbacks to WebSocket broadcast via the callbacks module.
+
+Three-phase parallel pipeline:
+  Phase 1: extract + split ALL files in parallel (ThreadPoolExecutor)
+  Phase 2: LLM ALL chunks in parallel (ThreadPoolExecutor)
+  Phase 3: pack ALL files in parallel (ThreadPoolExecutor)
 """
 
 from __future__ import annotations
@@ -9,18 +14,25 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 from app.etl.callbacks import create_callbacks
+from app.services.log_manager import create_job_logger
+from app.schemas.job import JobStatus
 from app.schemas.websocket import WSDoneMessage, WSErrorMessage
-from app.etl.extractor import extract_all, extract_text
-from app.etl.llm_processor import copy_chunks_to_processed, process_with_llm
+try:
+    import openai
+except ImportError:
+    openai = None
+
+from app.etl.extractor import extract_text
 from app.etl.packer import pack_outputs
 from app.etl.splitter import split_to_chunks
 
 if TYPE_CHECKING:
-    from app.schemas.job import JobStatus
     from app.services.job_service import JobService
     from app.services.websocket_manager import ConnectionManager
 
@@ -35,10 +47,12 @@ async def run_etl_job(
     ws_manager: ConnectionManager,
 ) -> None:
     """Run an ETL job asynchronously.
-    
-    This is the main entry point called by the API when a job is created.
-    It runs the sync pipeline in a thread pool and broadcasts progress via WS.
-    
+
+    Three-phase parallel pipeline:
+      Phase 1: extract + split ALL files in parallel (ThreadPoolExecutor)
+      Phase 2: LLM ALL chunks in parallel (ThreadPoolExecutor)
+      Phase 3: pack ALL files in parallel (ThreadPoolExecutor)
+
     Args:
         job_id: Unique job identifier.
         file_paths: List of file paths to process.
@@ -51,218 +65,268 @@ async def run_etl_job(
         ws_manager: WebSocket manager singleton.
     """
     loop = asyncio.get_event_loop()
-    callbacks = create_callbacks(ws_manager, job_id, loop, job_service)
+
+    # Create file-based JSON logger for this job
+    output_dir = Path("/tmp/SimpleETL/output") if not file_paths else _get_output_dir(file_paths[0], config)
+    job_logger = create_job_logger(job_id, output_dir)
+
+    callbacks = create_callbacks(ws_manager, job_id, loop, job_service, job_logger=job_logger)
     progress_cb = callbacks["progress"]
     log_cb = callbacks["log"]
     stop_cb = callbacks["stop"]
-    
+
     try:
         # Transition job to running
-        from app.schemas.job import JobStatus
         job_service.update_status(job_id, JobStatus.running)
-        
-        log_cb(f"🚀 Starting ETL job with {len(file_paths)} file(s)...")
-        
-        # Process each file
-        total_files = len(file_paths)
-        all_success = True
-        
-        for file_idx, file_path in enumerate(file_paths):
-            if stop_cb():
-                log_cb("⚠️ Job stopped by user.")
-                job_service.update_status(job_id, JobStatus.stopped)
-                return
-            
-            file_name = os.path.basename(file_path)
-            log_cb(f"====== 🚀 FILE [{file_idx+1}/{total_files}]: {file_name} ======")
-            
-            try:
-                success = await _process_single_file(
-                    file_path=file_path,
-                    config=config,
-                    file_idx=file_idx,
-                    total_files=total_files,
-                    progress_cb=progress_cb,
-                    log_cb=log_cb,
-                    stop_cb=stop_cb,
-                )
-                
-                if not success:
-                    all_success = False
-                    log_cb(f"🛑 [{file_idx+1}/{total_files}] {file_name} — stopped.")
-                else:
-                    log_cb(f"====== ✅ FILE DONE [{file_idx+1}/{total_files}]: {file_name} ======\n")
-                    
-            except Exception as e:
-                all_success = False
-                log_cb(f"💥 {file_name}: {e}\n⏭️ Moving to next file...\n")
-                logger.exception("Error processing file %s", file_path)
-        
-        # Final status
-        if all_success and not stop_cb():
+
+        if not file_paths:
+            log_cb("⚠️ No files provided.")
             job_service.update_status(job_id, JobStatus.completed)
-            log_cb("🎉 ETL job completed successfully!")
-            
+            return
+
+        total_files = len(file_paths)
+        log_cb(f"🚀 Starting ETL job with {total_files} file(s)...")
+
+        # Flatten nested config: frontend sends {"llm": {...}, "processing": {...}}
+        # but pipeline expects flat keys like "model", "base_url", etc.
+        llm_cfg = config.get("llm", {})
+        proc_cfg = config.get("processing", {})
+        flat_config = {**proc_cfg, **llm_cfg}
+        if "prompt_text" in config:
+            flat_config.setdefault("prompt", config["prompt_text"])
+
+        for key in ("output_dir", "output_format", "skip_llm", "cleanup"):
+            if key in config:
+                flat_config.setdefault(key, config[key])
+
+        max_workers = flat_config.get("max_workers", 2)
+
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            # ── Phase 1: extract + split (parallel) ──
+            log_cb("--- Phase 1: Extract & Split ---")
+
+            registry = await _phase_prepare(pool, file_paths, flat_config, log_cb, stop_cb)
+
+            if registry is None:
+                return
+
+            # Ensure output directory exists for phase 3
+            first_base_name = next(iter(registry))
+            output_dir_path = Path(_get_output_dir(file_paths[0], config))
+            output_dir_path.mkdir(parents=True, exist_ok=True)
+
+            # ── Phase 2: LLM (parallel) ──
+            log_cb("--- Phase 2: LLM Processing ---")
+            success = await _phase_llm(pool, registry, flat_config, log_cb, stop_cb, progress_cb)
+
+            if not success and stop_cb():
+                return
+
+            # ── Phase 3: pack (parallel) ──
+            log_cb("--- Phase 3: Packing ---")
+            await _phase_pack(pool, registry, flat_config, log_cb)
+
+        # Final status
+        if not stop_cb():
+            job_service.update_status(job_id, JobStatus.completed)
+            log_cb("🎉 ETL job completed!")
+
             # Broadcast done message
-            await ws_manager.broadcast(job_id, WSDoneMessage(
-                type="done",
-                job_id=job_id,
-                output_dir=_get_output_dir(file_paths[0], config) if file_paths else "",
-            ).model_dump())
+            await ws_manager.broadcast(
+                job_id,
+                WSDoneMessage(
+                    type="done",
+                    job_id=job_id,
+                    output_dir=str(output_dir_path),
+                ).model_dump(),
+            )
         elif stop_cb():
             job_service.update_status(job_id, JobStatus.stopped)
             log_cb("⚠️ ETL job stopped by user.")
         else:
             job_service.update_status(job_id, JobStatus.completed)
             log_cb("⚠️ ETL job completed with errors.")
-            
+
     except Exception as e:
         logger.exception("Critical error in ETL job %s", job_id)
         job_service.update_status(job_id, JobStatus.error, error_message=str(e))
-        
-        await ws_manager.broadcast(job_id, WSErrorMessage(
-            type="error",
-            job_id=job_id,
-            message=str(e),
-        ).model_dump())
+
+        await ws_manager.broadcast(
+            job_id,
+            WSErrorMessage(
+                type="error",
+                job_id=job_id,
+                message=str(e),
+            ).model_dump(),
+        )
 
 
-async def _process_single_file(
+async def _phase_prepare(pool, file_paths, flat_config, log_cb, stop_cb):
+    """Parallel extract + split for all files."""
+    registry = {}
+    futures = {}
+    for file_path in file_paths:
+        future = pool.submit(_extract_and_split, file_path, flat_config, log_cb)
+        futures[future] = file_path
+    for future in as_completed(futures):
+        if stop_cb():
+            for f in futures:
+                f.cancel()
+            return None
+        base_name, chunk_paths, dirs = future.result()
+        registry[base_name] = {"chunk_paths": chunk_paths, **dirs}
+    return registry
+
+
+def _extract_and_split(
     file_path: str,
-    config: dict,
-    file_idx: int,
-    total_files: int,
-    progress_cb: callable,
+    flat_config: dict,
     log_cb: callable,
-    stop_cb: callable,
-) -> bool:
-    """Process a single file through the ETL pipeline.
-    
-    Pipeline: extract → chunks/*.md → (LLM) → processed/*.md → pack → final/
-    
+) -> tuple[str, list[str], dict]:
+    """Extract text + split into chunks (sync, runs in thread).
+
+    Args:
+        file_path: Path to the input file.
+        flat_config: Flattened ETL configuration dict.
+        log_cb: Logging callback (sync).
+
     Returns:
-        True if successful, False if stopped.
+        Tuple of (base_name, chunk_file_paths, dirs_dict) where dirs_dict contains
+        chunks_dir, processed_dir, final_dir paths.
     """
-    loop = asyncio.get_event_loop()
-    
-    # Brief pause to ensure WS client is connected before we start logging
-    await asyncio.sleep(0.2)
-    
-    # Build file-specific config
     file_name = os.path.basename(file_path)
     base_name = Path(file_name).stem
-    
-    # Determine output directory
-    output_base = config.get("output_dir", "/tmp/SimpleETL/output")
+
+    output_base = flat_config.get("output_dir", "/tmp/SimpleETL/output")
     file_output_dir = os.path.join(output_base, base_name)
-    
+
     chunks_dir = os.path.join(file_output_dir, "chunks")
     processed_dir = os.path.join(file_output_dir, "processed")
     final_dir = os.path.join(file_output_dir, "final")
-    
-    # Step 1: Extract text (runs in thread pool)
-    log_cb("--- Step 1: Extracting text ---")
-    
-    def _extract():
-        return extract_text(file_path, log_cb)
-    
-    text = await loop.run_in_executor(None, _extract)
-    
+
+    # Step 1: Extract text (sync)
+    log_cb("--- Extracting text ---")
+    text = extract_text(file_path, log_cb)
+
     if not text.strip():
         raise Exception("File is empty or contains no readable text.")
-    
-    # Flatten nested config: frontend sends {"llm": {...}, "processing": {...}, "prompt_text": "..."}
-    # but pipeline expects flat keys like "model", "base_url", etc.
-    llm_cfg = config.get("llm", {})
-    proc_cfg = config.get("processing", {})
-    flat_config = {**proc_cfg, **llm_cfg}
-    if "prompt_text" in config:
-        flat_config.setdefault("prompt", config["prompt_text"])
 
-    # Step 2: Split into chunks
-    log_cb("--- Step 2: Splitting into chunks ---")
-    
+    # Step 2: Split into chunks (sync)
+    log_cb("--- Splitting into chunks ---")
     chunk_size = flat_config.get("chunk_size", 10000)
     chunk_overlap = flat_config.get("chunk_overlap", 1500)
-    
-    def _split():
-        return split_to_chunks(
-            text=text,
-            output_dir=chunks_dir,
-            base_name=base_name,
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            log_callback=log_cb,
+
+    chunk_files = split_to_chunks(
+        text=text,
+        output_dir=chunks_dir,
+        base_name=base_name,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        log_callback=log_cb,
+    )
+
+    return base_name, chunk_files, {
+        "chunks_dir": chunks_dir,
+        "processed_dir": processed_dir,
+        "final_dir": final_dir,
+    }
+
+
+async def _phase_llm(
+    pool: ThreadPoolExecutor,
+    registry: dict[str, dict],
+    flat_config: dict,
+    log_cb: callable,
+    stop_cb: callable,
+    progress_cb: callable,
+) -> bool:
+    """Parallel LLM processing for all chunks.
+
+    Each chunk is processed individually in the thread pool for true parallelism.
+    Failures on individual chunks are logged but do not stop the pipeline (fail-continue).
+
+    Args:
+        pool: Thread pool executor.
+        registry: Registry from Phase 1 with chunk_paths per file.
+        flat_config: Flattened ETL configuration dict.
+        log_cb: Logging callback (sync).
+        stop_cb: Stop-check callback (returns True when stopped).
+        progress_cb: Progress callback (chunk_pct, global_pct, file_idx).
+
+    Returns:
+        True if processing completed (even with some errors), False if stopped.
+    """
+    loop = asyncio.get_event_loop()
+    total = sum(len(info["chunk_paths"]) for info in registry.values())
+
+    counter = {"done": 0}
+    lock = threading.Lock()
+
+    def process_chunk(chunk_path: Path, processed_path: Path, config: dict) -> Optional[str]:
+        """Process one chunk (sync, runs in thread)."""
+        if processed_path.exists():
+            return "skip"
+
+        processed_path.parent.mkdir(parents=True, exist_ok=True)
+
+        client = openai.OpenAI(
+            base_url=config["base_url"],
+            api_key=config["api_key"],
         )
-    
-    chunk_files = await loop.run_in_executor(None, _split)
-    
-    if stop_cb():
-        return False
-    
-    # Step 3: LLM processing (optional)
-    skip_llm = flat_config.get("skip_llm", False)
-    
-    if skip_llm:
-        log_cb("--- Step 3: LLM skipped (copying chunks) ---")
-        def _copy():
-            return copy_chunks_to_processed(chunks_dir, processed_dir, base_name, log_cb)
-        await loop.run_in_executor(None, _copy)
-    else:
-        log_cb("--- Step 3: LLM processing ---")
-        
-        def _llm():
-            return process_with_llm(
-                chunks_dir=chunks_dir,
-                processed_dir=processed_dir,
-                base_name=base_name,
-                model=flat_config.get("model", "llama3"),
-                base_url=flat_config.get("base_url", "http://localhost:11434/v1"),
-                api_key=flat_config.get("api_key", "ollama"),
-                prompt=flat_config.get("prompt", "Analyze this text."),
-                log_callback=log_cb,
-                stop_check_callback=stop_cb,
-            )
-        
-        success = await loop.run_in_executor(None, _llm)
-        if not success:
-            return False
-    
-    if stop_cb():
-        return False
-    
-    # Step 4: Pack outputs
-    log_cb("--- Step 4: Packing outputs ---")
-    output_format = flat_config.get("output_format", "spr")
-    
-    def _pack():
-        return pack_outputs(
-            processed_dir=processed_dir,
-            output_dir=final_dir,
-            base_name=base_name,
-            output_format=output_format,
-            log_callback=log_cb,
+        response = client.chat.completions.create(
+            model=config.get("model", "llama3"),
+            messages=[
+                {"role": "system", "content": config.get("prompt", "Analyze this text.")},
+                {
+                    "role": "user",
+                    "content": f"Process this text:\n\n{chunk_path.read_text(encoding='utf-8')}",
+                },
+            ],
+            temperature=0.2,
         )
-    
-    output_files = await loop.run_in_executor(None, _pack)
-    
-    # Step 5: Cleanup (optional)
-    if flat_config.get("cleanup", True):
-        log_cb("--- Step 5: Cleanup ---")
-        import shutil
-        for d in [chunks_dir, processed_dir]:
-            if os.path.exists(d):
+        with open(processed_path, "w") as f:
+            f.write(response.choices[0].message.content)
+
+        with lock:
+            counter["done"] += 1
+            progress_cb(counter["done"] * 100 // max(total, 1), 100, 0)
+
+    futures = []
+    for base_name, info in registry.items():
+        for chunk_path in info["chunk_paths"]:
+            processed_path = Path(info["processed_dir"]) / Path(chunk_path).name
+            future = pool.submit(process_chunk, chunk_path, processed_path, flat_config)
+            futures.append(future)
+
+    for future in as_completed(futures):
+        if stop_cb():
+            for f in futures:
                 try:
-                    shutil.rmtree(d)
-                except Exception as e:
-                    log_cb(f"⚠️ Cleanup warning: {e}")
-    
-    # Update progress to 100%
-    file_weight = 100 / total_files
-    global_pct = int((file_idx + 1) * file_weight)
-    progress_cb(100, global_pct, file_idx)
-    
+                    f.cancel()
+                except Exception:
+                    pass
+            return False
+
+        try:
+            future.result()  # skip returns None, process returns "skip" or writes file
+        except Exception as e:
+            log_cb(f"⚠️ LLM error: {e}")  # fail-continue
+
     return True
+
+
+async def _phase_pack(pool, registry, flat_config, log_cb):
+    """Parallel pack for all files."""
+    output_format = flat_config.get("output_format", "spr")
+    futures = []
+    for base_name, info in registry.items():
+        future = pool.submit(
+            pack_outputs,
+            info["processed_dir"], info["final_dir"], base_name, output_format, log_cb,
+        )
+        futures.append(future)
+    for future in as_completed(futures):
+        future.result()
 
 
 def _get_output_dir(file_path: str, config: dict) -> str:

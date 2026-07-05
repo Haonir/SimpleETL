@@ -54,6 +54,7 @@ describe('config store', () => {
       processing: { chunk_size: 1, chunk_overlap: 1, max_workers: 1, output_format: 'spr' },
       prompts: [],
       current_prompt_name: '',
+      cleanup: { enabled: false, max_age_hours: 24 },
     })
   })
 

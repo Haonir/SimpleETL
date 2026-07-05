@@ -16,6 +16,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from app.schemas.websocket import WSLogMessage, WSProgressMessage
+from app.services.log_manager import make_log_cb as _file_make_log_cb
 
 if TYPE_CHECKING:
     from app.services.job_service import JobService
@@ -154,15 +155,24 @@ def create_callbacks(
     job_id: str,
     loop: asyncio.AbstractEventLoop,
     job_service: JobService,
+    job_logger: logging.Logger | None = None,
 ) -> dict[str, callable]:
     """Create all ETL pipeline callbacks at once.
-    
+
+    Args:
+        ws_manager: The WebSocket connection manager singleton.
+        job_id: Current job identifier.
+        loop: The running asyncio event loop (for run_coroutine_threadsafe).
+        job_service: The job service singleton.
+        job_logger: Optional logger for file-based JSON logging. If None,
+            the log callback falls back to WS broadcast only.
+
     Returns:
         Dict with keys: progress, log, log_error, stop
     """
     return {
         "progress": make_progress_cb(ws_manager, job_id, loop),
-        "log": make_log_cb(ws_manager, job_id, loop),
+        "log": _file_make_log_cb(job_logger) if job_logger else make_log_cb(ws_manager, job_id, loop),
         "log_error": make_log_error_cb(ws_manager, job_id, loop),
         "stop": make_stop_cb(job_service, job_id),
     }

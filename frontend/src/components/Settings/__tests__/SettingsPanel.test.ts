@@ -26,9 +26,10 @@ describe('SettingsPanel.vue', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.find('.tab').exists()).toBe(true)
-    expect(wrapper.findAll('.tab')).toHaveLength(2)
+    expect(wrapper.findAll('.tab')).toHaveLength(3)
     expect(wrapper.text()).toContain('LLM')
     expect(wrapper.text()).toContain('Processing')
+    expect(wrapper.text()).toContain('Cleanup')
   })
 
   it('clicking LLM tab sets activeTab to llm', async () => {

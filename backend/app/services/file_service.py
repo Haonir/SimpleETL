@@ -1,4 +1,4 @@
-"""FileService — upload, list, delete files. In-memory registry + temp storage."""
+"""FileService — upload, list, delete files. SQLite-backed registry + temp storage."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from typing import BinaryIO, Optional
 
 from fastapi import UploadFile
 
+from app.db import get_cursor
 from app.schemas.file import FileItem, FileListResponse, FileUploadResponse
 
 logger = logging.getLogger(__name__)
@@ -25,32 +26,32 @@ DEFAULT_MAX_FILE_SIZE = 100 * 1024 * 1024
 
 class FileService:
     """Service for managing uploaded files.
-    
-    Stores files in a temporary directory and maintains an in-memory registry.
+
+    Stores files in a temporary directory and maintains an SQLite-backed registry.
     Singleton pattern: use get_file_service() to get the global instance.
     """
 
     def __init__(self, upload_dir: Optional[str | Path] = None):
         """Initialize FileService with an upload directory.
-        
+
         Args:
-            upload_dir: Directory to store uploaded files. 
-                       If None, uses system temp dir + 'SimpleETL/uploads'.
+            upload_dir: Directory to store uploaded files.
+                        If None, uses system temp dir + 'SimpleETL/uploads'.
         """
         if upload_dir is not None:
             self._upload_dir = Path(upload_dir)
         else:
             self._upload_dir = Path(tempfile.gettempdir()) / "SimpleETL" / "uploads"
-        
+
         self._upload_dir.mkdir(parents=True, exist_ok=True)
-        
-        # In-memory registry: file_id -> FileItem
-        self._files: dict[str, FileItem] = {}
-        
+
+        # SQLite-backed registry (replaces in-memory _files dict)
+        self._files_table = "files"
+
         # In-memory file data: file_id -> bytes (for simplicity in MVP)
         # In production, files would be on disk and we'd track paths only
         self._file_data: dict[str, bytes] = {}
-        
+
         logger.info("FileService initialized with upload_dir: %s", self._upload_dir)
 
     @property
@@ -69,45 +70,45 @@ class FileService:
 
     async def upload(self, file: UploadFile) -> FileItem:
         """Upload a single file and store it.
-        
+
         Args:
             file: FastAPI UploadFile object.
-            
+
         Returns:
             FileItem with metadata.
-            
+
         Raises:
             ValueError: If file extension is not allowed or file is empty.
         """
         # Validate filename
         if not file.filename:
             raise ValueError("Filename is required.")
-        
+
         self._validate_extension(file.filename)
-        
+
         # Read file content
         content = await file.read()
         if not content:
             raise ValueError("File is empty.")
-        
+
         # Check file size
         if len(content) > DEFAULT_MAX_FILE_SIZE:
             raise ValueError(
                 f"File size ({len(content)} bytes) exceeds maximum "
                 f"({DEFAULT_MAX_FILE_SIZE} bytes)."
             )
-        
+
         # Generate unique ID
         file_id = str(uuid.uuid4())
-        
+
         # Determine storage path
         ext = Path(file.filename).suffix
         storage_name = f"{file_id}{ext}"
         storage_path = self._upload_dir / storage_name
-        
+
         # Write to disk
         storage_path.write_bytes(content)
-        
+
         # Create FileItem
         item = FileItem(
             id=file_id,
@@ -116,29 +117,45 @@ class FileService:
             content_type=file.content_type or "application/octet-stream",
             uploaded_at=datetime.now(timezone.utc),
         )
-        
-        # Register in memory
-        self._files[file_id] = item
+
+        # Store in SQLite
+        with get_cursor() as cur:
+            cur.execute(
+                "INSERT INTO files (id, filename, size_bytes, content_type, uploaded_at) VALUES (?, ?, ?, ?, ?)",
+                (item.id, item.filename, item.size_bytes, item.content_type, item.uploaded_at),
+            )
+
+        # Keep file data in RAM for MVP simplicity
         self._file_data[file_id] = content
-        
+
         logger.info("Uploaded file: %s (id=%s, size=%d)", file.filename, file_id, len(content))
         return item
 
     def list_files(self) -> FileListResponse:
-        """Return list of all uploaded files."""
-        files = list(self._files.values())
-        return FileListResponse(files=files, total=len(files))
+        """Return list of all uploaded files ordered by upload time."""
+        with get_cursor() as cur:
+            cur.execute("SELECT * FROM files ORDER BY uploaded_at")
+            rows = cur.fetchall()
+
+        items = [FileItem(**dict(row)) for row in rows]
+        return FileListResponse(files=items, total=len(items))
 
     def get_file(self, file_id: str) -> Optional[FileItem]:
         """Get file metadata by ID. Returns None if not found."""
-        return self._files.get(file_id)
+        with get_cursor() as cur:
+            cur.execute("SELECT * FROM files WHERE id = ?", (file_id,))
+            row = cur.fetchone()
+
+        if row is None:
+            return None
+        return FileItem(**dict(row))
 
     def get_path(self, file_id: str) -> Optional[Path]:
         """Get the path to the file on disk. Returns None if not found."""
-        item = self._files.get(file_id)
+        item = self.get_file(file_id)
         if item is None:
             return None
-        
+
         ext = Path(item.filename).suffix
         return self._upload_dir / f"{file_id}{ext}"
 
@@ -148,10 +165,10 @@ class FileService:
 
     def delete(self, file_id: str) -> bool:
         """Delete a file by ID. Returns True if deleted, False if not found."""
-        item = self._files.pop(file_id, None)
+        item = self.get_file(file_id)
         if item is None:
             return False
-        
+
         # Remove from disk
         ext = Path(item.filename).suffix
         path = self._upload_dir / f"{file_id}{ext}"
@@ -159,32 +176,38 @@ class FileService:
             path.unlink(missing_ok=True)
         except OSError as exc:
             logger.warning("Failed to delete file from disk: %s", exc)
-        
-        # Remove from memory
+
+        # Remove from RAM cache
         self._file_data.pop(file_id, None)
-        
+
+        # Delete from SQLite
+        with get_cursor() as cur:
+            cur.execute("DELETE FROM files WHERE id = ?", (file_id,))
+
         logger.info("Deleted file: %s (id=%s)", item.filename, file_id)
         return True
 
     def cleanup(self, max_age_hours: int = 24) -> int:
-        """Remove files older than max_age_hours. Returns count of removed files.
-        
-        Note: This is a simple MVP implementation. For production, consider
-        using a background task with asyncio or APScheduler.
-        """
+        """Remove files older than max_age_hours. Returns count of removed files."""
         now = datetime.now(timezone.utc)
         to_remove: list[str] = []
-        
-        for file_id, item in self._files.items():
-            age_hours = (now - item.uploaded_at).total_seconds() / 3600
+
+        with get_cursor() as cur:
+            cur.execute("SELECT id, uploaded_at FROM files")
+            rows = cur.fetchall()
+
+        for row in rows:
+            file_id = row[0]
+            uploaded_at = datetime.fromisoformat(row[1]) if isinstance(row[1], str) else row[1]
+            age_hours = (now - uploaded_at).total_seconds() / 3600
             if age_hours > max_age_hours:
                 to_remove.append(file_id)
-        
+
         count = 0
         for file_id in to_remove:
             if self.delete(file_id):
                 count += 1
-        
+
         if count > 0:
             logger.info("Cleaned up %d old files", count)
         return count

@@ -40,6 +40,9 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifecycle — startup and shutdown."""
+    from app.db import init_db
+
+    init_db()
     logger.info("SimpleETL API starting")
     yield
     logger.info("SimpleETL API shutting down")

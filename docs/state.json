@@ -24,7 +24,13 @@
       "title": "Phase 4: Config Migration (Backend → Frontend)",
       "status": "completed",
       "state_file": "docs/phase_4/state.json"
-    }
-  ],
-  "coder_iterations": 3
+      },
+      {
+        "id": "phase-5-pipeline-refactor",
+        "title": "Phase 5: Pipeline Refactor (Parallel LLM + Persistence)",
+        "status": "executing",
+        "state_file": "docs/phase_5/state.json"
+      }
+    ],
+    "coder_iterations": 4
 }

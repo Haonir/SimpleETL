@@ -13,6 +13,7 @@ import JobOutput from '@/components/JobOutput/JobOutput.vue'
 import JobHistory from '@/components/JobHistory/JobHistory.vue'
 import ConnectionStatus from '@/components/ConnectionStatus/ConnectionStatus.vue'
 import { onMounted } from 'vue'
+import { cleanupJobs } from '@/services/api'
 
 const uiStore = useUiStore()
 const jobStore = useJobStore()
@@ -49,6 +50,16 @@ onMounted(async () => {
   await configStore.loadConfig()
   await promptsStore.fetchPrompts()
   await filesStore.fetchFiles()
+  await jobStore.restoreJob()
+
+  // Auto-cleanup if enabled
+  if (configStore.cleanup?.enabled) {
+    try {
+      await cleanupJobs(configStore.cleanup.max_age_hours)
+    } catch {
+      // Ignore cleanup errors on startup
+    }
+  }
 })
 </script>
 

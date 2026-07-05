@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
+import tempfile
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,6 +18,7 @@ from app.etl.callbacks import (
     make_progress_cb,
     make_stop_cb,
 )
+from app.services.log_manager import create_job_logger
 from app.schemas.websocket import WSProgressMessage
 
 
@@ -37,6 +42,13 @@ def mock_job_service():
 def event_loop():
     """Get the running event loop."""
     return asyncio.get_event_loop()
+
+
+@pytest.fixture
+def temp_dir():
+    """Create a temporary directory for test logs."""
+    with tempfile.TemporaryDirectory() as tmp:
+        yield Path(tmp)
 
 
 class TestMakeProgressCb:
@@ -150,3 +162,45 @@ class TestCreateCallbacks:
         assert callable(callbacks["progress"])
         assert callable(callbacks["log"])
         assert callable(callbacks["stop"])
+
+    def test_log_falls_back_to_ws_when_no_logger(self, mock_ws_manager, event_loop):
+        """Without job_logger, log callback broadcasts via WS."""
+        callbacks = create_callbacks(mock_ws_manager, "job-123", event_loop, mock_job_service)
+        cb = callbacks["log"]
+        cb("Test message")
+
+        event_loop.run_until_complete(asyncio.sleep(0.01))
+        mock_ws_manager.broadcast.assert_called_once()
+        msg = mock_ws_manager.broadcast.call_args[0][1]
+        assert msg["type"] == "log"
+        assert msg["message"] == "Test message"
+
+    def test_log_uses_file_logger_when_provided(self, mock_ws_manager, mock_job_service, temp_dir, event_loop):
+        """With job_logger, log callback writes to file instead of broadcasting."""
+        logger = create_job_logger("test-job", temp_dir)
+        callbacks = create_callbacks(
+            mock_ws_manager, "test-job", event_loop, mock_job_service, job_logger=logger
+        )
+        cb = callbacks["log"]
+        cb("File log message")
+
+        # Allow any async tasks to complete (should be none for file logger)
+        event_loop.run_until_complete(asyncio.sleep(0.01))
+
+        # WS broadcast should NOT have been called for the "log" key
+        mock_ws_manager.broadcast.assert_not_called()
+
+        # logs.json should contain the message
+        log_path = temp_dir / "logs.json"
+        assert log_path.exists()
+        content = json.loads(log_path.read_text(encoding="utf-8").strip())
+        assert content["message"] == "File log message"
+
+    def test_progress_and_log_error_still_use_ws(self, mock_ws_manager, event_loop):
+        """Progress and log_error callbacks always use WS broadcast."""
+        callbacks = create_callbacks(mock_ws_manager, "job-123", event_loop, mock_job_service)
+        callbacks["progress"](50, 25, 0)
+        callbacks["log_error"]("Error occurred")
+
+        event_loop.run_until_complete(asyncio.sleep(0.01))
+        assert mock_ws_manager.broadcast.call_count == 2

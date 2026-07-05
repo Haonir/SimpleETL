@@ -3,8 +3,10 @@ import { ref, computed } from 'vue'
 import { WSConnection } from '@/services/websocket'
 import type { WSServerMessage, LogEntry } from '@/types/ws'
 import type { JobStatus } from '@/types/job'
+const JOB_STORAGE_KEY = 'simpleetl_current_job_id'
+
 import { createJob as apiCreateJob, getJobs as apiGetJobs, getJobFiles as apiGetJobFiles, stopJob as stopJobApi } from '@/services/api'
-import type { JobCreateRequest, JobItem, JobFileItem } from '@/types/job'
+import type { JobCreateRequest, JobItem, JobFileItem, JobResponse } from '@/types/job'
 
 export const useJobStore = defineStore('job', () => {
   const currentJobId = ref<string | null>(null)
@@ -47,6 +49,7 @@ export const useJobStore = defineStore('job', () => {
     progress.value = {}
     globalProgress.value = 0
     logs.value = []
+    localStorage.setItem(JOB_STORAGE_KEY, jobId)
     connectWS(jobId)
   }
 
@@ -63,6 +66,31 @@ export const useJobStore = defineStore('job', () => {
     }
     disconnectWS()
     status.value = 'stopped'
+    localStorage.removeItem(JOB_STORAGE_KEY)
+  }
+
+  async function restoreJob(): Promise<void> {
+    const savedJobId = localStorage.getItem(JOB_STORAGE_KEY)
+    if (!savedJobId) return
+
+    try {
+      const response = await apiGetJob(savedJobId)
+      const job = response.job
+
+      currentJobId.value = job.id
+      status.value = job.status
+
+      if (job.status === 'running' || job.status === 'pending') {
+        // Job still running — reconnect WebSocket
+        connectWS(job.id)
+      } else {
+        // Job finished — clean up localStorage
+        localStorage.removeItem(JOB_STORAGE_KEY)
+      }
+    } catch {
+      // Job not found (404) or API error — clean up
+      localStorage.removeItem(JOB_STORAGE_KEY)
+    }
   }
 
   function connectWS(jobId: string) {
@@ -93,10 +121,12 @@ export const useJobStore = defineStore('job', () => {
       case 'done':
         status.value = 'completed'
         globalProgress.value = 100
+        localStorage.removeItem(JOB_STORAGE_KEY)
         break
       case 'error':
         status.value = 'error'
         addLog({ timestamp: new Date().toISOString(), level: 'error', message: msg.message })
+        localStorage.removeItem(JOB_STORAGE_KEY)
         break
     }
   }
@@ -109,7 +139,7 @@ export const useJobStore = defineStore('job', () => {
     currentJobId, status, progress, globalProgress, logs,
     jobs, currentJobFiles,
     isRunning, isCompleted,
-    startJob, stopJob, connectWS, disconnectWS, addLog,
+    startJob, stopJob, restoreJob, connectWS, disconnectWS, addLog,
     createAndStartJob, fetchJobs, fetchJobFiles,
   }
 })
