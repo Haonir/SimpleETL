@@ -14,10 +14,10 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {})
 
 const outputOptions: Option[] = [
-  { value: 'spr', label: 'SPR' },
-  { value: 'frontmatter', label: 'Frontmatter' },
   { value: 'markdown', label: 'Raw Markdown' },
+  { value: 'frontmatter', label: 'Frontmatter' },
   { value: 'html', label: 'HTML' },
+  { value: 'spr', label: 'SPR' },
 ]
 
 defineEmits<{

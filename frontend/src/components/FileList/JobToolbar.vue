@@ -18,10 +18,10 @@ const selectedPromptName = ref(promptsStore.currentPromptName || '')
 const selectedFormat = ref<OutputFormat>(configStore.processing.output_format)
 
 const formatOptions: { value: OutputFormat; label: string }[] = [
-  { value: 'spr', label: 'SPR' },
-  { value: 'frontmatter', label: 'Frontmatter' },
   { value: 'markdown', label: 'Raw Markdown' },
+  { value: 'frontmatter', label: 'Frontmatter' },
   { value: 'html', label: 'HTML' },
+  { value: 'spr', label: 'SPR' },
 ]
 
 async function handleStart() {
