@@ -4,8 +4,6 @@
 
 The **backend scaffold (`backend/app/`)** has already been created with the full structure described in this plan. The project is ready for development work following the phases outlined below.
 
-> **Note:** The `.venv-core` virtual environment for the desktop app (`core/`) is now located at `core/.venv-core/`, not at the project root.
-
 ## 1. Architecture Overview
 
 ```
@@ -89,7 +87,6 @@ backend/
 
 | Component | Responsibility | Migration Notes |
 |-----------|---------------|-----------------|
-| `config_service.py` | Load/save `config.json` | **Reuse** `core/config_manager.py` logic; add Pydantic validation |
 | `file_service.py` | Save uploads to temp dir, cleanup | New: `tempfile` + background cleanup task |
 | `job_service.py` | Create/manage ETL jobs, track status | New: job registry (in-memory + persistence optional) |
 | `websocket_manager.py` | Broadcast progress/logs to clients | New: `ConnectionManager` class with `job_id` rooms |
@@ -137,8 +134,6 @@ WS     /api/v1/ws/{job_id}         → WebSocket (progress, logs, done)
 ```
 
 ### 2.5 ETL Pipeline — Modular Async Architecture
-
-> **Note:** `core/` is DEPRECATED. All ETL logic lives in `backend/app/etl/`. No imports from `core/`.
 
 **Pipeline flow:**
 ```
@@ -339,12 +334,12 @@ function createWindow() {
 - [x] Log panel with auto-scroll
 
 ### Phase 3: Integration & Real-time (Week 3)
-- [ ] WebSocket connection in `job` store
-- [ ] Start job flow: POST `/jobs` → connect WS → update UI from messages
-- [ ] Progress bars (per-file + global) driven by WS `progress` messages
-- [ ] Log panel driven by WS `log` messages
-- [ ] Stop button → WS `stop` message → job cancellation
-- [ ] Error handling + toast notifications
+- [x] WebSocket connection in `job` store
+- [x] Start job flow: POST `/jobs` → connect WS → update UI from messages
+- [x] Progress bars (per-file + global) driven by WS `progress` messages
+- [x] Log panel driven by WS `log` messages
+- [x] Stop button → WS `stop` message → job cancellation
+- [x] Error handling + toast notifications
 
 ### Phase 4: Polish & Electron Prep (Week 4)
 - [ ] Scoped CSS refinement (design system variables)
