@@ -170,9 +170,17 @@ def create_callbacks(
     Returns:
         Dict with keys: progress, log, log_error, stop
     """
+    file_cb = _file_make_log_cb(job_logger) if job_logger else None
+    ws_cb = make_log_cb(ws_manager, job_id, loop)
+
+    def combined_log_cb(message: str) -> None:
+        if file_cb:
+            file_cb(message)
+        ws_cb(message)
+
     return {
         "progress": make_progress_cb(ws_manager, job_id, loop),
-        "log": _file_make_log_cb(job_logger) if job_logger else make_log_cb(ws_manager, job_id, loop),
+        "log": combined_log_cb,
         "log_error": make_log_error_cb(ws_manager, job_id, loop),
         "stop": make_stop_cb(job_service, job_id),
     }

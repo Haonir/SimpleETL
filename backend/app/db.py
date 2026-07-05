@@ -10,8 +10,9 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-_local = threading.local()
+_lock = threading.Lock()
 _db_path: Path | None = None
+_conn: sqlite3.Connection | None = None
 
 
 def init_db(db_path: str = "simpleetl.db") -> None:
@@ -22,49 +23,44 @@ def init_db(db_path: str = "simpleetl.db") -> None:
     Args:
         db_path: Path to the SQLite database file. Defaults to 'simpleetl.db'.
     """
-    global _db_path
+    global _db_path, _conn
     _db_path = Path(db_path)
-    # Reset existing connection so _get_connection() creates a new one with the new path
-    if hasattr(_local, "conn") and _local.conn is not None:
-        _local.conn.close()
-        _local.conn = None
-    conn = _get_connection()
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    _create_tables(conn)
-    _recover_interrupted_jobs(conn)
+    if _conn is not None:
+        _conn.close()
+    _conn = sqlite3.connect(str(_db_path), check_same_thread=False)
+    _conn.row_factory = sqlite3.Row
+    _conn.execute("PRAGMA journal_mode=WAL")
+    _conn.execute("PRAGMA foreign_keys=ON")
+    _create_tables(_conn)
+    _recover_interrupted_jobs(_conn)
+    logger.info("Database initialized: %s", _db_path)
 
 
 def _get_connection() -> sqlite3.Connection:
-    """Return a thread-local SQLite connection.
-
-    Returns:
-        sqlite3.Connection with row_factory set to sqlite3.Row.
-    """
-    if not hasattr(_local, "conn") or _local.conn is None:
-        _local.conn = sqlite3.connect(str(_db_path), check_same_thread=False)
-        _local.conn.row_factory = sqlite3.Row
-    return _local.conn
+    """Return the shared SQLite connection."""
+    global _conn
+    if _conn is None:
+        if _db_path is None:
+            raise RuntimeError("Database not initialized. Call init_db() first.")
+        _conn = sqlite3.connect(str(_db_path), check_same_thread=False)
+        _conn.row_factory = sqlite3.Row
+        _conn.execute("PRAGMA journal_mode=WAL")
+        _conn.execute("PRAGMA foreign_keys=ON")
+    return _conn
 
 
 @contextmanager
 def get_cursor():
-    """Context manager for database operations with automatic commit/rollback.
-
-    Yields:
-        sqlite3.Cursor
-
-    Raises:
-        Any exception from the cursor operation, with rollback on failure.
-    """
-    conn = _get_connection()
-    cur = conn.cursor()
-    try:
-        yield cur
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
+    """Context manager for database operations with automatic commit/rollback."""
+    with _lock:
+        conn = _get_connection()
+        cur = conn.cursor()
+        try:
+            yield cur
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
 
 
 def _create_tables(conn) -> None:
@@ -108,20 +104,23 @@ def _create_tables(conn) -> None:
     )
 
 
-def ensure_tables(db_path: str) -> None:
+def ensure_tables(db_path: str | None = None) -> None:
     """Ensure tables exist without running recovery.
 
-    Used by JobService._ensure_db() which must not run recovery,
-    because recovery marks all pending/running jobs as 'error' —
-    and _ensure_db() is called on every method invocation, not just startup.
+    Used by services that need tables ready but must not run recovery.
+    If db_path is None, uses the already-initialized DB from init_db().
+
+    Args:
+        db_path: Optional path. If provided and different from current, switches DB.
     """
-    global _db_path
-    if _db_path != Path(db_path):
+    global _db_path, _conn
+    if db_path is not None and _db_path != Path(db_path):
         _db_path = Path(db_path)
-        # Reset existing connection so _get_connection() creates a new one with the new path
-        if hasattr(_local, "conn") and _local.conn is not None:
-            _local.conn.close()
-            _local.conn = None
+        if _conn is not None:
+            _conn.close()
+            _conn = None
+    if _db_path is None:
+        raise RuntimeError("Database not initialized. Call init_db() first.")
     conn = _get_connection()
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")

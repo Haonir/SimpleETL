@@ -6,7 +6,7 @@
 
 import axios, { type AxiosError } from 'axios'
 import type { FileListResponse, FileUploadResponse } from '@/types/file'
-import type { JobCreateRequest, JobResponse, JobListResponse, JobFilesResponse } from '@/types/job'
+import type { JobCreateRequest, JobResponse, JobListResponse, JobFilesResponse, JobLogsResponse, JobOutputsResponse } from '@/types/job'
 
 // ── Axios instance ────────────────────────────────────────────────────────
 
@@ -120,6 +120,16 @@ export async function downloadJobZip(jobId: string): Promise<Blob> {
     responseType: 'blob',
   })
   return res.data as Blob
+}
+
+export async function getJobLogs(jobId: string): Promise<JobLogsResponse> {
+  const res = await api.get<JobLogsResponse>(`/api/v1/jobs/${encodeURIComponent(jobId)}/logs`)
+  return res.data
+}
+
+export async function getJobOutputs(jobId: string): Promise<JobOutputsResponse> {
+  const res = await api.get<JobOutputsResponse>(`/api/v1/jobs/${encodeURIComponent(jobId)}/outputs`)
+  return res.data
 }
 
 export async function cleanupJobs(maxAgeHours: number = 24): Promise<{ removed: number }> {

@@ -5,7 +5,7 @@ import type { WSServerMessage, LogEntry } from '@/types/ws'
 import type { JobStatus } from '@/types/job'
 const JOB_STORAGE_KEY = 'simpleetl_current_job_id'
 
-import { createJob as apiCreateJob, getJobs as apiGetJobs, getJobFiles as apiGetJobFiles, stopJob as stopJobApi } from '@/services/api'
+import { createJob as apiCreateJob, getJobs as apiGetJobs, getJobFiles as apiGetJobFiles, stopJob as stopJobApi, getJob as apiGetJob, getJobLogs as apiGetJobLogs, getJobOutputs as apiGetJobOutputs } from '@/services/api'
 import type { JobCreateRequest, JobItem, JobFileItem, JobResponse } from '@/types/job'
 
 export const useJobStore = defineStore('job', () => {
@@ -37,8 +37,12 @@ export const useJobStore = defineStore('job', () => {
   }
 
   async function fetchJobFiles(jobId: string): Promise<void> {
-    const response = await apiGetJobFiles(jobId)
-    currentJobFiles.value = response.files
+    const response = await apiGetJobOutputs(jobId)
+    currentJobFiles.value = response.outputs.map((o) => ({
+      filename: o.filename,
+      path: o.file_path,
+      size_bytes: o.size_bytes,
+    }))
   }
 
   // ── WebSocket actions (existing) ──────────────────────────────────────────
@@ -80,16 +84,37 @@ export const useJobStore = defineStore('job', () => {
       currentJobId.value = job.id
       status.value = job.status
 
+      // Restore logs
+      try {
+        const logsResp = await apiGetJobLogs(savedJobId)
+        logs.value = logsResp.logs.map((l) => ({
+          timestamp: l.timestamp,
+          level: l.level,
+          message: l.message,
+        }))
+      } catch {
+        // Logs not available yet
+      }
+
+      // Restore output files
+      try {
+        const outputsResp = await apiGetJobOutputs(savedJobId)
+        currentJobFiles.value = outputsResp.outputs.map((o) => ({
+          filename: o.filename,
+          path: o.file_path,
+          size_bytes: o.size_bytes,
+        }))
+      } catch {
+        // Outputs not available yet
+      }
+
       if (job.status === 'running' || job.status === 'pending') {
         // Job still running — reconnect WebSocket
         connectWS(job.id)
-      } else {
-        // Job finished — clean up localStorage
-        localStorage.removeItem(JOB_STORAGE_KEY)
       }
+      // Finished job: keep in localStorage so logs/outputs persist across refreshes
     } catch {
-      // Job not found (404) or API error — clean up
-      localStorage.removeItem(JOB_STORAGE_KEY)
+      // Backend unreachable or job not found — keep localStorage so data restores when backend is back
     }
   }
 

@@ -47,16 +47,13 @@ class JobService:
         logger.info("JobService initialized with output_base: %s", self._output_base)
 
     def _ensure_db(self):
-        """Ensure the SQLite database is initialized at startup.
+        """Ensure the SQLite database tables exist.
 
-        Uses ensure_tables() instead of init_db() because ensure_tables()
-        only creates tables without running recovery. Recovery marks all
-        pending/running jobs as 'error', and since _ensure_db() is called
-        on every method invocation (not just startup), it would corrupt
-        active jobs.
+        Uses ensure_tables() without a path argument to use the already-initialized
+        DB (set by init_db() at startup). This avoids switching to a different DB file.
         """
-        db_path = str(self._output_base / "jobs.db")
-        ensure_tables(db_path)
+        from app.db import ensure_tables
+        ensure_tables()
 
     def _get_log_path(self, job_id: str) -> Path:
         """Return the log file path for a given job."""

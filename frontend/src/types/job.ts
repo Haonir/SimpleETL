@@ -66,3 +66,34 @@ export interface JobFilesResponse {
   /** Total number of output files. */
   total: number
 }
+
+// -- Log types ---------------------------------------------------------------
+
+/** A single log entry from a job's logs.json. */
+export interface JobLogEntry {
+  timestamp: string
+  level: string
+  message: string
+}
+
+/** List of log entries for a job. */
+export interface JobLogsResponse {
+  logs: JobLogEntry[]
+  total: number
+}
+
+// -- Output types -----------------------------------------------------------
+
+/** Output file from a completed job. */
+export interface JobOutputItem {
+  filename: string
+  file_path: string
+  size_bytes: number
+  format: string
+}
+
+/** List of output files for a job. */
+export interface JobOutputsResponse {
+  outputs: JobOutputItem[]
+  total: number
+}

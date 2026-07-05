@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,8 +43,10 @@ async def lifespan(app: FastAPI):
     """Application lifecycle — startup and shutdown."""
     from app.db import init_db
 
-    init_db()
-    logger.info("SimpleETL API starting")
+    # Use DB in backend/ directory (persistent across restarts)
+    db_path = str(Path(__file__).parent.parent / "simpleetl.db")
+    init_db(db_path)
+    logger.info("SimpleETL API starting (db=%s)", db_path)
     yield
     logger.info("SimpleETL API shutting down")
 

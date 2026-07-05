@@ -67,8 +67,14 @@ async def run_etl_job(
     loop = asyncio.get_event_loop()
 
     # Create file-based JSON logger for this job
-    output_dir = Path("/tmp/SimpleETL/output") if not file_paths else _get_output_dir(file_paths[0], config)
-    job_logger = create_job_logger(job_id, output_dir)
+    # Use job_dir (parent of output/) so logs.json lives alongside output/
+    job = job_service.get(job_id)
+    if job and job.output_dir:
+        job_dir = Path(job.output_dir).parent
+    else:
+        job_dir = Path("/tmp/SimpleETL/jobs") / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    job_logger = create_job_logger(job_id, job_dir)
 
     callbacks = create_callbacks(ws_manager, job_id, loop, job_service, job_logger=job_logger)
     progress_cb = callbacks["progress"]
