@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Optional
 from app.etl.callbacks import create_callbacks
 from app.services.log_manager import create_job_logger
 from app.schemas.job import JobStatus
-from app.schemas.websocket import WSDoneMessage, WSErrorMessage
+from app.schemas.websocket import WSLogMessage, WSStatusMessage, WSDoneMessage, WSErrorMessage
 try:
     import openai
 except ImportError:
@@ -81,17 +81,23 @@ async def run_etl_job(
     log_cb = callbacks["log"]
     stop_cb = callbacks["stop"]
 
+    def log_and_broadcast(message: str, level: str = "info") -> None:
+        """Log to SQLite + broadcast via WS (handled by log_cb internally)."""
+        log_cb(message)
+
     try:
         # Transition job to running
         job_service.update_status(job_id, JobStatus.running)
+        await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="running").model_dump())
 
         if not file_paths:
-            log_cb("⚠️ No files provided.")
+            log_and_broadcast("⚠️ No files provided.", "warning")
             job_service.update_status(job_id, JobStatus.completed)
+            await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="completed").model_dump())
             return
 
         total_files = len(file_paths)
-        log_cb(f"🚀 Starting ETL job with {total_files} file(s)...")
+        log_and_broadcast(f"🚀 Starting ETL job with {total_files} file(s)...")
 
         # Flatten nested config: frontend sends {"llm": {...}, "processing": {...}}
         # but pipeline expects flat keys like "model", "base_url", etc.
@@ -109,7 +115,7 @@ async def run_etl_job(
 
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             # ── Phase 1: extract + split (parallel) ──
-            log_cb("--- Phase 1: Extract & Split ---")
+            log_and_broadcast("--- Phase 1: Extract & Split ---")
 
             registry = await _phase_prepare(pool, file_paths, flat_config, log_cb, stop_cb)
 
@@ -123,21 +129,24 @@ async def run_etl_job(
 
             # ── Phase 2: LLM (parallel) ──
             if flat_config.get("skip_llm", False):
-                log_cb("--- Phase 2: Skipping LLM (skip_llm=True) ---")
+                log_and_broadcast("--- Phase 2: Skipping LLM (skip_llm=True) ---")
                 from app.etl.llm_processor import copy_chunks_to_processed
                 for base_name, info in registry.items():
                     copy_chunks_to_processed(
                         info["chunks_dir"], info["processed_dir"], base_name, log_cb
                     )
             else:
-                log_cb("--- Phase 2: LLM Processing ---")
+                log_and_broadcast("--- Phase 2: LLM Processing ---")
                 success = await _phase_llm(pool, registry, flat_config, log_cb, stop_cb, progress_cb)
 
                 if not success and stop_cb():
+                    job_service.update_status(job_id, JobStatus.stopped)
+                    log_and_broadcast("⚠️ ETL job stopped by user.")
+                    await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="stopped").model_dump())
                     return
 
             # ── Phase 3: pack (parallel) ──
-            log_cb("--- Phase 3: Packing ---")
+            log_and_broadcast("--- Phase 3: Packing ---")
             output_files = await _phase_pack(pool, registry, flat_config, log_cb)
 
             # Save output file records to SQLite
@@ -157,7 +166,8 @@ async def run_etl_job(
         # Final status
         if not stop_cb():
             job_service.update_status(job_id, JobStatus.completed)
-            log_cb("🎉 ETL job completed!")
+            await ws_manager.broadcast(job_id, WSLogMessage(type="log", job_id=job_id, level="info", message="🎉 ETL job completed!").model_dump())
+            await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="completed").model_dump())
 
             # Broadcast done message
             await ws_manager.broadcast(
@@ -170,14 +180,17 @@ async def run_etl_job(
             )
         elif stop_cb():
             job_service.update_status(job_id, JobStatus.stopped)
-            log_cb("⚠️ ETL job stopped by user.")
+            await ws_manager.broadcast(job_id, WSLogMessage(type="log", job_id=job_id, level="info", message="⚠️ ETL job stopped by user.").model_dump())
+            await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="stopped").model_dump())
         else:
             job_service.update_status(job_id, JobStatus.completed)
-            log_cb("⚠️ ETL job completed with errors.")
+            await ws_manager.broadcast(job_id, WSLogMessage(type="log", job_id=job_id, level="info", message="⚠️ ETL job completed with errors.").model_dump())
+            await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="completed").model_dump())
 
     except Exception as e:
         logger.exception("Critical error in ETL job %s", job_id)
         job_service.update_status(job_id, JobStatus.error, error_message=str(e))
+        await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="error").model_dump())
 
         await ws_manager.broadcast(
             job_id,
@@ -191,18 +204,25 @@ async def run_etl_job(
 
 async def _phase_prepare(pool, file_paths, flat_config, log_cb, stop_cb):
     """Parallel extract + split for all files."""
+    loop = asyncio.get_event_loop()
     registry = {}
     futures = {}
     for file_path in file_paths:
-        future = pool.submit(_extract_and_split, file_path, flat_config, log_cb)
+        future = loop.run_in_executor(pool, _extract_and_split, file_path, flat_config, log_cb)
         futures[future] = file_path
-    for future in as_completed(futures):
+    for future in asyncio.as_completed(list(futures.keys())):
         if stop_cb():
             for f in futures:
-                f.cancel()
+                try:
+                    f.cancel()
+                except Exception:
+                    pass
             return None
-        base_name, chunk_paths, dirs = future.result()
-        registry[base_name] = {"chunk_paths": chunk_paths, **dirs}
+        try:
+            base_name, chunk_paths, dirs = await future
+            registry[base_name] = {"chunk_paths": chunk_paths, **dirs}
+        except Exception as e:
+            log_cb(f"⚠️ Extract error: {e}")
     return registry
 
 
@@ -297,6 +317,10 @@ async def _phase_llm(
 
         processed_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Check stop flag before making the (potentially long) API call
+        if stop_cb():
+            return None
+
         client = openai.OpenAI(
             base_url=config["base_url"],
             api_key=config["api_key"],
@@ -307,7 +331,7 @@ async def _phase_llm(
                 {"role": "system", "content": config.get("prompt", "Analyze this text.")},
                 {
                     "role": "user",
-                    "content": f"Process this text:\n\n{(Path(chunk_path)).read_text(encoding='utf-8')}",
+                    "content": (Path(chunk_path)).read_text(encoding='utf-8'),
                 },
             ],
             temperature=0.2,
@@ -319,11 +343,18 @@ async def _phase_llm(
             counter["done"] += 1
             progress_cb(counter["done"] * 100 // max(total, 1), 100, 0)
 
-    # Submit all chunks as thread pool workers via run_in_executor.
-    # This frees the event loop to handle heartbeats and broadcasts.
+    # Submit chunks one at a time, checking stop between each submission.
     futures = []
     for base_name, info in registry.items():
         for chunk_path_str in info["chunk_paths"]:
+            if stop_cb():
+                # Don't submit more chunks if stop was requested
+                for f in futures:
+                    try:
+                        f.cancel()
+                    except Exception:
+                        pass
+                return False
             processed_path = Path(info["processed_dir"]) / Path(chunk_path_str).name
             future = loop.run_in_executor(
                 pool,
@@ -353,18 +384,19 @@ async def _phase_llm(
 
 async def _phase_pack(pool, registry, flat_config, log_cb) -> list[str]:
     """Parallel pack for all files. Returns list of output file paths."""
+    loop = asyncio.get_event_loop()
     output_format = flat_config.get("output_format", "spr")
     all_outputs = []
     futures = []
     for base_name, info in registry.items():
-        future = pool.submit(
-            pack_outputs,
+        future = loop.run_in_executor(
+            pool, pack_outputs,
             info["processed_dir"], info["final_dir"], base_name, output_format, log_cb,
         )
-        futures.append((future, info["final_dir"]))
-    for future, final_dir in futures:
+        futures.append(future)
+    for future in asyncio.as_completed(futures):
         try:
-            result = future.result()
+            result = await future
             if result:
                 all_outputs.extend(result)
         except Exception as e:

@@ -58,7 +58,12 @@ export class WSConnection {
 
     this.ws = new WebSocket(url)
 
+    this.ws.onopen = () => {
+      console.log(`[WS] Connected to ${url}`)
+    }
+
     this.ws.onmessage = (event: MessageEvent) => {
+      console.log('[WS] Raw message:', event.data)
       try {
         const msg = JSON.parse(event.data) as WSServerMessage
         onMessage(msg)
@@ -67,9 +72,13 @@ export class WSConnection {
       }
     }
 
-    this.ws.onerror = onError || (() => {})
+    this.ws.onerror = (e) => {
+      console.error('[WS] Error:', e)
+      if (onError) onError(e)
+    }
 
     this.ws.onclose = (event: CloseEvent) => {
+      console.log(`[WS] Closed: code=${event.code} reason=${event.reason}`)
       if (onClose) {
         onClose(event)
         return

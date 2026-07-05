@@ -15,6 +15,7 @@ export const useJobStore = defineStore('job', () => {
   const globalProgress = ref(0)
   const logs = ref<LogEntry[]>([])
   const ws = ref<WSConnection | null>(null)
+  const stopRequested = ref(false)
 
   // ── REST API state ───────────────────────────────────────────────────────
   const jobs = ref<JobItem[]>([])
@@ -22,6 +23,9 @@ export const useJobStore = defineStore('job', () => {
 
   const isRunning = computed(() => status.value === 'running')
   const isCompleted = computed(() => status.value === 'completed')
+  const isActive = computed(
+    () => status.value === 'running' || status.value === 'queued' || status.value === 'pending',
+  )
 
   // ── REST API actions ──────────────────────────────────────────────────────
 
@@ -53,24 +57,22 @@ export const useJobStore = defineStore('job', () => {
     progress.value = {}
     globalProgress.value = 0
     logs.value = []
+    stopRequested.value = false
     localStorage.setItem(JOB_STORAGE_KEY, jobId)
     connectWS(jobId)
   }
 
   async function stopJob() {
+    stopRequested.value = true
+    addLog({ timestamp: new Date().toISOString(), level: 'info', message: 'User requested stop' })
     if (currentJobId.value) {
       try {
         await stopJobApi(currentJobId.value)
       } catch {
-        // Ignore REST errors — WS stop signal is still sent below
+        // Ignore REST errors
       }
     }
-    if (ws.value && ws.value.isConnected) {
-      ws.value.send({ type: 'stop', job_id: currentJobId.value! })
-    }
-    disconnectWS()
-    status.value = 'stopped'
-    localStorage.removeItem(JOB_STORAGE_KEY)
+    // Keep JOB_STORAGE_KEY so restoreJob() can restore logs/outputs on refresh
   }
 
   async function restoreJob(): Promise<void> {
@@ -120,10 +122,7 @@ export const useJobStore = defineStore('job', () => {
 
   function connectWS(jobId: string) {
     ws.value = new WSConnection()
-    ws.value.connect(jobId, handleMessage, undefined, () => {
-      // On close: do NOT auto-reconnect — job may no longer exist
-      ws.value?.clearReconnectState()
-    })
+    ws.value.connect(jobId, handleMessage, undefined, undefined)
   }
 
   function disconnectWS() {
@@ -132,6 +131,7 @@ export const useJobStore = defineStore('job', () => {
   }
 
   function handleMessage(msg: WSServerMessage) {
+    console.log('[JobStore] handleMessage:', msg.type, msg)
     switch (msg.type) {
       case 'progress':
         progress.value[msg.file_idx] = msg.chunk_pct
@@ -142,15 +142,20 @@ export const useJobStore = defineStore('job', () => {
         break
       case 'status':
         status.value = msg.status
+        if (msg.status === 'stopped' || msg.status === 'completed' || msg.status === 'error') {
+          stopRequested.value = false
+        }
         break
       case 'done':
         status.value = 'completed'
         globalProgress.value = 100
+        stopRequested.value = false
         // Keep JOB_STORAGE_KEY so restoreJob() can restore logs/outputs on refresh
         break
       case 'error':
         status.value = 'error'
         addLog({ timestamp: new Date().toISOString(), level: 'error', message: msg.message })
+        stopRequested.value = false
         // Keep JOB_STORAGE_KEY so restoreJob() can restore logs/outputs on refresh
         break
     }
@@ -161,9 +166,9 @@ export const useJobStore = defineStore('job', () => {
   }
 
   return {
-    currentJobId, status, progress, globalProgress, logs,
+    currentJobId, status, progress, globalProgress, logs, stopRequested,
     jobs, currentJobFiles,
-    isRunning, isCompleted,
+    isRunning, isCompleted, isActive,
     startJob, stopJob, restoreJob, connectWS, disconnectWS, addLog,
     createAndStartJob, fetchJobs, fetchJobFiles,
   }

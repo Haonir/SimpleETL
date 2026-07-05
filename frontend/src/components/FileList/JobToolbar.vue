@@ -61,24 +61,28 @@ function handleStop() {
 <template>
   <div class="job-toolbar">
     <Button
-      v-if="!jobStore.isRunning"
       variant="primary"
       size="md"
-      :disabled="!filesStore.hasFiles || filesStore.selectedIds.length === 0"
+      :disabled="jobStore.isActive || !filesStore.hasFiles || filesStore.selectedIds.length === 0"
       class="toolbar-start-btn"
       @click="handleStart"
     >
       ▶ Start
     </Button>
-    <Button
-      v-else
-      variant="secondary"
-      size="md"
-      class="toolbar-start-btn"
-      @click="handleStop"
-    >
-      ⏹ Stop
-    </Button>
+    <div class="toolbar-stop-area">
+      <Button
+        variant="secondary"
+        size="md"
+        :disabled="!jobStore.isRunning || jobStore.stopRequested"
+        class="toolbar-stop-btn"
+        @click="handleStop"
+      >
+        ⏹ Stop
+      </Button>
+      <span v-if="jobStore.stopRequested" class="toolbar-hint toolbar-hint--stop">
+        Stop requested…
+      </span>
+    </div>
 
     <div class="toolbar-separator" />
 
@@ -129,6 +133,22 @@ function handleStop() {
 
 .toolbar-start-btn {
   min-width: 180px;
+}
+
+.toolbar-stop-btn {
+  min-width: 100px;
+}
+
+.toolbar-stop-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-hint--stop {
+  color: #f5740b;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .toolbar-select {

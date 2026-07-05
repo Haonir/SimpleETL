@@ -36,6 +36,13 @@ async def websocket_endpoint(ws: WebSocket, job_id: str) -> None:
             return
 
         await manager.connect(job_id, ws)
+
+        # Send current job status immediately on connect
+        await ws.send_text(json.dumps({
+            "type": "status",
+            "job_id": job_id,
+            "status": job.status.value if hasattr(job.status, 'value') else str(job.status),
+        }))
         logger.info("WS connected for job %s", job_id)
     except WebSocketDisconnect as exc:  # noqa: BLE001 — accept may raise on close
         logger.warning("WS rejected before accept for job %s: %s", job_id, exc)
