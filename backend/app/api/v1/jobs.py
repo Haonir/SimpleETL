@@ -182,8 +182,15 @@ async def download_job_file(job_id: str, filename: str):
             detail="Job has no output directory.",
         )
 
-    file_path = os.path.join(job.output_dir, filename)
-    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+    # Search for the file in output directory (files may be in subdirectories)
+    target_name = os.path.basename(filename)
+    file_path = None
+    for root, _, filenames in os.walk(job.output_dir):
+        if target_name in filenames:
+            file_path = os.path.join(root, target_name)
+            break
+
+    if file_path is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"File '{filename}' not found.",
@@ -191,7 +198,7 @@ async def download_job_file(job_id: str, filename: str):
 
     return FileResponse(
         path=file_path,
-        filename=os.path.basename(file_path),
+        filename=target_name,
         media_type="application/octet-stream",
     )
 

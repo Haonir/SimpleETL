@@ -43,7 +43,7 @@
       "id": "task-005",
       "title": "Three-phase parallel pipeline \u2014 refactor runner.py",
       "status": "in_progress",
-      "coder_iterations": 10,
+      "coder_iterations": 11,
       "started_at": "2026-07-05T02:45:00",
       "completed_at": null,
       "error_log": "Tests skipped — production code refactored, 3 integration tests fail (openai mock in ThreadPoolExecutor)"
@@ -323,6 +323,11 @@
         "timestamp": "2026-07-05T20:35:00Z",
         "event": "Task task-008 completed",
         "actor": "orchestrator"
+      },
+      {
+        "timestamp": "2026-07-05T19:00:00Z",
+        "event": "Fix skip_llm in runner.py Phase 2 — conditional LLM execution + copy_chunks_to_processed fallback",
+        "actor": "coder"
       }
     ]
 }

@@ -1,0 +1,89 @@
+{
+  "schema_version": "3.0",
+  "plan_approved": true,
+  "plan_snapshot": "Phase 6: Polish & Refactor — CSS refinement, responsive layout, keyboard shortcuts, OCR detection, config persistence, Electron prep, Dockerfile\n\nGoal: Polish existing codebase with minor refactors and improvements identified during exploration.\n\nTasks (to be refined on the go):\n1. Scoped CSS + design system variables\n2. Responsive layout (mobile-friendly)\n3. Keyboard shortcuts (Ctrl+C/V/X/A/Z + context menu)\n4. OCR availability detection + hint banner\n5. Config persistence (localStorage backup + config.json sync)\n6. Electron main process + build script\n7. Dockerfile for containerized deployment",
+  "todo": [
+    {
+      "id": "task-001",
+      "title": "CSS refinement — design system variables, responsive layout",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
+      "error_log": null
+    },
+    {
+      "id": "task-002",
+      "title": "Keyboard shortcuts — Ctrl+C/V/X/A/Z + context menu",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
+      "error_log": null
+    },
+    {
+      "id": "task-003",
+      "title": "OCR detection + hint banner in FileList",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
+      "error_log": null
+    },
+    {
+      "id": "task-004",
+      "title": "Config persistence — localStorage backup + config.json sync",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
+      "error_log": null
+    },
+    {
+      "id": "task-005",
+      "title": "Electron main process + build script",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
+      "error_log": null
+    },
+    {
+      "id": "task-006",
+      "title": "Dockerfile for containerized deployment",
+      "status": "pending",
+      "coder_iterations": 0,
+      "started_at": null,
+      "completed_at": null,
+      "error_log": null
+    },
+    {
+      "id": "task-007",
+      "title": "JobOutput split layout — file list + preview panel",
+      "status": "in_progress",
+      "coder_iterations": 1,
+      "started_at": "2026-07-06T00:00:00",
+      "completed_at": null,
+      "error_log": null
+    }
+  ],
+  "test_results": {
+    "last_run_at": null,
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "failures": []
+  },
+  "review": {
+    "last_review_at": null,
+    "verdict": "",
+    "report": null
+  },
+  "history": [
+    {
+      "timestamp": "2026-07-05T13:00:00",
+      "event": "Phase 6 created — polish & refactor",
+      "actor": "orchestrator"
+    }
+  ]
+}

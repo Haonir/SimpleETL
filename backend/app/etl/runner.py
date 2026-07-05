@@ -245,6 +245,18 @@ def _extract_and_split(
     file_name = os.path.basename(file_path)
     base_name = Path(file_name).stem
 
+    # Try to get original filename from FileService
+    try:
+        from app.services.file_service import get_file_service
+        fs = get_file_service()
+        for f in fs.list_files().files:
+            stored_path = fs.get_path(f.id)
+            if stored_path and str(stored_path) == str(file_path):
+                base_name = Path(f.filename).stem
+                break
+    except Exception:
+        pass  # Fall back to UUID-based name
+
     output_base = flat_config.get("output_dir", "/tmp/SimpleETL/output")
     file_output_dir = os.path.join(output_base, base_name)
 

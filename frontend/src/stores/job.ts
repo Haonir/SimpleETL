@@ -21,11 +21,19 @@ export const useJobStore = defineStore('job', () => {
   const jobs = ref<JobItem[]>([])
   const currentJobFiles = ref<JobFileItem[]>([])
 
+  // ── Selected job from history ─────────────────────────────────────────────
+  const selectedJobId = ref<string | null>(null)
+  const selectedJobLogs = ref<LogEntry[]>([])
+
   const isRunning = computed(() => status.value === 'running')
   const isCompleted = computed(() => status.value === 'completed')
   const isActive = computed(
     () => status.value === 'running' || status.value === 'queued' || status.value === 'pending',
   )
+
+  // ── Active view (current job or selected history job) ──────────────────────
+  const activeLogs = computed(() => selectedJobId.value ? selectedJobLogs.value : logs.value)
+  const activeFiles = computed(() => currentJobFiles.value)
 
   // ── REST API actions ──────────────────────────────────────────────────────
 
@@ -47,6 +55,37 @@ export const useJobStore = defineStore('job', () => {
       path: o.file_path,
       size_bytes: o.size_bytes,
     }))
+  }
+
+  async function selectJob(jobId: string): Promise<void> {
+    selectedJobId.value = jobId
+    // Fetch logs
+    try {
+      const logsResp = await apiGetJobLogs(jobId)
+      selectedJobLogs.value = logsResp.logs.map((l) => ({
+        timestamp: l.timestamp,
+        level: l.level,
+        message: l.message,
+      }))
+    } catch {
+      selectedJobLogs.value = []
+    }
+    // Fetch outputs
+    try {
+      const outputsResp = await apiGetJobOutputs(jobId)
+      currentJobFiles.value = outputsResp.outputs.map((o) => ({
+        filename: o.filename,
+        path: o.file_path,
+        size_bytes: o.size_bytes,
+      }))
+    } catch {
+      currentJobFiles.value = []
+    }
+  }
+
+  function clearSelection(): void {
+    selectedJobId.value = null
+    selectedJobLogs.value = []
   }
 
   // ── WebSocket actions (existing) ──────────────────────────────────────────
@@ -167,7 +206,7 @@ export const useJobStore = defineStore('job', () => {
 
   return {
     currentJobId, status, progress, globalProgress, logs, stopRequested,
-    jobs, currentJobFiles,
+    jobs, currentJobFiles, selectedJobId, selectedJobLogs, activeLogs, activeFiles, selectJob, clearSelection,
     isRunning, isCompleted, isActive,
     startJob, stopJob, restoreJob, connectWS, disconnectWS, addLog,
     createAndStartJob, fetchJobs, fetchJobFiles,

@@ -18,12 +18,12 @@ const filters = [
 
 const filteredLogs = computed(() => {
   const filter = ui.logFilter
-  if (filter === 'all') return job.logs
-  return job.logs.filter((l) => l.level === filter)
+  if (filter === 'all') return job.activeLogs
+  return job.activeLogs.filter((l) => l.level === filter)
 })
 
 watch(
-  () => job.logs.length,
+  () => job.activeLogs.length,
   async () => {
     await nextTick()
     containerRef.value?.scrollTo({ top: 99999, behavior: 'smooth' })

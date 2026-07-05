@@ -35,7 +35,7 @@ function statusClass(status: string): string {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="job in jobStore.jobs" :key="job.id" class="job-history__row">
+        <tr v-for="job in jobStore.jobs" :key="job.id" class="job-history__row" :class="{ 'job-history__row--selected': jobStore.selectedJobId === job.id }" @click="jobStore.selectJob(job.id)">
           <td class="job-history__cell-id">#{{ job.id.slice(0, 8) }}</td>
           <td>
             <span :class="['job-history__status', statusClass(job.status)]">{{ job.status }}</span>
@@ -62,4 +62,7 @@ function statusClass(status: string): string {
 .job-history__status--completed { background: #dcfce7; color: #166534; }
 .job-history__status--stopped { background: #fef3c7; color: #92400e; }
 .job-history__status--error { background: #fee2e2; color: #991b1b; }
+.job-history__row { cursor: pointer; transition: background 0.15s; }
+.job-history__row:hover { background: rgba(59, 130, 246, 0.05); }
+.job-history__row--selected { background: rgba(59, 130, 246, 0.1); }
 </style>
