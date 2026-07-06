@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, onMounted } from 'vue'
+
+const { t } = useI18n()
 
 interface Props {
   disabled: boolean
@@ -32,19 +35,16 @@ defineExpose({ save })
 
 <template>
   <div class="settings-form">
-    <label class="settings-label">Backend Server URL</label>
+    <label class="settings-label">{{ t('settingsServer.backendUrl') }}</label>
     <input
       v-model="serverUrl"
       type="text"
-      placeholder="http://localhost:8000"
+      :placeholder="$t('settingsServer.backendUrlPlaceholder')"
       :disabled="props.disabled"
       class="settings-input"
     />
-    <p class="settings-hint">
-      Leave empty to use the Vite dev proxy (default for local development).
-      Set to a full URL (e.g. <code>http://192.168.1.100:8000</code>) for remote servers.
+    <p class="settings-hint" v-html="$t('settingsServer.backendHint')">
     </p>
-  </div>
 </template>
 
 <style scoped>
@@ -97,6 +97,6 @@ defineExpose({ save })
 
 .settings-saved {
   font-size: 11px;
-  color: #22c55e;
+  color: var(--color-success);
 }
 </style>

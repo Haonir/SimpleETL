@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useFilesStore } from '@/stores/files'
 import { useJobStore } from '@/stores/job'
 import Button from '@/components/UI/Button.vue'
@@ -11,6 +12,7 @@ import GlobalProgressBar from '@/components/Progress/GlobalProgressBar.vue'
 
 const store = useFilesStore()
 const jobStore = useJobStore()
+const { t } = useI18n()
 
 // Delete dialog state
 const showDeleteDialog = ref(false)
@@ -90,8 +92,8 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
 
     <!-- Empty state -->
     <div v-if="!store.hasFiles" class="file-list__empty">
-      <p class="file-list__empty-text">No files uploaded</p>
-      <p class="file-list__empty-hint">Drag files here or use the upload zone</p>
+      <p class="file-list__empty-text">{{ $t('fileList.empty') }}</p>
+      <p class="file-list__empty-hint">{{ $t('fileList.dragHint') }}</p>
     </div>
 
     <!-- Table -->
@@ -104,11 +106,11 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
               @update:modelValue="handleSelectAll($event)"
             />
           </th>
-          <th class="file-list__header-cell">Filename</th>
-          <th class="file-list__header-cell file-list__header-cell--size">Size</th>
-          <th class="file-list__header-cell file-list__header-cell--date">Uploaded</th>
+          <th class="file-list__header-cell">{{ $t('fileList.filename') }}</th>
+          <th class="file-list__header-cell file-list__header-cell--size">{{ $t('fileList.size') }}</th>
+          <th class="file-list__header-cell file-list__header-cell--date">{{ $t('fileList.uploaded') }}</th>
           <th class="file-list__header-cell file-list__header-cell--actions">
-            <Button variant="danger" size="sm" :disabled="store.selectedIds.length === 0" @click="confirmDeleteSelected">Delete Selected</Button>
+            <Button variant="danger" size="sm" :disabled="store.selectedIds.length === 0" @click="confirmDeleteSelected">{{ $t('fileList.deleteSelected') }}</Button>
           </th>
         </tr>
       </thead>
@@ -127,7 +129,7 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
           <td class="file-list__cell file-list__cell--size">{{ formatSize(file.size_bytes) }}</td>
           <td class="file-list__cell file-list__cell--date">{{ formatDate(file.uploaded_at) }}</td>
           <td class="file-list__cell file-list__cell--actions">
-            <Button variant="secondary" size="sm" @click="confirmDelete(file.id)">Delete</Button>
+            <Button variant="secondary" size="sm" @click="confirmDelete(file.id)">{{ $t('common.delete') }}</Button>
           </td>
         </tr>
       </tbody>
@@ -135,26 +137,26 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
 
     <!-- Footer -->
     <div v-if="store.hasFiles" class="file-list__footer">
-      <span>{{ store.selectedCount }} of {{ store.files.length }} selected</span>
+      <span>{{ $t('common.selected', { count: store.selectedCount, total: store.files.length }) }}</span>
     </div>
 
     <!-- Delete confirmation dialog -->
     <div v-if="showDeleteDialog" class="file-list__dialog-overlay" @click.self="cancelDelete">
       <div class="file-list__dialog">
-        <h3 class="file-list__dialog-title">Confirm Deletion</h3>
+        <h3 class="file-list__dialog-title">{{ $t('fileList.confirmTitle') }}</h3>
         <p class="file-list__dialog-text">
           <template v-if="deleteMode === 'single'">
-            Are you sure you want to delete this file?
+            {{ $t('fileList.confirmSingle') }}
           </template>
           <template v-else>
-            Are you sure you want to delete {{ store.selectedIds.length }} selected file(s)?
+            {{ $t('fileList.confirmBatch', { count: store.selectedIds.length }) }}
           </template>
         </p>
         <p class="file-list__dialog-warning">
-          ⚠️ This action cannot be undone!
+          {{ $t('fileList.warning') }}
         </p>
         <div class="file-list__dialog-actions">
-          <button class="file-list__dialog-btn file-list__dialog-btn--cancel" @click="cancelDelete">Cancel</button>
+          <button class="file-list__dialog-btn file-list__dialog-btn--cancel" @click="cancelDelete">{{ $t('common.cancel') }}</button>
           <button class="file-list__dialog-btn file-list__dialog-btn--danger" @click="handleDeleteConfirm">Delete</button>
         </div>
       </div>
@@ -197,7 +199,7 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
   background: var(--bg-card);
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 .file-list__header {
@@ -228,7 +230,7 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
 }
 
 .file-list__row:hover {
-  background-color: rgba(59, 130, 246, 0.04);
+  background-color: var(--bg-hover-subtle);
 }
 
 .file-list__cell {
@@ -255,7 +257,7 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
 .file-list__dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -268,31 +270,31 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
   padding: 24px;
   max-width: 420px;
   width: 90%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-dialog);
 }
 
 .file-list__dialog-title {
   font-size: 18px;
   font-weight: 600;
-  color: var(--fg-title, #111);
+  color: var(--fg-on-card);
   margin: 0 0 16px 0;
 }
 
 .file-list__dialog-text {
   font-size: 14px;
-  color: var(--fg-label, #666);
+  color: var(--fg-subtle);
   margin: 0 0 16px 0;
 }
 
 .file-list__dialog-warning {
   font-size: 14px;
   font-weight: 600;
-  color: #ef4444;
+  color: var(--color-error);
   margin: 0 0 20px 0;
   padding: 10px;
-  background: #fef2f2;
+  background: var(--btn-danger-bg-light);
   border-radius: 6px;
-  border: 1px solid #fecaca;
+  border: 1px solid var(--border-danger);
 }
 
 .file-list__dialog-actions {
@@ -307,27 +309,27 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  border: 1px solid var(--border, #ddd);
+  border: 1px solid var(--border);
   transition: all 0.15s;
 }
 
 .file-list__dialog-btn--cancel {
-  background: var(--bg-card, #fff);
-  color: var(--fg-title, #111);
+  background: var(--bg-card);
+  color: var(--fg-on-card);
 }
 
 .file-list__dialog-btn--cancel:hover {
-  background: var(--bg-main, #f5f5f5);
+  background: var(--bg-hover-subtle);
 }
 
 .file-list__dialog-btn--danger {
-  background: #ef4444;
-  color: white;
-  border-color: #ef4444;
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-fg);
+  border-color: var(--btn-danger-border);
 }
 
 .file-list__dialog-btn--danger:hover {
-  background: #dc2626;
+  background: var(--btn-danger-hover);
 }
 
 /* Progress row */

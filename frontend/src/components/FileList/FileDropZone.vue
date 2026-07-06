@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useFilesStore } from '@/stores/files'
 import { useUiStore } from '@/stores/ui'
 import Button from '@/components/UI/Button.vue'
 
 const filesStore = useFilesStore()
 const uiStore = useUiStore()
+const { t } = useI18n()
 
 const ALLOWED_EXTENSIONS = ['.txt', '.md', '.docx', '.doc', '.pdf'] as const
 type AllowedExtension = (typeof ALLOWED_EXTENSIONS)[number]
@@ -95,12 +97,12 @@ function handleFileSelected(e: Event) {
           <polyline points="17 8 12 3 7 8" />
           <line x1="12" y1="3" x2="12" y2="15" />
         </svg>
-        <p class="drop-area__text">Drag files here or</p>
+        <p class="drop-area__text">{{ t('fileDropZone.dragHint') }}</p>
       </div>
 
       <!-- Browse button -->
       <Button variant="primary" size="sm" @click="handleBrowse">
-        Browse
+        {{ t('fileDropZone.browse') }}
       </Button>
 
       <!-- Hidden file input -->
@@ -115,9 +117,9 @@ function handleFileSelected(e: Event) {
     </div>
 
     <!-- PDF warning hint -->
-    <p v-if="hasPdf && !disabled" class="drop-area__warning">
-      PDF OCR requires Tesseract-OCR installed on the system
-    </p>
+      <p v-if="hasPdf && !disabled" class="drop-area__warning">
+        {{ t('fileDropZone.pdfOcrHint') }}
+      </p>
   </div>
 </template>
 
@@ -176,7 +178,7 @@ function handleFileSelected(e: Event) {
 
 .drop-area__warning {
   font-size: 12px;
-  color: #d97706;
+  color: var(--warning-text);
   text-align: center;
   max-width: 400px;
 }

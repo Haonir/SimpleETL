@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import i18n from '@/i18n'
 import { loadConfigFile, saveConfigFile, downloadConfigFile, importConfigFile, clearConfigFile } from '@/services/configFile'
 import type { LLMConfig, ProcessingConfig, ConfigResponse, PromptEntry, Language } from '@/types/config'
 import { useUiStore } from './ui'
@@ -16,6 +17,12 @@ export const useConfigStore = defineStore('config', () => {
   const prompts = ref<PromptEntry[]>([])
   const currentPromptName = ref('')
   const language = ref<Language>('en')
+
+  // Sync language to i18n locale
+  watch(language, (lang) => {
+    i18n.global.locale.value = lang
+  }, { immediate: true })
+
   const loaded = ref(false)
 
   async function loadConfig() {
@@ -26,6 +33,7 @@ export const useConfigStore = defineStore('config', () => {
       prompts.value = config.prompts || []
       currentPromptName.value = config.current_prompt_name || ''
       language.value = config.language || 'en'
+      i18n.global.locale.value = language.value
       loaded.value = true
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load configuration'

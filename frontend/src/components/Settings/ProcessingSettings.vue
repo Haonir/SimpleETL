@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import type { OutputFormat, ProcessingConfig } from '@/types/config'
+
+const { t } = useI18n()
 
 interface Option {
   value: string
-  label: string
+  labelKey: string
 }
 
 interface Props {
@@ -14,10 +17,10 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {})
 
 const outputOptions: Option[] = [
-  { value: 'markdown', label: 'Raw Markdown' },
-  { value: 'frontmatter', label: 'Frontmatter' },
-  { value: 'html', label: 'HTML' },
-  { value: 'spr', label: 'SPR' },
+  { value: 'markdown', labelKey: 'formats.rawMarkdown' },
+  { value: 'frontmatter', labelKey: 'formats.frontmatter' },
+  { value: 'html', labelKey: 'formats.html' },
+  { value: 'spr', labelKey: 'formats.spr' },
 ]
 
 defineEmits<{
@@ -27,7 +30,7 @@ defineEmits<{
 
 <template>
   <div class="settings-form">
-    <label class="settings-label">Chunk Size</label>
+    <label class="settings-label">{{ t('settingsProcessing.chunkSize') }}</label>
     <input
       v-model.number="modelValue.chunk_size"
       type="number"
@@ -36,7 +39,7 @@ defineEmits<{
       class="settings-input"
     />
 
-    <label class="settings-label">Chunk Overlap</label>
+    <label class="settings-label">{{ t('settingsProcessing.chunkOverlap') }}</label>
     <input
       v-model.number="modelValue.chunk_overlap"
       type="number"
@@ -45,7 +48,7 @@ defineEmits<{
       class="settings-input"
     />
 
-    <label class="settings-label">Max Workers</label>
+    <label class="settings-label">{{ t('settingsProcessing.maxWorkers') }}</label>
     <input
       v-model.number="modelValue.max_workers"
       type="number"
@@ -54,14 +57,14 @@ defineEmits<{
       class="settings-input"
     />
 
-    <label class="settings-label">Output Format</label>
+    <label class="settings-label">{{ t('settingsProcessing.outputFormat') }}</label>
     <select
       v-model="modelValue.output_format"
       :disabled="props.disabled"
       class="settings-select"
     >
       <option v-for="opt in outputOptions" :key="opt.value" :value="opt.value">
-        {{ opt.label }}
+        {{ t(opt.labelKey) }}
       </option>
     </select>
   </div>

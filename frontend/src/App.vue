@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useUiStore } from '@/stores/ui'
 import { useJobStore } from '@/stores/job'
 import { useFilesStore } from '@/stores/files'
@@ -18,6 +19,7 @@ import {
   PanelLeftClose, PanelLeftOpen
 } from '@lucide/vue'
 
+const { t } = useI18n()
 const uiStore = useUiStore()
 const jobStore = useJobStore()
 const filesStore = useFilesStore()
@@ -27,20 +29,20 @@ const promptsStore = usePromptsStore()
 // ── Panel definitions ─────────────────────────────────────────────────────
 
 interface PanelDef { id: string; label: string; icon: any }
-const panels: PanelDef[] = [
-  { id: 'files', label: 'Processing', icon: FileStack },
-  { id: 'output', label: 'Output', icon: Package },
-  { id: 'history', label: 'History', icon: History },
-]
+const panels = computed<PanelDef[]>(() => [
+  { id: 'files', label: t('nav.processing'), icon: FileStack },
+  { id: 'output', label: t('nav.output'), icon: Package },
+  { id: 'history', label: t('nav.history'), icon: History },
+])
 
-const panelsSecondary: PanelDef[] = [
-  { id: 'prompts', label: 'Prompts', icon: MessageSquare },
-  { id: 'settings', label: 'Settings', icon: Settings },
-]
+const panelsSecondary = computed<PanelDef[]>(() => [
+  { id: 'prompts', label: t('nav.prompts'), icon: MessageSquare },
+  { id: 'settings', label: t('nav.settings'), icon: Settings },
+])
 
-const panelsTertiary: PanelDef[] = [
-  { id: 'logs', label: 'Logs', icon: ScrollText },
-]
+const panelsTertiary = computed<PanelDef[]>(() => [
+  { id: 'logs', label: t('nav.logs'), icon: ScrollText },
+])
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -136,7 +138,7 @@ onMounted(async () => {
         <!-- Sidebar footer: active jobs + connection -->
         <div class="sidebar__footer">
           <div v-if="!uiStore.sidebarCollapsed" class="sidebar__active-jobs">
-            Active jobs: {{ activeJobsCount }}
+            {{ $t('common.activeJobs', { count: activeJobsCount }) }}
           </div>
           <div class="sidebar__connection">
             <ConnectionStatus :compact="uiStore.sidebarCollapsed" />
@@ -229,7 +231,7 @@ onMounted(async () => {
 }
 
 .sidebar__toggle:hover {
-  background: rgba(59, 130, 246, 0.08);
+  background: var(--bg-hover-accent);
   color: var(--fg-title);
 }
 
@@ -294,13 +296,13 @@ onMounted(async () => {
 }
 
 .sidebar__item:hover {
-  background: rgba(59, 130, 246, 0.08);
+  background: var(--bg-hover-accent);
   color: var(--fg-title);
 }
 
 .sidebar__item--active {
   background: var(--accent);
-  color: white;
+  color: var(--fg-on-accent);
 }
 
 .sidebar__item-label {
@@ -354,18 +356,18 @@ onMounted(async () => {
   gap: 12px;
   padding: 8px 1.5rem;
   font-size: 13px;
-  color: white;
+  color: var(--fg-on-accent);
   z-index: 1000;
 }
 
-.notification-bar--success { background: #22c55e; }
-.notification-bar--error   { background: #ef4444; }
-.notification-bar--info     { background: #3b82f6; }
+.notification-bar--success { background: var(--color-success); }
+.notification-bar--error   { background: var(--color-error); }
+.notification-bar--info     { background: var(--color-info); }
 
 .notification-bar__close {
   background: none;
   border: none;
-  color: white;
+  color: var(--fg-on-accent);
   cursor: pointer;
   font-size: 16px;
   padding: 0 4px;

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useFilesStore } from '@/stores/files'
 import { useJobStore } from '@/stores/job'
 import { useConfigStore } from '@/stores/config'
@@ -14,6 +15,7 @@ const jobStore = useJobStore()
 const configStore = useConfigStore()
 const promptsStore = usePromptsStore()
 const uiStore = useUiStore()
+const { t } = useI18n()
 
 const selectedPromptName = ref(promptsStore.currentPromptName || '')
 
@@ -41,7 +43,7 @@ async function handleSaveDefaults() {
     configStore.currentPromptName = ''
     await configStore.save()
   }
-  uiStore.showNotification('success', 'Format & prompt saved')
+  uiStore.showNotification('success', t('jobToolbar.formatSaved'))
 }
 
 function handleClearJob() {
@@ -49,10 +51,10 @@ function handleClearJob() {
 }
 
 const formatOptions: { value: OutputFormat; label: string }[] = [
-  { value: 'markdown', label: 'Raw Markdown' },
-  { value: 'frontmatter', label: 'Frontmatter' },
-  { value: 'html', label: 'HTML' },
-  { value: 'spr', label: 'SPR' },
+  { value: 'markdown', label: t('formats.rawMarkdown') },
+  { value: 'frontmatter', label: t('formats.frontmatter') },
+  { value: 'html', label: t('formats.html') },
+  { value: 'spr', label: t('formats.spr') },
 ]
 
 async function handleStart() {
@@ -80,7 +82,7 @@ async function handleStart() {
       },
     )
   } catch (err) {
-    uiStore.showNotification('error', `Failed to start job: ${err instanceof Error ? err.message : String(err)}`)
+    uiStore.showNotification('error', t('jobToolbar.startFailed', { error: err.message }))
   }
 }
 
@@ -90,11 +92,11 @@ function handleStop() {
 
 function statusBadgeText(status: string | null): string {
   switch (status) {
-    case 'completed': return '✓ Completed'
-    case 'partial':   return '⚠ Partial'
-    case 'running':   return '▶ Running'
-    case 'error':     return '✗ Error'
-    default:          return jobStore.activeJobId ? `#${jobStore.activeJobId.slice(0, 8)}…` : 'Idle'
+    case 'completed': return t('jobToolbar.statusCompleted')
+    case 'partial':   return t('jobToolbar.statusPartial')
+    case 'running':   return t('jobToolbar.statusRunning')
+    case 'error':     return t('jobToolbar.statusError')
+    default:          return jobStore.activeJobId ? `#${jobStore.activeJobId.slice(0, 8)}…` : t('jobToolbar.statusIdle')
   }
 }
 </script>
@@ -122,7 +124,7 @@ function statusBadgeText(status: string | null): string {
           <Square :size="14" /> Stop
         </Button>
         <span v-if="jobStore.stopRequested" class="toolbar-hint toolbar-hint--stop">
-          Stop requested…
+          {{ $t('jobToolbar.stopRequested') }}
         </span>
       </div>
     </div>
@@ -130,10 +132,10 @@ function statusBadgeText(status: string | null): string {
     <div class="toolbar-separator" />
     
     <div class="toolbar-group">
-      <button class="toolbar-save-btn" title="Clear current job" :disabled="!jobStore.activeJobId" @click="handleClearJob">
+      <button class="toolbar-save-btn" :title="$t('jobToolbar.clearTooltip')" :disabled="!jobStore.activeJobId" @click="handleClearJob">
         <RefreshCw :size="14" />
       </button>
-      <button class="toolbar-save-btn" title="Save format & prompt to config" @click="handleSaveDefaults">
+      <button class="toolbar-save-btn" :title="$t('jobToolbar.saveTooltip')" @click="handleSaveDefaults">
         <Save :size="14" />
       </button> 
     </div>
@@ -141,7 +143,7 @@ function statusBadgeText(status: string | null): string {
     <div class="toolbar-separator" />
 
     <div class="toolbar-group">
-      <label class="toolbar-label">Format</label>
+      <label class="toolbar-label">{{ $t('jobToolbar.format') }}</label>
       <select v-model="selectedFormat" class="toolbar-select toolbar-select--sm">
         <option v-for="opt in formatOptions" :key="opt.value" :value="opt.value">
           {{ opt.label }}
@@ -150,15 +152,15 @@ function statusBadgeText(status: string | null): string {
     </div>
 
     <div class="toolbar-group">
-      <label class="toolbar-label">Prompt</label>
+      <label class="toolbar-label">{{ $t('jobToolbar.prompt') }}</label>
       <select v-model="selectedPromptName" class="toolbar-select">
-        <option value="">— None / No LLM —</option>
+        <option value="">{{ $t('jobToolbar.noneNoLlm') }}</option>
         <option v-for="p in promptsStore.prompts" :key="p.name" :value="p.name">
           {{ p.name }}
         </option>
       </select>
     </div>
-    <span v-if="!selectedPromptName" class="toolbar-hint">⚡ LLM step will be skipped</span>  
+    <span v-if="!selectedPromptName" class="toolbar-hint">⚡ {{ $t('jobToolbar.llmSkipped') }}</span>  
     <span v-if="jobStore.activeJobId" :class="['status-badge', `status-badge--${jobStore.activeStatus || 'idle'}`]">
       {{ statusBadgeText(jobStore.activeStatus) }}
     </span>
@@ -214,7 +216,7 @@ function statusBadgeText(status: string | null): string {
 }
 
 .toolbar-hint--stop {
-  color: #f5740b;
+  color: var(--warning-text);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -268,7 +270,7 @@ function statusBadgeText(status: string | null): string {
 
 .toolbar-hint {
   font-size: 12px;
-  color: #f5740b;
+  color: var(--warning-text);
   white-space: nowrap;
   animation: fadeIn 0.2s ease;
 }
@@ -290,11 +292,11 @@ function statusBadgeText(status: string | null): string {
   margin-left: auto;
 }
 
-.status-badge--idle    { background: #f3f4f6; color: #6b7280; }
-.status-badge--pending { background: #e5e7eb; color: #6b7280; }
-.status-badge--running { background: #dbeafe; color: #1d4ed8; }
-.status-badge--completed { background: #dcfce7; color: #166534; }
-.status-badge--partial  { background: #fef3c7; color: #92400e; }
-.status-badge--error   { background: #fee2e2; color: #991b1b; }
+.status-badge--idle    { background: var(--badge-bg-muted); color: var(--badge-fg-muted); }
+.status-badge--pending { background: var(--badge-bg-muted); color: var(--badge-fg-muted); }
+.status-badge--running { background: var(--badge-bg-running); color: var(--badge-fg-running); }
+.status-badge--completed { background: var(--badge-bg-success); color: var(--badge-fg-success); }
+.status-badge--partial  { background: var(--badge-bg-warning); color: var(--badge-fg-warning); }
+.status-badge--error   { background: var(--badge-bg-error); color: var(--badge-fg-error); }
 
 </style>

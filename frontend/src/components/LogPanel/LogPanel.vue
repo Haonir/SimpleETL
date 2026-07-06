@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useJobStore } from '@/stores/job'
 import { useUiStore } from '@/stores/ui'
 import LogEntry from './LogEntry.vue'
 
 const job = useJobStore()
 const ui = useUiStore()
+const { t } = useI18n()
 
 const containerRef = ref<HTMLElement | null>(null)
 
@@ -35,7 +37,7 @@ watch(
 
 <template>
   <div class="log-panel">
-    <h2 class="log-panel__title">Logs</h2>
+      <h2 class="log-panel__title">{{ t('logPanel.title') }}</h2>
     <!-- Filter bar -->
     <div class="log-panel__filters">
       <button
@@ -51,7 +53,7 @@ watch(
     <!-- Logs container -->
     <div ref="containerRef" class="log-panel__content">
       <template v-if="filteredLogs.length === 0">
-        <p class="log-panel__empty">No logs yet. Start a job to see output.</p>
+        <p class="log-panel__empty">{{ t('logPanel.empty') }}</p>
       </template>
       <LogEntry v-for="(entry, i) in filteredLogs" :key="i" :entry="entry" />
     </div>
@@ -95,20 +97,20 @@ watch(
 }
 
 .filter-btn:hover {
-  background: rgba(59, 130, 246, 0.08);
+  background: var(--bg-hover-accent);
   color: var(--fg-title);
 }
 
 .filter-btn--active {
   background: var(--accent);
   border-color: var(--accent);
-  color: white;
+  color: var(--fg-on-accent);
 }
 
 .filter-btn--active {
   background: var(--accent);
   border-color: var(--accent);
-  color: white;
+  color: var(--fg-on-accent);
 }
 
 .log-panel__content {
@@ -121,7 +123,7 @@ watch(
 }
 
 .log-panel__empty {
-  color: #9ca3af;
+  color: var(--fg-subtle);
   text-align: center;
   padding: 2rem 0;
 }

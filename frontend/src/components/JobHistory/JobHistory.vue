@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useJobStore } from '@/stores/job'
 import { List, X, Trash2 } from '@lucide/vue'
 import { useUiStore } from '@/stores/ui'
+
+const { t } = useI18n()
 
 
 const jobStore = useJobStore()
@@ -19,10 +22,16 @@ function formatDate(iso: string | undefined): string {
   return new Date(iso).toLocaleString('ru-RU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-
 function statusClass(status: string): string {
   return `job-history__status--${status}`
 }
+
+
+function statusLabel(status: string): string {
+  const key = `jobHistory.status.${status}`
+  return t(key) || status
+}
+
 
 
 const showDeleteDialog = ref(false)
@@ -125,11 +134,11 @@ function closePopovers() {
 
 <template>
   <div class="job-history" @click="closePopovers">
-    <h2 class="job-history__title">Job History</h2>
+    <h2 class="job-history__title">{{ $t('jobHistory.title') }}</h2>
 
 
     <div v-if="jobStore.jobs.length === 0" class="job-history__empty">
-      <p>No jobs yet.</p>
+      <p>{{ $t('jobHistory.empty') }}</p>
     </div>
 
 
@@ -137,13 +146,13 @@ function closePopovers() {
       <thead>
         <tr>
           <th class="job-history__th-checkbox"><input type="checkbox" :checked="allSelected" @change="toggleSelectAll" /></th>
-          <th>ID</th>
-          <th>Status</th>
-          <th>Files</th>
-          <th>Created</th>
-          <th>Completed</th>
+          <th>{{ $t('jobHistory.colId') }}</th>
+          <th>{{ $t('jobHistory.colStatus') }}</th>
+          <th>{{ $t('jobHistory.colFiles') }}</th>
+          <th>{{ $t('jobHistory.colCreated') }}</th>
+          <th>{{ $t('jobHistory.colCompleted') }}</th>
           <th class="job-history__th-action">
-            <button class="job-history__delete-btn" :disabled="!hasSelection" @click.stop="confirmBulkDelete" title="Delete selected"><Trash2 :size="14" /></button>
+            <button class="job-history__delete-btn" :disabled="!hasSelection" @click.stop="confirmBulkDelete" :title="$t('jobHistory.deleteTooltip')"><Trash2 :size="14" /></button>
           </th>
         </tr>
       </thead>
@@ -152,7 +161,7 @@ function closePopovers() {
           <td class="job-history__cell-checkbox" @click.stop><input type="checkbox" :checked="selectedJobIds.has(job.id)" @change="toggleSelectJob(job.id)" /></td>
           <td class="job-history__cell-id">#{{ job.id.slice(0, 8) }}</td>
           <td>
-            <span :class="['job-history__status', statusClass(job.status)]">{{ job.status }}</span>
+            <span :class="['job-history__status', statusClass(job.status)]">{{ statusLabel(job.status) }}</span>
           </td>
           <td class="job-history__cell-files">
             <div class="job-history__files-preview">
@@ -171,7 +180,7 @@ function closePopovers() {
           <td>{{ formatDate(job.created_at) }}</td>
           <td>{{ formatDate(job.completed_at) }}</td>
           <td class="job-history__cell-action">
-            <button class="job-history__delete-btn" @click.stop="confirmDelete(job.id)" title="Delete job"><X :size="14" /></button>
+            <button class="job-history__delete-btn" @click.stop="confirmDelete(job.id)" :title="$t('jobHistory.deleteTooltip')"><X :size="14" /></button>
           </td>
         </tr>
       </tbody>
@@ -182,25 +191,25 @@ function closePopovers() {
   <!-- Delete confirmation dialog -->
   <div v-if="showDeleteDialog" class="job-history__dialog-overlay" @click.self="cancelDelete">
     <div class="job-history__dialog">
-      <h3 class="job-history__dialog-title">Confirm Deletion</h3>
+      <h3 class="job-history__dialog-title">{{ $t('jobHistory.confirmTitle') }}</h3>
       <p class="job-history__dialog-text">
-        This action will permanently delete:
+        {{ $t('jobHistory.confirmIntro') }}
       </p>
       <ul class="job-history__dialog-list">
-        <li>Job record and all its metadata</li>
-        <li :class="{ 'job-history__dialog-struck': keepSourceFiles }">All uploaded source files</li>
-        <li>All output/processed files</li>
+        <li>{{ $t('jobHistory.deleteJobRecord') }}</li>
+        <li :class="{ 'job-history__dialog-struck': keepSourceFiles }">{{ $t('jobHistory.deleteSourceFiles') }}</li>
+        <li>{{ $t('jobHistory.deleteOutputFiles') }}</li>
       </ul>
       <label class="job-history__dialog-checkbox">
         <input type="checkbox" v-model="keepSourceFiles" />
-        <span>Keep source files</span>
+        <span>{{ $t('jobHistory.keepSource') }}</span>
       </label>
       <p class="job-history__dialog-warning">
-        ⚠️ This action cannot be undone!
+        {{ $t('jobHistory.warning') }}
       </p>
       <div class="job-history__dialog-actions">
-        <button class="job-history__dialog-btn job-history__dialog-btn--cancel" @click="cancelDelete">Cancel</button>
-        <button class="job-history__dialog-btn job-history__dialog-btn--danger" @click="handleDelete">Delete</button>
+        <button class="job-history__dialog-btn job-history__dialog-btn--cancel" @click="cancelDelete">{{ $t('common.cancel') }}</button>
+        <button class="job-history__dialog-btn job-history__dialog-btn--danger" @click="handleDelete">{{ $t('common.delete') }}</button>
       </div>
     </div>
   </div>
@@ -209,25 +218,25 @@ function closePopovers() {
   <!-- Bulk delete confirmation dialog -->
   <div v-if="showBulkDeleteDialog" class="job-history__dialog-overlay" @click.self="cancelBulkDelete">
     <div class="job-history__dialog">
-      <h3 class="job-history__dialog-title">Delete {{ selectedJobIds.size }} Job(s)</h3>
+      <h3 class="job-history__dialog-title">{{ $t('jobHistory.confirmTitleBatch', { count: selectedJobIds.size }) }}</h3>
       <p class="job-history__dialog-text">
-        This action will permanently delete:
+        {{ $t('jobHistory.confirmIntro') }}
       </p>
       <ul class="job-history__dialog-list">
-        <li>All selected Job records and all its metadata</li>
-        <li :class="{ 'job-history__dialog-struck': keepSourceFiles }">All uploaded source files</li>
-        <li>All output/processed files</li>
+        <li>{{ $t('jobHistory.deleteJobRecord') }}</li>
+        <li :class="{ 'job-history__dialog-struck': keepSourceFiles }">{{ $t('jobHistory.deleteSourceFiles') }}</li>
+        <li>{{ $t('jobHistory.deleteOutputFiles') }}</li>
       </ul>
       <label class="job-history__dialog-checkbox">
         <input type="checkbox" v-model="keepSourceFiles" />
-        <span>Keep source files</span>
+        <span>{{ $t('jobHistory.keepSource') }}</span>
       </label>
       <p class="job-history__dialog-warning">
-        ⚠️ This action cannot be undone!
+        {{ $t('jobHistory.warning') }}
       </p>
       <div class="job-history__dialog-actions">
-        <button class="job-history__dialog-btn job-history__dialog-btn--cancel" @click="cancelBulkDelete">Cancel</button>
-        <button class="job-history__dialog-btn job-history__dialog-btn--danger" @click="handleBulkDelete">Delete</button>
+        <button class="job-history__dialog-btn job-history__dialog-btn--cancel" @click="cancelBulkDelete">{{ $t('common.cancel') }}</button>
+        <button class="job-history__dialog-btn job-history__dialog-btn--danger" @click="handleBulkDelete">{{ $t('common.delete') }}</button>
       </div>
     </div>
   </div>
@@ -243,15 +252,15 @@ function closePopovers() {
 .job-history__table td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid var(--border); }
 .job-history__cell-id { font-family: monospace; font-size: 12px; }
 .job-history__status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; }
-.job-history__status--pending { background: #e5e7eb; color: #6b7280; }
-.job-history__status--running { background: #dbeafe; color: #1d4ed8; }
-.job-history__status--completed { background: #dcfce7; color: #166534; }
-.job-history__status--partial { background: #fef3c7; color: #92400e; }
-.job-history__status--stopped { background: #fef3c7; color: #92400e; }
-.job-history__status--error { background: #fee2e2; color: #991b1b; }
+.job-history__status--pending { background: var(--badge-bg-muted); color: var(--badge-fg-muted); }
+.job-history__status--running { background: var(--badge-bg-running); color: var(--badge-fg-running); }
+.job-history__status--completed { background: var(--badge-bg-success); color: var(--badge-fg-success); }
+.job-history__status--partial { background: var(--badge-bg-warning); color: var(--badge-fg-warning); }
+.job-history__status--stopped { background: var(--badge-bg-warning); color: var(--badge-fg-warning); }
+.job-history__status--error { background: var(--badge-bg-error); color: var(--badge-fg-error); }
 .job-history__row { cursor: pointer; transition: background 0.15s; }
-.job-history__row:hover { background: rgba(59, 130, 246, 0.05); }
-.job-history__row--selected { background: rgba(59, 130, 246, 0.1); }
+.job-history__row:hover { background: var(--bg-hover-subtle); }
+.job-history__row--selected { background: var(--bg-active-subtle); }
 
 .job-history__th-checkbox, .job-history__cell-checkbox { width: 40px; text-align: center; }
 .job-history__th-checkbox input[type="checkbox"], .job-history__cell-checkbox input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; }
@@ -264,7 +273,7 @@ function closePopovers() {
 .job-history__delete-btn {
   background: none;
   border: 1px solid transparent;
-  color: var(--fg-label, #999);
+  color: var(--fg-muted);
   font-size: 16px;
   cursor: pointer;
   padding: 2px 6px;
@@ -274,9 +283,9 @@ function closePopovers() {
 
 
 .job-history__delete-btn:hover {
-  color: #ef4444;
-  background: #fef2f2;
-  border-color: #fecaca;
+  color: var(--color-error);
+  background: var(--btn-danger-bg-light);
+  border-color: var(--border-danger);
 }
 
 
@@ -286,7 +295,7 @@ function closePopovers() {
 }
 
 .job-history__delete-btn:disabled:hover {
-  color: var(--fg-label, #999);
+  color: var(--fg-muted);
   background: none;
   border-color: transparent;
 }
@@ -296,7 +305,7 @@ function closePopovers() {
 .job-history__dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -305,33 +314,33 @@ function closePopovers() {
 
 
 .job-history__dialog {
-  background: var(--bg-card, #fff);
+  background: var(--bg-card);
   border-radius: 12px;
   padding: 24px;
   max-width: 420px;
   width: 90%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-dialog);
 }
 
 
 .job-history__dialog-title {
   font-size: 18px;
   font-weight: 600;
-  color: var(--fg-title, #111);
+  color: var(--fg-on-card);
   margin: 0 0 16px 0;
 }
 
 
 .job-history__dialog-text {
   font-size: 14px;
-  color: var(--fg-label, #666);
+  color: var(--fg-subtle);
   margin: 0 0 12px 0;
 }
 
 
 .job-history__dialog-list {
   font-size: 14px;
-  color: var(--fg-title, #111);
+  color: var(--fg-on-card);
   margin: 0 0 16px 0;
   padding-left: 20px;
 }
@@ -345,12 +354,12 @@ function closePopovers() {
 .job-history__dialog-warning {
   font-size: 14px;
   font-weight: 600;
-  color: #ef4444;
+  color: var(--color-error);
   margin: 0 0 20px 0;
   padding: 10px;
-  background: #fef2f2;
+  background: var(--btn-danger-bg-light);
   border-radius: 6px;
-  border: 1px solid #fecaca;
+  border: 1px solid var(--border-danger);
 }
 
 
@@ -367,31 +376,31 @@ function closePopovers() {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  border: 1px solid var(--border, #ddd);
+  border: 1px solid var(--border);
   transition: all 0.15s;
 }
 
 
 .job-history__dialog-btn--cancel {
-  background: var(--bg-card, #fff);
-  color: var(--fg-title, #111);
+  background: var(--bg-card);
+  color: var(--fg-on-card);
 }
 
 
 .job-history__dialog-btn--cancel:hover {
-  background: var(--bg-main, #f5f5f5);
+  background: var(--bg-hover-subtle);
 }
 
 
 .job-history__dialog-btn--danger {
-  background: #ef4444;
-  color: white;
-  border-color: #ef4444;
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-fg);
+  border-color: var(--btn-danger-border);
 }
 
 
 .job-history__dialog-btn--danger:hover {
-  background: #dc2626;
+  background: var(--btn-danger-hover);
 }
 
 
@@ -451,7 +460,7 @@ function closePopovers() {
   background: var(--bg-card, #fff);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-modal);
   min-width: 200px;
   max-width: 300px;
   padding: 8px 0;

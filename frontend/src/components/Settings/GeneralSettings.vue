@@ -1,8 +1,13 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+import { computed } from 'vue'
 import type { Language } from '@/types/config'
 import { useConfigStore } from '@/stores/config'
 import { useUiStore } from '@/stores/ui'
+import { useThemeStore } from '@/stores/theme'
 import Button from '@/components/UI/Button.vue'
+
+const { t } = useI18n()
 
 interface Option { value: string; label: string }
 const languageOptions: Option[] = [
@@ -10,8 +15,15 @@ const languageOptions: Option[] = [
   { value: 'ru', label: 'Русский' },
 ]
 
+const themeOptions = computed<Option[]>(() => [
+  { value: 'system', label: t('settingsGeneral.themeSystem') },
+  { value: 'light', label: t('settingsGeneral.themeLight') },
+  { value: 'dark', label: t('settingsGeneral.themeDark') },
+])
+
 const configStore = useConfigStore()
 const uiStore = useUiStore()
+const themeStore = useThemeStore()
 
 async function handleImport(event: Event) {
   const input = event.target as HTMLInputElement
@@ -29,19 +41,27 @@ async function handleImport(event: Event) {
 
 <template>
   <div class="general-settings">
-    <h4 class="section-title">Language</h4>
-    <label class="settings-label">Interface Language</label>
+    <h4 class="section-title">{{ t('settingsGeneral.language') }}</h4>
+    <label class="settings-label">{{ t('settingsGeneral.interfaceLanguage') }}</label>
     <select v-model="configStore.language" class="settings-select">
       <option v-for="opt in languageOptions" :key="opt.value" :value="opt.value">
         {{ opt.label }}
       </option>
     </select>
 
-    <h4 class="section-title">Config</h4>
+    <h4 class="section-title">{{ t('settingsGeneral.theme') }}</h4>
+    <label class="settings-label">{{ t('settingsGeneral.colorTheme') }}</label>
+    <select v-model="themeStore.mode" class="settings-select">
+      <option v-for="opt in themeOptions" :key="opt.value" :value="opt.value">
+        {{ opt.label }}
+      </option>
+    </select>
+
+    <h4 class="section-title">{{ t('settingsGeneral.config') }}</h4>
     <div class="config-actions">
-      <Button variant="secondary" size="md" @click="configStore.exportConfig()">Export Config</Button>
+      <Button variant="secondary" size="md" @click="configStore.exportConfig()">{{ t('settingsGeneral.export') }}</Button>
       <label class="import-label">
-        <span class="btn btn--secondary btn--md">Import Config</span>
+        <span class="btn btn--secondary btn--md">{{ t('settingsGeneral.import') }}</span>
         <input type="file" accept=".json" class="hidden-input" @change="handleImport" />
       </label>
     </div>

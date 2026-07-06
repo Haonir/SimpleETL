@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
 interface Notification {
   type: 'success' | 'error' | 'info'
@@ -18,8 +18,12 @@ export const useUiStore = defineStore('ui', () => {
 
   // Layout navigation state
   type PanelId = 'files' | 'settings' | 'prompts' | 'logs' | 'output' | 'history'
-  const activePanel = ref<PanelId>('files')
-  const sidebarCollapsed = ref<boolean>(false)
+  const activePanel = ref<PanelId>((localStorage.getItem('activePanel') as PanelId) || 'files')
+  const sidebarCollapsed = ref<boolean>(localStorage.getItem('sidebarCollapsed') === 'true')
+
+  // Persist UI state
+  watch(activePanel, (val) => localStorage.setItem('activePanel', val))
+  watch(sidebarCollapsed, (val) => localStorage.setItem('sidebarCollapsed', String(val)))
   type LogFilter = 'all' | 'info' | 'warning' | 'error'
   const logFilter = ref<LogFilter>('all')
 

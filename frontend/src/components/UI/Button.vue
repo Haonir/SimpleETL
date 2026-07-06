@@ -1,6 +1,6 @@
 <script setup lang="ts">
 interface Props {
-  variant?: 'primary' | 'secondary'
+  variant?: 'primary' | 'secondary' | 'danger'
   size?: 'sm' | 'md'
   disabled?: boolean
   loading?: boolean
@@ -50,7 +50,7 @@ defineEmits<{
 
 /* Sizes */
 .btn--sm {
-  height: 28px;
+  height: 32px;
   padding: 0 12px;
   font-size: 11px;
 }
@@ -79,6 +79,16 @@ defineEmits<{
 
 .btn--primary:hover:not(:disabled) {
   background: var(--accent-hover);
+}
+
+.btn--danger {
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-fg);
+  border-color: var(--btn-danger-border);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--btn-danger-hover);
 }
 
 .btn__spinner {

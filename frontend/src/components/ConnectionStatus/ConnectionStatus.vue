@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{ compact?: boolean }>()
+const { t } = useI18n()
 
 type ConnState = 'connected' | 'disconnected' | 'checking'
 
@@ -10,9 +12,9 @@ const state = ref<ConnState>('checking')
 
 const statusText = computed(() => {
   switch (state.value) {
-    case 'connected':    return 'Connected'
-    case 'disconnected': return 'Disconnected'
-    default:             return 'Checking…'
+    case 'connected':    return t('connection.connected')
+    case 'disconnected': return t('connection.disconnected')
+    default:             return t('connection.checking')
   }
 })
 
@@ -70,8 +72,8 @@ onUnmounted(() => {
   height: 8px;
   border-radius: 50%;
 }
-.connection-status--connected .connection-status__dot { background: #22c55e; }
-.connection-status--checking .connection-status__dot { background: #f59e0b; animation: pulse 1s infinite; }
-.connection-status--disconnected .connection-status__dot { background: #6b7280; }
+.connection-status--connected .connection-status__dot { background: var(--color-success); }
+.connection-status--checking .connection-status__dot { background: var(--color-warning); animation: pulse 1s infinite; }
+.connection-status--disconnected .connection-status__dot { background: var(--fg-muted); }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 </style>

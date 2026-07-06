@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { usePromptsStore } from '@/stores/prompts'
 import { useConfigStore } from '@/stores/config'
 import { useUiStore } from '@/stores/ui'
@@ -11,6 +12,7 @@ import Button from '@/components/UI/Button.vue'
 const promptsStore = usePromptsStore()
 const uiStore = useUiStore()
 const configStore = useConfigStore()
+const { t } = useI18n()
 
 const showEditor = ref(false)
 const editingPrompt = ref<PromptEntry | null>(null)
@@ -37,7 +39,7 @@ async function handleSave(payload: { name: string; text: string }) {
     await promptsStore.addPrompt(payload.name, payload.text)
   }
   showEditor.value = false
-  uiStore.showNotification('success', 'Prompt saved.')
+  uiStore.showNotification('success', t('common.save') + '.')
 }
 
 function handleCancel() {
@@ -48,14 +50,14 @@ async function handleDelete(name: string) {
   const confirmed = window.confirm(`Delete prompt "${name}"?`)
   if (!confirmed) return
   await promptsStore.removePrompt(name)
-  uiStore.showNotification('success', 'Prompt deleted.')
+  uiStore.showNotification('success', t('common.delete') + '.')
 }
 
 async function handleSelectNone() {
   promptsStore.setCurrentPrompt('')
   configStore.processing.skip_llm = true
   await configStore.save()
-  uiStore.showNotification('info', 'No prompt selected — LLM step will be skipped.')
+  uiStore.showNotification('info', t('promptLibrary.llmSkipped'))
 }
 
 function isCurrent(p: PromptEntry): boolean {
@@ -66,21 +68,21 @@ function isCurrent(p: PromptEntry): boolean {
 <template>
   <div class="prompt-library">
     <div class="library-header">
-      <h2 class="prompt-library__title">Prompt Library</h2>
-      <Button variant="primary" size="sm" @click="openCreateMode">Add New</Button>
+      <h2 class="prompt-library__title">{{ $t('promptLibrary.title') }}</h2>
+      <Button variant="primary" size="sm" @click="openCreateMode">{{ $t('promptLibrary.addNew') }}</Button>
     </div>
 
     <div class="prompt-card prompt-card--none" :class="{ 'prompt-card--active': !promptsStore.currentPromptName }">
       <div class="prompt-card__header">
-        <span class="prompt-name">— None / No LLM —</span>
+        <span class="prompt-name">{{ $t('promptLibrary.noneNoLlm') }}</span>
         <div class="prompt-card__actions-row">
-          <Button variant="secondary" size="sm" @click="handleSelectNone">Select</Button>
+          <Button variant="secondary" size="sm" @click="handleSelectNone">{{ $t('promptLibrary.select') }}</Button>
         </div>
       </div>
     </div>
 
     <div v-if="promptsStore.prompts.length === 0" class="empty-state">
-      No prompts yet. Create your first prompt.
+      {{ $t('promptLibrary.empty') }}
     </div>
 
     <div v-else class="prompt-list">
@@ -93,8 +95,8 @@ function isCurrent(p: PromptEntry): boolean {
         <div class="prompt-card__header" @click="toggleExpand(p.name)">
           <span class="prompt-name">{{ p.name }}</span>
           <div class="prompt-card__actions-row">
-            <Button variant="secondary" size="sm" @click.stop="$emit('select', p)">Select</Button>
-            <Button variant="secondary" size="sm" @click.stop="handleDelete(p.name)">Delete</Button>
+            <Button variant="secondary" size="sm" @click.stop="$emit('select', p)">{{ $t('promptLibrary.select') }}</Button>
+            <Button variant="secondary" size="sm" @click.stop="handleDelete(p.name)">{{ $t('common.delete') }}</Button>
             <ChevronRight :size="14" class="prompt-expand-arrow" :class="{ 'prompt-expand-arrow--open': expandedName === p.name }" />
           </div>
         </div>

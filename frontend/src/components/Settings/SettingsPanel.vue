@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import type { LLMConfig, ProcessingConfig } from '@/types/config'
 import { Server, Cog, SlidersHorizontal, Save } from '@lucide/vue'
 import { useConfigStore } from '@/stores/config'
 import { useUiStore } from '@/stores/ui'
-import type { LLMConfig, ProcessingConfig } from '@/types/config'
+
+const { t } = useI18n()
 import LLMSettings from './LLMSettings.vue'
 import GeneralSettings from './GeneralSettings.vue'
 import ProcessingSettings from './ProcessingSettings.vue'
@@ -27,7 +30,7 @@ async function saveSettings() {
   configStore.llm = llmValue.value
   configStore.processing = processingValue.value
   await configStore.save()
-  uiStore.showNotification('success', 'Settings saved')
+  uiStore.showNotification('success', t('settings.saved'))
 }
 
 </script>
@@ -35,8 +38,8 @@ async function saveSettings() {
 <template>
   <div class="settings-panel">
     <div class="settings-header">
-      <h2 class="settings-panel__title">Settings</h2>
-      <button class="settings-save-btn" title="Save settings" @click="saveSettings">
+      <h2 class="settings-panel__title">{{ t('settings.title') }}</h2>
+      <button class="settings-save-btn" :title="$t('settings.saveTooltip')" @click="saveSettings">
         <Save :size="14" /> Save
       </button>
     </div>
@@ -47,19 +50,19 @@ async function saveSettings() {
           :class="['tab', { 'tab--active': activeTab === 'processing' }]"
           @click="activeTab = 'processing'"
         >
-          <Cog :size="14" /> Processing
+          <Cog :size="14" /> {{ t('settings.tabProcessing') }}
         </button>
         <button
           :class="['tab', { 'tab--active': activeTab === 'llm' }]"
           @click="activeTab = 'llm'"
         >
-          <Server :size="14" /> Providers
+          <Server :size="14" /> {{ t('settings.tabProviders') }}
         </button>
         <button
           :class="['tab', { 'tab--active': activeTab === 'general' }]"
           @click="activeTab = 'general'"
         >
-          <SlidersHorizontal :size="14" /> General
+          <SlidersHorizontal :size="14" /> {{ t('settings.tabGeneral') }}
         </button>
       </div>
     </div>
@@ -144,8 +147,7 @@ async function saveSettings() {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 130px;
-  padding: 8px 20px;
+  padding: 8px 16px;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;

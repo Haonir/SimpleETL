@@ -279,6 +279,16 @@ export const useJobStore = defineStore('job', () => {
     ws.value = null
   }
 
+  function updateJobInList(jobId: string, newStatus: string) {
+    const job = jobs.value.find(j => j.id === jobId)
+    if (job) {
+      job.status = newStatus
+      if (newStatus === 'completed' || newStatus === 'error' || newStatus === 'stopped') {
+        job.completed_at = new Date().toISOString()
+      }
+    }
+  }
+
   function handleMessage(msg: WSServerMessage) {
     // Only process messages for the currently tracked job
     if (msg.job_id !== currentJobId.value) return
@@ -296,17 +306,23 @@ export const useJobStore = defineStore('job', () => {
         if (msg.status === 'stopped' || msg.status === 'completed' || msg.status === 'error') {
           stopRequested.value = false
         }
+        // Sync status to jobs array for history table
+        updateJobInList(msg.job_id, msg.status)
         break
       case 'done':
         status.value = 'completed'
         globalProgress.value = 100
         stopRequested.value = false
+        // Sync status to jobs array for history table
+        updateJobInList(msg.job_id, 'completed')
         // Keep JOB_STORAGE_KEY so restoreJob() can restore logs/outputs on refresh
         break
       case 'error':
         status.value = 'error'
         addLog({ timestamp: new Date().toISOString(), level: 'error', message: msg.message })
         stopRequested.value = false
+        // Sync status to jobs array for history table
+        updateJobInList(msg.job_id, 'error')
         // Keep JOB_STORAGE_KEY so restoreJob() can restore logs/outputs on refresh
         break
     }

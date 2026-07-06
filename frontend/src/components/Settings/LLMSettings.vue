@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, onMounted } from 'vue'
 import { Eye, EyeOff } from '@lucide/vue'
 import type { LLMConfig } from '@/types/config'
+
+const { t } = useI18n()
 
 interface Props {
   modelValue: LLMConfig
@@ -53,32 +56,32 @@ defineEmits<{
 
 <template>
   <div class="settings-form">
-    <h4 class="section-title">LLM</h4>
+    <h4 class="section-title">{{ t('settingsLlm.llm') }}</h4>
 
-    <label class="settings-label">Model</label>
+    <label class="settings-label">{{ t('settingsLlm.model') }}</label>
     <input
       v-model="modelValue.model"
       type="text"
-      :placeholder="'e.g. llama2'"
+      :placeholder="$t('settingsLlm.modelPlaceholder')"
       :disabled="props.disabled"
       class="settings-input"
     />
 
-    <label class="settings-label">Base URL</label>
+    <label class="settings-label">{{ t('settingsLlm.baseUrl') }}</label>
     <input
       v-model="modelValue.base_url"
       type="text"
-      :placeholder="'e.g. http://localhost:11434/v1'"
+      :placeholder="$t('settingsLlm.baseUrlPlaceholder')"
       :disabled="props.disabled"
       class="settings-input"
     />
 
-    <label class="settings-label">API Key</label>
+    <label class="settings-label">{{ t('settingsLlm.apiKey') }}</label>
     <div class="input-row">
       <input
         :type="showApiKey ? 'text' : 'password'"
         v-model="modelValue.api_key"
-        placeholder="••••••••"
+        :placeholder="$t('settingsLlm.apiKeyPlaceholder')"
         :disabled="props.disabled"
         class="settings-input"
       />
@@ -95,24 +98,24 @@ defineEmits<{
 
     <!-- ── Backend Server ────────────────────────────────────────────── -->
     <div class="section-divider" />
-    <h4 class="section-title">Backend Server</h4>
+    <h4 class="section-title">{{ t('settingsLlm.backendServer') }}</h4>
 
-    <label class="settings-label">Base URL</label>
+    <label class="settings-label">{{ t('settingsLlm.backendUrl') }}</label>
     <input
       v-model="serverUrl"
       type="text"
-      placeholder="http://localhost:8000"
+      :placeholder="$t('settingsLlm.backendUrlPlaceholder')"
       :disabled="props.disabled"
       class="settings-input"
       @change="saveServer"
     />
 
-    <label class="settings-label">API Key</label>
+    <label class="settings-label">{{ t('settingsLlm.backendApiKey') }}</label>
     <div class="input-row">
       <input
         :type="showServerKey ? 'text' : 'password'"
         v-model="serverApiKey"
-        placeholder="••••••••"
+        :placeholder="$t('settingsLlm.apiKeyPlaceholder')"
         :disabled="props.disabled"
         class="settings-input"
         @change="saveServer"
@@ -128,7 +131,7 @@ defineEmits<{
       </button>
     </div>
     <p class="settings-hint">
-      Leave empty to use the Vite dev proxy (default for local development).
+      {{ t('settingsLlm.backendHint') }}
     </p>
   </div>
 </template>

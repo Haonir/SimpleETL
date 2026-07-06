@@ -7,8 +7,8 @@
       "id": "task-001",
       "title": "CSS refinement — design system variables, responsive layout",
       "status": "pending",
-      "coder_iterations": 0,
-      "started_at": null,
+      "coder_iterations": 1,
+      "started_at": "2026-07-06T00:00:00",
       "completed_at": null,
       "error_log": null
     },

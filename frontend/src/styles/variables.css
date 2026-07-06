@@ -1,48 +1,235 @@
+/* ==========================================================================
+   Design Tokens — SimpleETL
+   
+   Structure:
+   1. :root — Light theme (default) + layout/typography tokens
+   2. [data-theme="dark"] — Dark theme overrides (colors only)
+   
+   Naming convention: --{category}-{element}-{state}
+   ========================================================================== */
+
 :root {
+  /* --------------------------------------------------------------------------
+     Backgrounds
+     -------------------------------------------------------------------------- */
   --bg-main: #eef1f5;
   --bg-card: #ffffff;
   --bg-input: #ffffff;
+  --bg-sidebar: #ffffff;
+  --bg-header: #ffffff;
+  --bg-hover-accent: rgba(59, 130, 246, 0.08);
+  --bg-hover-subtle: rgba(59, 130, 246, 0.05);
+  --bg-active-subtle: rgba(59, 130, 246, 0.1);
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+
+  /* --------------------------------------------------------------------------
+     Foreground / Text
+     -------------------------------------------------------------------------- */
   --fg-title: #1a1a2e;
   --fg-label: #374151;
   --fg-header: #2c323a;
+  --fg-muted: #6b7280;
+  --fg-subtle: #9ca3af;
+  --fg-on-accent: #ffffff;
+  --fg-on-card: #111111;
+
+  /* --------------------------------------------------------------------------
+     Borders
+     -------------------------------------------------------------------------- */
   --border: #d1d5db;
+  --border-focus: #3b82f6;
+  --border-error: #ef4444;
+  --border-success: #22c55e;
+  --border-danger: #fecaca;
+
+  /* --------------------------------------------------------------------------
+     Accent / Brand
+     -------------------------------------------------------------------------- */
   --accent: #3b82f6;
   --accent-hover: #2563eb;
+  --accent-active: #1d4ed8;
   --accent-disabled: #93c5fd;
+
+  /* --------------------------------------------------------------------------
+     Buttons — Secondary
+     -------------------------------------------------------------------------- */
   --btn-bg: #e5e7eb;
   --btn-fg: #1f2937;
   --btn-hover: #d1d5db;
 
-  /* Layout */
-  --sidebar-width: 240px;
-  --sidebar-collapsed-width: 60px;
-  --header-height: 56px;
-  --panel-padding: 24px;
+  /* --------------------------------------------------------------------------
+     Buttons — Danger
+     -------------------------------------------------------------------------- */
+  --btn-danger-bg: #ef4444;
+  --btn-danger-fg: #ffffff;
+  --btn-danger-hover: #dc2626;
+  --btn-danger-border: #ef4444;
+  --btn-danger-bg-light: #fef2f2;
 
-  /* Typography */
-  --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
-  --font-size-sm: 0.8125rem;
-  --font-size-md: 0.875rem;
-  --font-size-lg: 1rem;
-
-  /* Status colors */
+  /* --------------------------------------------------------------------------
+     Status Colors (semantic)
+     -------------------------------------------------------------------------- */
   --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-error: #ef4444;
   --color-info: #3b82f6;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+  /* --------------------------------------------------------------------------
+     Status Badges — Backgrounds (light tints)
+     -------------------------------------------------------------------------- */
+  --badge-bg-muted: #e5e7eb;
+  --badge-bg-running: #dbeafe;
+  --badge-bg-success: #dcfce7;
+  --badge-bg-warning: #fef3c7;
+  --badge-bg-error: #fee2e2;
 
-  /* Z-index scale */
+  /* --------------------------------------------------------------------------
+     Status Badges — Foregrounds (dark text)
+     -------------------------------------------------------------------------- */
+  --badge-fg-muted: #6b7280;
+  --badge-fg-running: #1d4ed8;
+  --badge-fg-success: #166534;
+  --badge-fg-warning: #92400e;
+  --badge-fg-error: #991b1b;
+
+  /* --------------------------------------------------------------------------
+     Log Level Colors
+     -------------------------------------------------------------------------- */
+  --log-info: #3b82f6;
+  --log-success: #22c55e;
+  --log-warning: #f59e0b;
+  --log-error: #ef4444;
+
+  /* --------------------------------------------------------------------------
+     Warning Text
+     -------------------------------------------------------------------------- */
+  --warning-text: #d97706;
+
+  /* --------------------------------------------------------------------------
+     Shadows
+     -------------------------------------------------------------------------- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.15);
+  --shadow-dialog: 0 20px 60px rgba(0, 0, 0, 0.3);
+
+  /* --------------------------------------------------------------------------
+     Layout (non-color, shared across themes)
+     -------------------------------------------------------------------------- */
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 60px;
+  --header-height: 56px;
+  --panel-padding: 24px;
+
+  /* --------------------------------------------------------------------------
+     Typography (non-color, shared across themes)
+     -------------------------------------------------------------------------- */
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  --font-size-sm: 0.8125rem;
+  --font-size-md: 0.875rem;
+  --font-size-lg: 1rem;
+
+  /* --------------------------------------------------------------------------
+     Z-index scale (non-color, shared across themes)
+     -------------------------------------------------------------------------- */
   --z-sidebar: 100;
   --z-header: 200;
   --z-modal: 1000;
   --z-notification: 1100;
 
-  /* Transitions */
+  /* --------------------------------------------------------------------------
+     Transitions (non-color, shared across themes)
+     -------------------------------------------------------------------------- */
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
+}
+
+/* ==========================================================================
+   Dark Theme
+   Only color tokens are overridden. Layout, typography, z-index, transitions
+   remain unchanged.
+   ========================================================================== */
+
+[data-theme="dark"] {
+  /* Backgrounds */
+  --bg-main: #0f172a;
+  --bg-card: #1e293b;
+  --bg-input: #334155;
+  --bg-sidebar: #1e293b;
+  --bg-header: #1e293b;
+  --bg-hover-accent: rgba(59, 130, 246, 0.15);
+  --bg-hover-subtle: rgba(59, 130, 246, 0.1);
+  --bg-active-subtle: rgba(59, 130, 246, 0.2);
+  --bg-overlay: rgba(0, 0, 0, 0.7);
+
+  /* Foreground / Text */
+  --fg-title: #f1f5f9;
+  --fg-label: #cbd5e1;
+  --fg-header: #e2e8f0;
+  --fg-muted: #94a3b8;
+  --fg-subtle: #64748b;
+  --fg-on-accent: #ffffff;
+  --fg-on-card: #f1f5f9;
+
+  /* Borders */
+  --border: #475569;
+  --border-focus: #60a5fa;
+  --border-error: #f87171;
+  --border-success: #4ade80;
+  --border-danger: #fca5a5;
+
+  /* Accent */
+  --accent: #60a5fa;
+  --accent-hover: #3b82f6;
+  --accent-active: #2563eb;
+  --accent-disabled: #1e40af;
+
+  /* Buttons — Secondary */
+  --btn-bg: #334155;
+  --btn-fg: #e2e8f0;
+  --btn-hover: #475569;
+
+  /* Buttons — Danger */
+  --btn-danger-bg: #dc2626;
+  --btn-danger-fg: #ffffff;
+  --btn-danger-hover: #b91c1c;
+  --btn-danger-border: #dc2626;
+  --btn-danger-bg-light: #450a0a;
+
+  /* Status Colors */
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-error: #f87171;
+  --color-info: #60a5fa;
+
+  /* Status Badges — Backgrounds */
+  --badge-bg-muted: #334155;
+  --badge-bg-running: #1e3a5f;
+  --badge-bg-success: #14532d;
+  --badge-bg-warning: #451a03;
+  --badge-bg-error: #450a0a;
+
+  /* Status Badges — Foregrounds */
+  --badge-fg-muted: #94a3b8;
+  --badge-fg-running: #93c5fd;
+  --badge-fg-success: #86efac;
+  --badge-fg-warning: #fcd34d;
+  --badge-fg-error: #fca5a5;
+
+  /* Log Level Colors */
+  --log-info: #60a5fa;
+  --log-success: #4ade80;
+  --log-warning: #fbbf24;
+  --log-error: #f87171;
+
+  /* Warning Text */
+  --warning-text: #fbbf24;
+
+  /* Shadows (darker for dark theme) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-dialog: 0 20px 60px rgba(0, 0, 0, 0.5);
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useJobStore } from '@/stores/job'
 import { downloadJobFile, downloadJobZip } from '@/services/api'
 import Button from '@/components/UI/Button.vue'
@@ -11,6 +12,7 @@ const selectedFile = ref<string | null>(null)
 const previewContent = ref<string | null>(null)
 const previewType = ref<'text' | 'html' | 'md'>('text')
 const previewLoading = ref(false)
+const { t } = useI18n()
 
 const activeJob = computed(() => {
   const id = jobStore.selectedJobId || jobStore.currentJobId
@@ -97,7 +99,7 @@ watch(() => jobStore.selectedJobId, loadFiles)
 
 <template>
   <div class="job-output">
-    <h2 class="job-output__title">Output Files</h2>
+      <h2 class="job-output__title">{{ t('jobOutput.title') }}</h2>
     <div class="job-output__content">
     <!-- Left panel (1/4) -->
     <div class="job-output__list">
@@ -107,7 +109,7 @@ watch(() => jobStore.selectedJobId, loadFiles)
           <span v-if="activeJob" class="job-output__job-id">#{{ activeJob.id.slice(0, 8) }}</span>
           <span v-if="activeJob?.created_at" class="job-output__job-date">{{ formatDate(activeJob.created_at) }}</span>
         </div>
-        <Button v-if="jobStore.currentJobFiles.length > 0" variant="secondary" size="sm" @click="handleDownloadAll"><Download :size="14" /> ZIP</Button>
+        <Button v-if="jobStore.currentJobFiles.length > 0" variant="secondary" size="sm" @click="handleDownloadAll"><Download :size="14" /> {{ t('jobOutput.zip') }}</Button>
       </div>
       <!-- File entries -->
       <div
@@ -123,17 +125,17 @@ watch(() => jobStore.selectedJobId, loadFiles)
         </div>
       </div>
       <div v-if="jobStore.currentJobFiles.length === 0" class="job-output__list-empty">
-        No files
+        {{ t('jobOutput.empty') }}
       </div>
     </div>
 
     <!-- Right panel (3/4) — preview -->
     <div class="job-output__preview">
       <div v-if="!selectedFile" class="job-output__preview-empty">
-        Select a file to preview
+        {{ t('jobOutput.selectPreview') }}
       </div>
       <div v-else-if="previewLoading" class="job-output__preview-empty">
-        Loading preview...
+        {{ t('jobOutput.loadingPreview') }}
       </div>
       <div v-else class="job-output__preview-content">
         <div class="job-output__preview-header">{{ selectedFile }}</div>
@@ -209,11 +211,11 @@ watch(() => jobStore.selectedJobId, loadFiles)
 }
 
 .job-output__file:hover {
-  background: rgba(59, 130, 246, 0.05);
+  background: var(--bg-hover-subtle);
 }
 
 .job-output__file--selected {
-  background: rgba(59, 130, 246, 0.1);
+  background: var(--bg-active-subtle);
   border-left: 3px solid var(--accent);
 }
 

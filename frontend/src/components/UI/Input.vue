@@ -67,11 +67,11 @@ defineEmits<{
 }
 
 .input--error {
-  border-color: #ef4444;
+  border-color: var(--border-error);
 }
 
 .input__error {
   font-size: 11px;
-  color: #ef4444;
+  color: var(--color-error);
 }
 </style>

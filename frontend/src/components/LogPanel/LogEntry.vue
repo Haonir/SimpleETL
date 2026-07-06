@@ -17,10 +17,10 @@ function formatTime(iso: string): string {
 }
 
 const colorMap: Record<string, string> = {
-  info: '#3b82f6',
-  llm: '#22c55e',
-  warning: '#f59e0b',
-  error: '#ef4444',
+  info: 'var(--log-info)',
+  llm: 'var(--log-success)',
+  warning: 'var(--log-warning)',
+  error: 'var(--log-error)',
 }
 </script>
 
@@ -50,7 +50,7 @@ const colorMap: Record<string, string> = {
 }
 
 .log-entry__timestamp {
-  color: #9ca3af;
+  color: var(--fg-subtle);
   white-space: nowrap;
   min-width: 80px;
 }
@@ -61,7 +61,7 @@ const colorMap: Record<string, string> = {
   border-radius: 9999px;
   font-size: 11px;
   font-weight: 600;
-  color: white;
+  color: var(--fg-on-accent);
   white-space: nowrap;
   min-width: 60px;
   text-align: center;

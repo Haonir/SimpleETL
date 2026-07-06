@@ -60,7 +60,7 @@ watch(() => props.show, (visible) => {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -74,7 +74,7 @@ watch(() => props.show, (visible) => {
   max-width: 90vw;
   max-height: 90vh;
   overflow: auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-modal);
 }
 .modal-header {
   display: flex;
