@@ -34,31 +34,34 @@ async function saveSettings() {
 
 <template>
   <div class="settings-panel">
-    <h2 class="settings-panel__title">Settings</h2>
-    <!-- Tab navigation -->
-    <div class="tabs">
-      <button
-        :class="['tab', { 'tab--active': activeTab === 'processing' }]"
-        @click="activeTab = 'processing'"
-      >
-        <Cog :size="14" /> Processing
-      </button>
-      <button
-        :class="['tab', { 'tab--active': activeTab === 'llm' }]"
-        @click="activeTab = 'llm'"
-      >
-        <Server :size="14" /> Providers
-      </button>
-      <button
-        :class="['tab', { 'tab--active': activeTab === 'general' }]"
-        @click="activeTab = 'general'"
-      >
-        <SlidersHorizontal :size="14" /> General
-      </button>
-
+    <div class="settings-header">
+      <h2 class="settings-panel__title">Settings</h2>
       <button class="settings-save-btn" title="Save settings" @click="saveSettings">
         <Save :size="14" /> Save
       </button>
+    </div>
+    <!-- Tab navigation -->
+    <div class="tabs">
+      <div class="tabs-row">
+        <button
+          :class="['tab', { 'tab--active': activeTab === 'processing' }]"
+          @click="activeTab = 'processing'"
+        >
+          <Cog :size="14" /> Processing
+        </button>
+        <button
+          :class="['tab', { 'tab--active': activeTab === 'llm' }]"
+          @click="activeTab = 'llm'"
+        >
+          <Server :size="14" /> Providers
+        </button>
+        <button
+          :class="['tab', { 'tab--active': activeTab === 'general' }]"
+          @click="activeTab = 'general'"
+        >
+          <SlidersHorizontal :size="14" /> General
+        </button>
+      </div>
     </div>
 
     <!-- Tab content -->
@@ -79,11 +82,19 @@ async function saveSettings() {
   gap: 16px;
 }
 
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  max-width: 480px;
+}
+
 .settings-panel__title {
   font-size: 16px;
   font-weight: 600;
   color: var(--fg-title);
-  margin: 0 0 1rem;
+  margin: 0;
 }
 
 .settings-save-btn {
@@ -119,12 +130,21 @@ async function saveSettings() {
   gap: 2px;
   padding-bottom: 2px;
   border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+}
+
+.tabs-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
 }
 
 .tab {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  width: 130px;
   padding: 8px 20px;
   background: none;
   border: none;

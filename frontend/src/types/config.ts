@@ -1,3 +1,6 @@
+/** Supported UI language codes. */
+export type Language = "en" | "ru"
+
 /** Output format for generated markdown files. */
 export type OutputFormat = "spr" | "frontmatter" | "markdown" | "html"
 
@@ -40,4 +43,6 @@ export interface ConfigResponse {
   prompts: PromptEntry[]
   /** Name of the currently active prompt. */
   current_prompt_name: string
+  /** UI language code. */
+  language: Language
 }

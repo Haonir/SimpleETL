@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { loadConfigFile, saveConfigFile, downloadConfigFile, importConfigFile, clearConfigFile } from '@/services/configFile'
-import type { LLMConfig, ProcessingConfig, ConfigResponse, PromptEntry } from '@/types/config'
+import type { LLMConfig, ProcessingConfig, ConfigResponse, PromptEntry, Language } from '@/types/config'
 import { useUiStore } from './ui'
 
 export const useConfigStore = defineStore('config', () => {
@@ -15,6 +15,7 @@ export const useConfigStore = defineStore('config', () => {
   })
   const prompts = ref<PromptEntry[]>([])
   const currentPromptName = ref('')
+  const language = ref<Language>('en')
   const loaded = ref(false)
 
   async function loadConfig() {
@@ -24,6 +25,7 @@ export const useConfigStore = defineStore('config', () => {
       processing.value = config.processing
       prompts.value = config.prompts || []
       currentPromptName.value = config.current_prompt_name || ''
+      language.value = config.language || 'en'
       loaded.value = true
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load configuration'
@@ -38,6 +40,7 @@ export const useConfigStore = defineStore('config', () => {
         processing: processing.value,
         prompts: prompts.value,
         current_prompt_name: currentPromptName.value,
+        language: language.value,
       }
       saveConfigFile(fullConfig)
     } catch (err) {
@@ -62,6 +65,7 @@ export const useConfigStore = defineStore('config', () => {
       processing: processing.value,
       prompts: promptsStore.prompts,
       current_prompt_name: promptsStore.currentPromptName,
+      language: language.value,
     }
     downloadConfigFile(fullConfig)
   }
@@ -71,6 +75,7 @@ export const useConfigStore = defineStore('config', () => {
     llm.value = config.llm
     processing.value = config.processing
     loaded.value = true
+    if (config.language) language.value = config.language
     if (config.current_prompt_name) {
       const { usePromptsStore } = await import('./prompts')
       usePromptsStore().currentPromptName = config.current_prompt_name
@@ -88,7 +93,8 @@ export const useConfigStore = defineStore('config', () => {
       skip_llm: false,
     }
     loaded.value = false
+    language.value = 'en'
   }
 
-  return { llm, processing, loaded, loadConfig, save, updateLLM, updateProcessing, exportConfig, importConfig, clearConfig, prompts, currentPromptName }
+  return { llm, processing, loaded, loadConfig, save, updateLLM, updateProcessing, exportConfig, importConfig, clearConfig, prompts, currentPromptName, language }
 })

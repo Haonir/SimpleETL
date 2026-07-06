@@ -101,54 +101,64 @@ function statusBadgeText(status: string | null): string {
 
 <template>
   <div class="job-toolbar">
-    <Button
-      variant="primary"
-      size="md"
-      :disabled="!filesStore.hasFiles || filesStore.selectedIds.length === 0"
-      class="toolbar-start-btn"
-      @click="handleStart"
-    >
-      <Play :size="14" /> Start
-    </Button>
-    <div class="toolbar-stop-area">
+    <div class="toolbar-group">
       <Button
-        variant="secondary"
+        variant="primary"
         size="md"
-        :disabled="!jobStore.isRunning || jobStore.stopRequested"
-        class="toolbar-stop-btn"
-        @click="handleStop"
+        :disabled="!filesStore.hasFiles || filesStore.selectedIds.length === 0"
+        class="toolbar-start-btn"
+        @click="handleStart"
       >
-        <Square :size="14" /> Stop
+        <Play :size="14" /> Start
       </Button>
-      <span v-if="jobStore.stopRequested" class="toolbar-hint toolbar-hint--stop">
-        Stop requested…
-      </span>
+      <div class="toolbar-stop-area">
+        <Button
+          variant="secondary"
+          size="md"
+          :disabled="!jobStore.isRunning || jobStore.stopRequested"
+          class="toolbar-stop-btn"
+          @click="handleStop"
+        >
+          <Square :size="14" /> Stop
+        </Button>
+        <span v-if="jobStore.stopRequested" class="toolbar-hint toolbar-hint--stop">
+          Stop requested…
+        </span>
+      </div>
+    </div>
+
+    <div class="toolbar-separator" />
+    
+    <div class="toolbar-group">
+      <button class="toolbar-save-btn" title="Clear current job" :disabled="!jobStore.activeJobId" @click="handleClearJob">
+        <RefreshCw :size="14" />
+      </button>
+      <button class="toolbar-save-btn" title="Save format & prompt to config" @click="handleSaveDefaults">
+        <Save :size="14" />
+      </button> 
     </div>
 
     <div class="toolbar-separator" />
 
-    <label class="toolbar-label">Format</label>
-    <select v-model="selectedFormat" class="toolbar-select toolbar-select--sm">
-      <option v-for="opt in formatOptions" :key="opt.value" :value="opt.value">
-        {{ opt.label }}
-      </option>
-    </select>
+    <div class="toolbar-group">
+      <label class="toolbar-label">Format</label>
+      <select v-model="selectedFormat" class="toolbar-select toolbar-select--sm">
+        <option v-for="opt in formatOptions" :key="opt.value" :value="opt.value">
+          {{ opt.label }}
+        </option>
+      </select>
+    </div>
 
-    <label class="toolbar-label">Prompt</label>
-    <select v-model="selectedPromptName" class="toolbar-select">
-      <option value="">— None / No LLM —</option>
-      <option v-for="p in promptsStore.prompts" :key="p.name" :value="p.name">
-        {{ p.name }}
-      </option>
-    </select>
-    <button class="toolbar-save-btn" title="Save format & prompt to config" @click="handleSaveDefaults">
-      <Save :size="14" />
-    </button>
-    <span v-if="!selectedPromptName" class="toolbar-hint">⚡ LLM step will be skipped</span>
-
-    <button v-if="jobStore.activeJobId" class="toolbar-save-btn" title="Clear current job" @click="handleClearJob">
-      <RefreshCw :size="14" />
-    </button>
+    <div class="toolbar-group">
+      <label class="toolbar-label">Prompt</label>
+      <select v-model="selectedPromptName" class="toolbar-select">
+        <option value="">— None / No LLM —</option>
+        <option v-for="p in promptsStore.prompts" :key="p.name" :value="p.name">
+          {{ p.name }}
+        </option>
+      </select>
+    </div>
+    <span v-if="!selectedPromptName" class="toolbar-hint">⚡ LLM step will be skipped</span>  
     <span v-if="jobStore.activeJobId" :class="['status-badge', `status-badge--${jobStore.activeStatus || 'idle'}`]">
       {{ statusBadgeText(jobStore.activeStatus) }}
     </span>
@@ -159,11 +169,18 @@ function statusBadgeText(status: string | null): string {
 .job-toolbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-card);
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .toolbar-separator {
@@ -242,6 +259,11 @@ function statusBadgeText(status: string | null): string {
 .toolbar-save-btn:hover {
   color: var(--accent);
   border-color: var(--accent);
+}
+
+.toolbar-save-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .toolbar-hint {

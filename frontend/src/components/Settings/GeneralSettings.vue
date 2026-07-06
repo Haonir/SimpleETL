@@ -1,7 +1,14 @@
 <script setup lang="ts">
+import type { Language } from '@/types/config'
 import { useConfigStore } from '@/stores/config'
 import { useUiStore } from '@/stores/ui'
 import Button from '@/components/UI/Button.vue'
+
+interface Option { value: string; label: string }
+const languageOptions: Option[] = [
+  { value: 'en', label: 'English' },
+  { value: 'ru', label: 'Русский' },
+]
 
 const configStore = useConfigStore()
 const uiStore = useUiStore()
@@ -22,6 +29,14 @@ async function handleImport(event: Event) {
 
 <template>
   <div class="general-settings">
+    <h4 class="section-title">Language</h4>
+    <label class="settings-label">Interface Language</label>
+    <select v-model="configStore.language" class="settings-select">
+      <option v-for="opt in languageOptions" :key="opt.value" :value="opt.value">
+        {{ opt.label }}
+      </option>
+    </select>
+
     <h4 class="section-title">Config</h4>
     <div class="config-actions">
       <Button variant="secondary" size="md" @click="configStore.exportConfig()">Export Config</Button>
@@ -38,6 +53,7 @@ async function handleImport(event: Event) {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-width: 480px;
 }
 
 .section-title {
@@ -81,5 +97,34 @@ async function handleImport(event: Event) {
 
 .hidden-input {
   display: none;
+}
+
+.settings-label {
+  font-size: 12px;
+  color: var(--fg-label);
+  margin-bottom: -4px;
+}
+
+.settings-select {
+  appearance: none;
+  height: 34px;
+  padding: 0 28px 0 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--fg-title);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.settings-select:focus {
+  border-color: var(--accent);
+}
+
+.settings-select option {
+  background: var(--bg-surface);
 }
 </style>
