@@ -13,6 +13,8 @@ export const useConfigStore = defineStore('config', () => {
     max_workers: 1,
     output_format: 'spr',
     skip_llm: false,
+    ocr_enabled: false,
+    ocr_languages: 'rus+eng',
   })
   const prompts = ref<PromptEntry[]>([])
   const currentPromptName = ref('')
@@ -99,6 +101,8 @@ export const useConfigStore = defineStore('config', () => {
       max_workers: 1,
       output_format: 'spr',
       skip_llm: false,
+      ocr_enabled: false,
+      ocr_languages: 'rus+eng',
     }
     loaded.value = false
     language.value = 'en'

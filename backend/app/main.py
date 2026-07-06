@@ -20,7 +20,7 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
     """Validate X-API-Key header when APP_API_KEY env var is set."""
 
     # Endpoints that never require auth
-    EXEMPT_PATHS = {"/health", "/docs", "/openapi.json", "/redoc"}
+    EXEMPT_PATHS = {"/health", "/docs", "/openapi.json", "/redoc", "/api/v1/capabilities"}
 
     def __init__(self, app, api_key: str | None = None):
         super().__init__(app)
@@ -77,6 +77,18 @@ app.add_middleware(
 
 # ── Routers ─────────────────────────────────────────────────────────────────
 from app.api.v1 import files_router, jobs_router, ws_router  # noqa: E402
+
+
+@app.get("/api/v1/capabilities")
+async def capabilities():
+    """Return system capabilities (OCR availability, supported input formats)."""
+    from app.etl.extractor import OCR_AVAILABLE
+
+    return {
+        "ocr_available": OCR_AVAILABLE,
+        "supported_input_formats": [".txt", ".md", ".docx", ".doc", ".pdf", ".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"],
+    }
+
 
 app.include_router(files_router)
 app.include_router(jobs_router)

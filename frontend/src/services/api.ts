@@ -134,4 +134,11 @@ export async function getJobOutputs(jobId: string): Promise<JobOutputsResponse> 
   return res.data
 }
 
+// ── Capabilities endpoint ────────────────────────────────────────────────
+
+export async function getCapabilities(): Promise<{ ocr_available: boolean; supported_input_formats: string[] }> {
+  const res = await api.get('/api/v1/capabilities')
+  return res.data
+}
+
 

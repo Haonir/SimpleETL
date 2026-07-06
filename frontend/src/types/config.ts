@@ -26,6 +26,10 @@ export interface ProcessingConfig {
   output_format: OutputFormat
   /** Skip LLM processing — chunks are packed directly. */
   skip_llm: boolean
+  /** Enable OCR processing for images and scanned PDFs. */
+  ocr_enabled: boolean
+  /** Tesseract OCR languages (e.g. 'rus+eng', 'eng'). */
+  ocr_languages: string
 }
 
 /** A single prompt entry in the library (name + text). */

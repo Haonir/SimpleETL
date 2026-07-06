@@ -73,4 +73,16 @@ describe('config store', () => {
     expect(store.processing.max_workers).toBe(4)
     expect(store.processing.chunk_size).toBe(10000)
   })
+
+  it('default config has ocr_enabled false', () => {
+    const store = useConfigStore()
+
+    expect(store.processing.ocr_enabled).toBe(false)
+  })
+
+  it('default config has ocr_languages rus+eng', () => {
+    const store = useConfigStore()
+
+    expect(store.processing.ocr_languages).toBe('rus+eng')
+  })
 })

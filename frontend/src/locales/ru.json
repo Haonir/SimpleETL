@@ -136,7 +136,10 @@
     "chunkSize": "Размер чанка",
     "chunkOverlap": "Перекрытие чанков",
     "maxWorkers": "Макс. потоков",
-    "outputFormat": "Формат вывода"
+    "outputFormat": "Формат вывода",
+    "ocrEnabled": "Включить OCR",
+    "ocrLanguages": "Языки OCR",
+    "ocrHint": "Требуется Tesseract-OCR, установленный на сервере"
   },
   "settingsLlm": {
     "llm": "LLM",

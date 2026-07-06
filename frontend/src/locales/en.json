@@ -136,7 +136,10 @@
     "chunkSize": "Chunk Size",
     "chunkOverlap": "Chunk Overlap",
     "maxWorkers": "Max Workers",
-    "outputFormat": "Output Format"
+    "outputFormat": "Output Format",
+    "ocrEnabled": "Enable OCR",
+    "ocrLanguages": "OCR Languages",
+    "ocrHint": "Requires Tesseract-OCR installed on the backend server"
   },
   "settingsLlm": {
     "llm": "LLM",
