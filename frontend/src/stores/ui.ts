@@ -17,8 +17,9 @@ export const useUiStore = defineStore('ui', () => {
   let notificationTimer: ReturnType<typeof setTimeout> | null = null
 
   // Layout navigation state
-  type PanelId = 'files' | 'settings' | 'prompts' | 'logs' | 'output' | 'history'
-  const activePanel = ref<PanelId>((localStorage.getItem('activePanel') as PanelId) || 'files')
+  type PanelId = 'processing' | 'settings' | 'prompts' | 'logs' | 'output' | 'history'
+  const savedPanel = localStorage.getItem('activePanel')
+  const activePanel = ref<PanelId>((savedPanel === 'files' ? 'processing' : savedPanel as PanelId) || 'processing')
   const sidebarCollapsed = ref<boolean>(localStorage.getItem('sidebarCollapsed') === 'true')
 
   // Persist UI state

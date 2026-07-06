@@ -26,6 +26,7 @@ class ProcessingConfig(BaseModel):
         description="Output format for generated markdown files (spr, frontmatter, markdown, html).",
     )
     skip_llm: bool = Field(default=False, description="Skip LLM processing — chunks are packed directly.")
+    skip_chunking: bool = Field(default=False, description="Skip chunking — process the whole file as one piece.")
     ocr_enabled: bool = Field(default=False, description="Enable OCR processing for images and scanned PDFs.")
     ocr_languages: str = Field(default="rus+eng", description="Tesseract OCR languages (e.g. 'rus+eng', 'eng').")
 

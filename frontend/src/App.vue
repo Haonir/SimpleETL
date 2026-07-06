@@ -9,7 +9,7 @@ import { usePromptsStore } from '@/stores/prompts'
 import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
 import PromptLibrary from '@/components/PromptLibrary/PromptLibrary.vue'
 import LogPanel from '@/components/LogPanel/LogPanel.vue'
-import FileList from '@/components/FileList/FileList.vue'
+import Processing from '@/components/Processing/Processing.vue'
 import JobOutput from '@/components/JobOutput/JobOutput.vue'
 import JobHistory from '@/components/JobHistory/JobHistory.vue'
 import ConnectionStatus from '@/components/ConnectionStatus/ConnectionStatus.vue'
@@ -30,7 +30,7 @@ const promptsStore = usePromptsStore()
 
 interface PanelDef { id: string; label: string; icon: any }
 const panels = computed<PanelDef[]>(() => [
-  { id: 'files', label: t('nav.processing'), icon: FileStack },
+  { id: 'processing', label: t('nav.processing'), icon: FileStack },
   { id: 'output', label: t('nav.output'), icon: Package },
   { id: 'history', label: t('nav.history'), icon: History },
 ])
@@ -148,7 +148,7 @@ onMounted(async () => {
 
       <!-- Main content area -->
       <main class="app-main">
-        <FileList v-if="uiStore.activePanel === 'files'" />
+        <Processing v-if="uiStore.activePanel === 'processing'" />
         <SettingsPanel v-else-if="uiStore.activePanel === 'settings'" />
         <PromptLibrary v-else-if="uiStore.activePanel === 'prompts'" @select="promptsStore.setCurrentPrompt($event.name)" />
         <LogPanel v-else-if="uiStore.activePanel === 'logs'" />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { LLMConfig, ProcessingConfig } from '@/types/config'
 import { Server, Cog, SlidersHorizontal, Save } from '@lucide/vue'
@@ -19,6 +19,14 @@ const activeTab = ref<TabId>('processing')
 
 const llmValue = ref<LLMConfig>(configStore.llm)
 const processingValue = ref<ProcessingConfig>(configStore.processing)
+
+// Sync local refs from store after async config load completes
+watch(() => configStore.loaded, (isLoaded) => {
+  if (isLoaded) {
+    llmValue.value = { ...configStore.llm }
+    processingValue.value = { ...configStore.processing }
+  }
+})
 
 onMounted(() => {
   if (!configStore.loaded) {

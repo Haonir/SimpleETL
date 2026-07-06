@@ -6,8 +6,8 @@ import { useJobStore } from '@/stores/job'
 import Button from '@/components/UI/Button.vue'
 import Checkbox from '@/components/UI/Checkbox.vue'
 import FileProgressBar from '@/components/Progress/FileProgressBar.vue'
-import FileDropZone from '@/components/FileList/FileDropZone.vue'
-import JobToolbar from '@/components/FileList/JobToolbar.vue'
+import FileDropZone from '@/components/Processing/FileDropZone.vue'
+import JobToolbar from '@/components/Processing/JobToolbar.vue'
 import GlobalProgressBar from '@/components/Progress/GlobalProgressBar.vue'
 
 const store = useFilesStore()

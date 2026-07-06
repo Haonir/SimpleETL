@@ -9,7 +9,10 @@
     "chunk_overlap": 1500,
     "max_workers": 1,
     "output_format": "spr",
-    "skip_llm": false
+    "skip_llm": false,
+    "skip_chunking": false,
+    "ocr_enabled": false,
+    "ocr_languages": "rus+eng"
   },
   "prompts": [],
   "current_prompt_name": ""

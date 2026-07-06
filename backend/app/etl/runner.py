@@ -108,7 +108,7 @@ async def run_etl_job(
         if "prompt_text" in config:
             flat_config.setdefault("prompt", config["prompt_text"])
 
-        for key in ("output_dir", "output_format", "skip_llm"):
+        for key in ("output_dir", "output_format", "skip_llm", "skip_chunking"):
             if key in config:
                 flat_config.setdefault(key, config[key])
 
@@ -283,18 +283,27 @@ def _extract_and_split(
     if not text.strip():
         raise Exception("File is empty or contains no readable text.")
 
-    # Step 2: Split into chunks (sync)
-    chunk_size = flat_config.get("chunk_size", 10000)
-    chunk_overlap = flat_config.get("chunk_overlap", 1500)
+    # Step 2: Split into chunks (sync) — or skip chunking
+    if flat_config.get("skip_chunking", False):
+        log_cb("⏭️ Chunking skipped — processing file as a whole.")
+        chunks_dir_path = Path(chunks_dir)
+        chunks_dir_path.mkdir(parents=True, exist_ok=True)
+        single_chunk_path = chunks_dir_path / f"{base_name}_000.md"
+        with open(single_chunk_path, "w", encoding="utf-8") as f:
+            f.write(text)
+        chunk_files = [str(single_chunk_path)]
+    else:
+        chunk_size = flat_config.get("chunk_size", 10000)
+        chunk_overlap = flat_config.get("chunk_overlap", 1500)
 
-    chunk_files = split_to_chunks(
-        text=text,
-        output_dir=chunks_dir,
-        base_name=base_name,
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
-        log_callback=log_cb,
-    )
+        chunk_files = split_to_chunks(
+            text=text,
+            output_dir=chunks_dir,
+            base_name=base_name,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            log_callback=log_cb,
+        )
 
     return base_name, chunk_files, {
         "chunks_dir": chunks_dir,

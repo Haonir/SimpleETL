@@ -26,6 +26,8 @@ export interface ProcessingConfig {
   output_format: OutputFormat
   /** Skip LLM processing — chunks are packed directly. */
   skip_llm: boolean
+  /** Skip chunking — process the whole file as one piece. */
+  skip_chunking: boolean
   /** Enable OCR processing for images and scanned PDFs. */
   ocr_enabled: boolean
   /** Tesseract OCR languages (e.g. 'rus+eng', 'eng'). */

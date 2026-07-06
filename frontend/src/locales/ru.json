@@ -135,6 +135,7 @@
   "settingsProcessing": {
     "chunkSize": "Размер чанка",
     "chunkOverlap": "Перекрытие чанков",
+    "skipChunking": "Без нарезки",
     "maxWorkers": "Макс. потоков",
     "outputFormat": "Формат вывода",
     "ocrEnabled": "Включить OCR",

@@ -135,6 +135,7 @@
   "settingsProcessing": {
     "chunkSize": "Chunk Size",
     "chunkOverlap": "Chunk Overlap",
+    "skipChunking": "No chunking",
     "maxWorkers": "Max Workers",
     "outputFormat": "Output Format",
     "ocrEnabled": "Enable OCR",

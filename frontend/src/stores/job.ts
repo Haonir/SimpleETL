@@ -262,11 +262,7 @@ export const useJobStore = defineStore('job', () => {
       }
     }
 
-    // No saved job or saved job not found — auto-select the most recent job
-    if (jobs.value.length > 0) {
-      const latestJob = jobs.value[0] // Already sorted by created_at DESC
-      await selectJob(latestJob.id)
-    }
+    // No saved job — stay in cleared state (user explicitly cleared or no job started yet)
   }
 
   function connectWS(jobId: string) {

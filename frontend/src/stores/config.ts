@@ -5,17 +5,20 @@ import { loadConfigFile, saveConfigFile, downloadConfigFile, importConfigFile, c
 import type { LLMConfig, ProcessingConfig, ConfigResponse, PromptEntry, Language } from '@/types/config'
 import { useUiStore } from './ui'
 
+const DEFAULT_PROCESSING: ProcessingConfig = {
+  chunk_size: 10000,
+  chunk_overlap: 1500,
+  max_workers: 1,
+  output_format: 'spr',
+  skip_llm: false,
+  skip_chunking: false,
+  ocr_enabled: false,
+  ocr_languages: 'rus+eng',
+}
+
 export const useConfigStore = defineStore('config', () => {
   const llm = ref<LLMConfig>({ model: '', base_url: '', api_key: '' })
-  const processing = ref<ProcessingConfig>({
-    chunk_size: 10000,
-    chunk_overlap: 1500,
-    max_workers: 1,
-    output_format: 'spr',
-    skip_llm: false,
-    ocr_enabled: false,
-    ocr_languages: 'rus+eng',
-  })
+  const processing = ref<ProcessingConfig>({ ...DEFAULT_PROCESSING })
   const prompts = ref<PromptEntry[]>([])
   const currentPromptName = ref('')
   const language = ref<Language>('en')
@@ -31,7 +34,7 @@ export const useConfigStore = defineStore('config', () => {
     try {
       const config = await loadConfigFile()
       llm.value = config.llm
-      processing.value = config.processing
+      processing.value = { ...DEFAULT_PROCESSING, ...config.processing }
       prompts.value = config.prompts || []
       currentPromptName.value = config.current_prompt_name || ''
       language.value = config.language || 'en'
@@ -83,7 +86,7 @@ export const useConfigStore = defineStore('config', () => {
   async function importConfig(file: File) {
     const config = await importConfigFile(file)
     llm.value = config.llm
-    processing.value = config.processing
+    processing.value = { ...DEFAULT_PROCESSING, ...config.processing }
     loaded.value = true
     if (config.language) language.value = config.language
     if (config.current_prompt_name) {
@@ -95,15 +98,7 @@ export const useConfigStore = defineStore('config', () => {
   function clearConfig() {
     clearConfigFile()
     llm.value = { model: '', base_url: '', api_key: '' }
-    processing.value = {
-      chunk_size: 10000,
-      chunk_overlap: 1500,
-      max_workers: 1,
-      output_format: 'spr',
-      skip_llm: false,
-      ocr_enabled: false,
-      ocr_languages: 'rus+eng',
-    }
+    processing.value = { ...DEFAULT_PROCESSING }
     loaded.value = false
     language.value = 'en'
   }

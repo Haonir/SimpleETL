@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
-import FileList from '../FileList.vue'
+import Processing from '../Processing.vue'
 
 vi.mock('@/services/websocket', () => ({
   WSConnection: class {
@@ -53,7 +53,7 @@ vi.mock('@/services/api', () => ({
   deletePrompt: vi.fn(),
 }))
 
-describe('FileList.vue', () => {
+describe('Processing.vue', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
   })
@@ -65,7 +65,7 @@ describe('FileList.vue', () => {
       { id: '2', filename: 'notes.md', size_bytes: 512, content_type: 'text/markdown', uploaded_at: new Date().toISOString() },
     ]
 
-    const wrapper = mount(FileList, {
+    const wrapper = mount(Processing, {
       global: {
         stubs: { teleport: true, Checkbox: { template: '<div class="checkbox-stub" />' } },
       },
@@ -78,7 +78,7 @@ describe('FileList.vue', () => {
   })
 
   it('shows empty state when no files', () => {
-    const wrapper = mount(FileList, {
+    const wrapper = mount(Processing, {
       global: {
         stubs: { teleport: true, Checkbox: { template: '<div class="checkbox-stub" />' } },
       },
@@ -94,7 +94,7 @@ describe('FileList.vue', () => {
       { id: '2', filename: 'b.txt', size_bytes: 200, content_type: 'text/plain', uploaded_at: new Date().toISOString() },
     ]
 
-    const wrapper = mount(FileList, {
+    const wrapper = mount(Processing, {
       global: {
         stubs: { teleport: true, Checkbox: { template: '<div class="checkbox-stub" />', props: ['modelValue'] } },
       },
@@ -114,7 +114,7 @@ describe('FileList.vue', () => {
       { id: '1', filename: 'report.txt', size_bytes: 1024, content_type: 'text/plain', uploaded_at: new Date().toISOString() },
     ]
 
-    const wrapper = mount(FileList, {
+    const wrapper = mount(Processing, {
       global: {
         stubs: {
           teleport: true,

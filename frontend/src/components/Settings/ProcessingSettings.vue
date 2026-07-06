@@ -53,7 +53,7 @@ defineEmits<{
       v-model.number="modelValue.chunk_size"
       type="number"
       :min="1"
-      :disabled="props.disabled"
+      :disabled="props.disabled || modelValue.skip_chunking"
       class="settings-input"
     />
 
@@ -62,9 +62,20 @@ defineEmits<{
       v-model.number="modelValue.chunk_overlap"
       type="number"
       :min="0"
-      :disabled="props.disabled"
+      :disabled="props.disabled || modelValue.skip_chunking"
       class="settings-input"
     />
+
+    <!-- Skip Chunking -->
+    <div class="settings-skip-chunking-row">
+      <input
+        type="checkbox"
+        v-model="modelValue.skip_chunking"
+        :disabled="props.disabled"
+        class="settings-checkbox"
+      />
+      <label class="settings-skip-chunking-label">{{ t('settingsProcessing.skipChunking') }}</label>
+    </div>
 
     <label class="settings-label">{{ t('settingsProcessing.maxWorkers') }}</label>
     <input
@@ -199,6 +210,18 @@ defineEmits<{
 
 .settings-ocr-languages {
   width: 100%;
+}
+
+.settings-skip-chunking-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-skip-chunking-label {
+  font-size: 12px;
+  color: var(--fg-label);
+  cursor: pointer;
 }
 
 </style>
