@@ -79,11 +79,12 @@ async def run_etl_job(
     callbacks = create_callbacks(ws_manager, job_id, loop, job_service, job_logger=job_logger)
     progress_cb = callbacks["progress"]
     log_cb = callbacks["log"]
+    log_error_cb = callbacks["log_error"]
     stop_cb = callbacks["stop"]
 
     def log_and_broadcast(message: str, level: str = "info") -> None:
-        """Log to SQLite + broadcast via WS (handled by log_cb internally)."""
-        log_cb(message)
+        """Log to SQLite + broadcast via WS with specified level."""
+        log_cb(message, level)
 
     try:
         # Transition job to running
@@ -141,7 +142,7 @@ async def run_etl_job(
 
                 if not success and stop_cb():
                     job_service.update_status(job_id, JobStatus.stopped)
-                    log_and_broadcast("⚠️ ETL job stopped by user.")
+                    log_and_broadcast("⚠️ ETL job stopped by user.", "warning")
                     await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="stopped").model_dump())
                     return
 
@@ -180,11 +181,11 @@ async def run_etl_job(
             )
         elif stop_cb():
             job_service.update_status(job_id, JobStatus.stopped)
-            await ws_manager.broadcast(job_id, WSLogMessage(type="log", job_id=job_id, level="info", message="⚠️ ETL job stopped by user.").model_dump())
+            await ws_manager.broadcast(job_id, WSLogMessage(type="log", job_id=job_id, level="warning", message="⚠️ ETL job stopped by user.").model_dump())
             await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="stopped").model_dump())
         else:
             job_service.update_status(job_id, JobStatus.completed)
-            await ws_manager.broadcast(job_id, WSLogMessage(type="log", job_id=job_id, level="info", message="⚠️ ETL job completed with errors.").model_dump())
+            await ws_manager.broadcast(job_id, WSLogMessage(type="log", job_id=job_id, level="warning", message="⚠️ ETL job completed with errors.").model_dump())
             await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="completed").model_dump())
 
     except Exception as e:
@@ -222,7 +223,7 @@ async def _phase_prepare(pool, file_paths, flat_config, log_cb, stop_cb):
             base_name, chunk_paths, dirs = await future
             registry[base_name] = {"chunk_paths": chunk_paths, **dirs}
         except Exception as e:
-            log_cb(f"⚠️ Extract error: {e}")
+            log_cb(f"⚠️ Extract error: {e}", "error")
     return registry
 
 
@@ -396,7 +397,7 @@ async def _phase_llm(
         try:
             await future  # Non-blocking — event loop processes heartbeats while waiting
         except Exception as e:
-            log_cb(f"⚠️ LLM error: {e}")  # fail-continue
+            log_cb(f"⚠️ LLM error: {e}", "error")  # fail-continue
 
     return True
 
@@ -419,7 +420,7 @@ async def _phase_pack(pool, registry, flat_config, log_cb) -> list[str]:
             if result:
                 all_outputs.extend(result)
         except Exception as e:
-            log_cb(f"⚠️ Pack error: {e}")
+            log_cb(f"⚠️ Pack error: {e}", "error")
     return all_outputs
 
 

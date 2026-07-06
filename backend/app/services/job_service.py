@@ -268,7 +268,7 @@ class JobService:
                     (job_id,)
                 )
                 rows = cur.fetchall()
-            return [{"timestamp": r["timestamp"], "level": r["level"], "message": r["message"]} for r in rows]
+            return [{"timestamp": r["timestamp"], "level": r["level"].lower(), "message": r["message"]} for r in rows]
         except Exception:
             return []
 

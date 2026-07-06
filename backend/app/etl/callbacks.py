@@ -66,26 +66,28 @@ def make_log_cb(
     ws_manager: ConnectionManager,
     job_id: str,
     loop: asyncio.AbstractEventLoop,
+    default_level: str = "info",
 ) -> callable:
     """Create a sync log callback for the ETL pipeline.
     
-    The pipeline calls: log_callback(message_text)
+    The pipeline calls: log_callback(message_text, level=None)
     This broadcasts a WS log message to all clients in the job room.
     
     Args:
         ws_manager: The WebSocket connection manager singleton.
         job_id: Current job identifier.
-        loop: The running asyncio event loop.
+        loop: The running asyncio event loop (for run_coroutine_threadsafe).
+        default_level: Default log level if not specified in call.
         
     Returns:
-        Sync callable with signature (message: str) -> None
+        Sync callable with signature (message: str, level: str | None = None) -> None
     """
-    def cb(message: str) -> None:
+    def cb(message: str, level: str | None = None) -> None:
         try:
             msg = WSLogMessage(
                 type="log",
                 job_id=job_id,
-                level="info",
+                level=level or default_level,
                 message=message,
             )
             asyncio.run_coroutine_threadsafe(
@@ -173,10 +175,10 @@ def create_callbacks(
     file_cb = _file_make_log_cb(job_logger) if job_logger else None
     ws_cb = make_log_cb(ws_manager, job_id, loop)
 
-    def combined_log_cb(message: str) -> None:
+    def combined_log_cb(message: str, level: str | None = None) -> None:
         if file_cb:
-            file_cb(message)
-        ws_cb(message)
+            file_cb(message, level)
+        ws_cb(message, level)
 
     return {
         "progress": make_progress_cb(ws_manager, job_id, loop),

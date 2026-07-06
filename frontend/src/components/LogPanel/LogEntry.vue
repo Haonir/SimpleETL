@@ -17,9 +17,9 @@ function formatTime(iso: string): string {
 }
 
 const colorMap: Record<string, string> = {
-  info: 'var(--color-info)',
-  warning: 'var(--color-warning)',
-  error: 'var(--color-error)',
+  info: '#3b82f6',
+  warning: '#f59e0b',
+  error: '#ef4444',
 }
 </script>
 
@@ -56,12 +56,14 @@ const colorMap: Record<string, string> = {
 
 .log-entry__badge {
   display: inline-block;
-  padding: 1px 8px;
+  padding: 2px 10px;
   border-radius: 9999px;
-  font-size: var(--font-size-sm);
+  font-size: 11px;
   font-weight: 600;
   color: white;
   white-space: nowrap;
+  min-width: 60px;
+  text-align: center;
 }
 
 .log-entry__message {
@@ -69,8 +71,5 @@ const colorMap: Record<string, string> = {
   word-break: break-word;
 }
 
-/* Level colors */
-.log-entry--info .log-entry__badge { background: var(--color-info); }
-.log-entry--warning .log-entry__badge { background: var(--color-warning); }
-.log-entry--error .log-entry__badge { background: var(--color-error); }
+
 </style>

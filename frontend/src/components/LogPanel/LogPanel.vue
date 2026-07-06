@@ -67,24 +67,33 @@ watch(
   display: flex;
   gap: 4px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   background: var(--bg-card);
+  margin-bottom: 8px;
 }
 
 .filter-btn {
   font-family: 'Segoe UI', system-ui, sans-serif;
-  font-size: var(--font-size-sm);
-  padding: 4px 12px;
-  border: 1px solid var(--border);
+  font-size: 12px;
+  padding: 6px 14px;
+  border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
   color: var(--fg-label);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all 0.15s;
 }
 
 .filter-btn:hover {
-  background: var(--btn-hover);
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--fg-title);
+}
+
+.filter-btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
 }
 
 .filter-btn--active {

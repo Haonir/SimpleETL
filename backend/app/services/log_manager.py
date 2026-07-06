@@ -22,7 +22,7 @@ class SQLiteLogHandler(logging.Handler):
             from app.db import get_cursor
             timestamp = datetime.now(timezone.utc).isoformat()
             message = record.getMessage()
-            level = record.levelname
+            level = record.levelname.lower()
             with get_cursor() as cur:
                 cur.execute(
                     "INSERT INTO job_logs (job_id, timestamp, level, message) VALUES (?, ?, ?, ?)",
@@ -72,9 +72,19 @@ def make_log_cb(logger: logging.Logger) -> callable:
         logger: A Logger instance (typically from create_job_logger).
 
     Returns:
-        Sync callable with signature (message: str) -> None that writes to the logger.
+        Sync callable with signature (message: str, level: str | None = None) -> None
+        that writes to the logger with the specified level.
     """
-    def cb(message: str) -> None:
+    level_map = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL,
+    }
+
+    def cb(message: str, level: str | None = None) -> None:
         with _lock:
-            logger.info(message)
+            log_level = level_map.get(level, logging.INFO) if level else logging.INFO
+            logger.log(log_level, message)
     return cb

@@ -86,7 +86,7 @@ def process_with_llm(
         # Check stop flag
         if stop_check_callback and stop_check_callback():
             if log_callback:
-                log_callback("⚠️ LLM processing stopped by user.")
+                log_callback("⚠️ LLM processing stopped by user.", "warning")
             return False
         
         processed_path = processed_dir / chunk_path.name
