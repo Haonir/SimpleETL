@@ -331,6 +331,10 @@ onMounted(async () => {
   align-items: center;
 }
 
+.sidebar--collapsed .sidebar__connection {
+  justify-content: center;
+}
+
 /* ── Main content ────────────────────────────────────────────── */
 .app-main {
   flex: 1;
