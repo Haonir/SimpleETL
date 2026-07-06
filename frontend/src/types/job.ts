@@ -21,6 +21,8 @@ export interface JobItem {
   output_dir?: string
   /** Optional error message if the job failed. */
   error_message?: string
+  /** Original filenames for display. */
+  file_names?: string[]
   /** Number of files in the job. */
   file_count: number
 }

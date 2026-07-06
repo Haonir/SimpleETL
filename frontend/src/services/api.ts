@@ -98,8 +98,10 @@ export async function getJob(jobId: string): Promise<JobResponse> {
   return res.data
 }
 
-export async function stopJob(jobId: string): Promise<JobResponse> {
-  const res = await api.delete<JobResponse>(`/api/v1/jobs/${encodeURIComponent(jobId)}`)
+export async function stopJob(jobId: string, deleteFiles: boolean = false): Promise<JobResponse> {
+  const res = await api.delete<JobResponse>(`/api/v1/jobs/${encodeURIComponent(jobId)}`, {
+    params: { delete_files: deleteFiles },
+  })
   return res.data
 }
 

@@ -6,12 +6,12 @@ const jobStore = useJobStore()
 </script>
 
 <template>
-  <div v-if="jobStore.isRunning.value || jobStore.isCompleted.value" class="global-progress">
+  <div v-if="jobStore.activeJobId && (jobStore.activeStatus === 'running' || jobStore.activeStatus === 'completed')" class="global-progress">
     <div class="global-progress__header">
       <span class="global-progress__label">Progress</span>
-      <span class="global-progress__value">{{ Math.round(jobStore.globalProgress) }}%</span>
+      <span class="global-progress__value">{{ Math.round(jobStore.activeProgress) }}%</span>
     </div>
-    <ProgressBar :value="jobStore.globalProgress" :height="10" />
+    <ProgressBar :value="jobStore.activeProgress" :height="10" />
   </div>
 </template>
 

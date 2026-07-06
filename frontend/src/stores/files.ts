@@ -38,6 +38,13 @@ export const useFilesStore = defineStore('files', () => {
     selectedIds.value = selectedIds.value.filter(sid => sid !== id)
   }
 
+  async function removeSelected() {
+    const ids = [...selectedIds.value]
+    await Promise.all(ids.map(id => deleteFile(id)))
+    files.value = files.value.filter(f => !ids.includes(f.id))
+    selectedIds.value = []
+  }
+
   function toggleSelect(id: string) {
     const idx = selectedIds.value.indexOf(id)
     if (idx === -1) selectedIds.value.push(id)
@@ -55,6 +62,6 @@ export const useFilesStore = defineStore('files', () => {
   return {
     files, selectedIds, uploading,
     hasFiles, selectedCount, hasPdf,
-    fetchFiles, upload, removeFile, toggleSelect, selectAll, clearSelection,
+    fetchFiles, upload, removeFile, removeSelected, toggleSelect, selectAll, clearSelection,
   }
 })

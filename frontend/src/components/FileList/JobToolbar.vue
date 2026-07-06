@@ -63,7 +63,7 @@ function handleStop() {
     <Button
       variant="primary"
       size="md"
-      :disabled="jobStore.isActive || !filesStore.hasFiles || filesStore.selectedIds.length === 0"
+      :disabled="!filesStore.hasFiles || filesStore.selectedIds.length === 0"
       class="toolbar-start-btn"
       @click="handleStart"
     >

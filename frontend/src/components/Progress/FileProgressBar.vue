@@ -7,15 +7,17 @@ const props = defineProps<{ fileIdx: number; fileName: string }>()
 const jobStore = useJobStore()
 
 const fileProgress = computed(() => {
-  if (!jobStore.isRunning.value) return 0
   return jobStore.progress[props.fileIdx] ?? 0
 })
 
-const isActive = computed(() => jobStore.isRunning.value && fileProgress.value > 0 && fileProgress.value < 100)
+const visible = computed(() => {
+  const s = jobStore.activeStatus
+  return (s === 'running' || s === 'completed') && jobStore.activeJobFileIds.length > 0
+})
 </script>
 
 <template>
-  <div v-if="jobStore.isRunning.value" class="file-progress">
+  <div v-if="visible" class="file-progress">
     <ProgressBar
       :value="fileProgress"
       :height="4"

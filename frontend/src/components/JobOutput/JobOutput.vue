@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { marked } from 'marked'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useJobStore } from '@/stores/job'
 import { downloadJobFile, downloadJobZip } from '@/services/api'
@@ -83,13 +82,6 @@ async function selectFile(filename: string) {
   }
 }
 
-const renderedHtml = computed(() => {
-  if (!previewContent.value) return ''
-  if (previewType.value === 'html') return previewContent.value
-  if (previewType.value === 'md') return marked(previewContent.value) as string
-  return ''
-})
-
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   const kb = bytes / 1024
@@ -104,6 +96,7 @@ watch(() => jobStore.selectedJobId, loadFiles)
 
 <template>
   <div class="job-output">
+    <h2 class="job-output__title">Output Files</h2>
     <div class="job-output__content">
     <!-- Left panel (1/4) -->
     <div class="job-output__list">
@@ -113,7 +106,7 @@ watch(() => jobStore.selectedJobId, loadFiles)
           <span v-if="activeJob" class="job-output__job-id">#{{ activeJob.id.slice(0, 8) }}</span>
           <span v-if="activeJob?.created_at" class="job-output__job-date">{{ formatDate(activeJob.created_at) }}</span>
         </div>
-        <Button v-if="jobStore.currentJobFiles.length > 0" variant="secondary" size="sm" @click="handleDownloadAll">▼ ZIP</Button>
+        <Button v-if="jobStore.currentJobFiles.length > 0" variant="secondary" size="sm" @click="handleDownloadAll">ZIP ▼</Button>
       </div>
       <!-- File entries -->
       <div
@@ -125,7 +118,7 @@ watch(() => jobStore.selectedJobId, loadFiles)
         <div class="job-output__file-name">{{ file.filename }}</div>
         <div class="job-output__file-meta">
           <span class="job-output__file-size">{{ formatSize(file.size_bytes) }}</span>
-          <Button variant="secondary" size="sm" @click.stop="handleDownload(file.filename)">▼</Button>
+          <Button variant="secondary" size="sm" @click.stop="handleDownload(file.filename)">Download ▼</Button>
         </div>
       </div>
       <div v-if="jobStore.currentJobFiles.length === 0" class="job-output__list-empty">
@@ -143,7 +136,7 @@ watch(() => jobStore.selectedJobId, loadFiles)
       </div>
       <div v-else class="job-output__preview-content">
         <div class="job-output__preview-header">{{ selectedFile }}</div>
-        <pre class="job-output__prewiew-text">{{ previewContent }}</pre>
+        <pre class="job-output__preview-text">{{ previewContent }}</pre>
       </div>
     </div><!-- /job-output__preview -->
     </div><!-- /job-output__content -->
@@ -176,6 +169,13 @@ watch(() => jobStore.selectedJobId, loadFiles)
 .job-output__job-date { font-size: 12px; color: var(--fg-label); }
 .job-output__loading, .job-output__empty { padding: 2rem; text-align: center; color: var(--fg-label); }
 .job-output__hint { font-size: 13px; opacity: 0.7; }
+
+.job-output__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg-title);
+  margin: 0 0 12px 0;
+}
 
 .job-output__content {
   display: flex;
@@ -266,13 +266,14 @@ watch(() => jobStore.selectedJobId, loadFiles)
 .job-output__preview-text {
   flex: 1;
   margin: 0;
-  padding: 14px;
+  padding: 8px;
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.6;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: break-word;
   color: var(--fg-title);
 }
 </style>

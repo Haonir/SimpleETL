@@ -8,7 +8,7 @@ import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
 import PromptLibrary from '@/components/PromptLibrary/PromptLibrary.vue'
 import LogPanel from '@/components/LogPanel/LogPanel.vue'
 import FileList from '@/components/FileList/FileList.vue'
-import GlobalProgressBar from '@/components/Progress/GlobalProgressBar.vue'
+
 import JobOutput from '@/components/JobOutput/JobOutput.vue'
 import JobHistory from '@/components/JobHistory/JobHistory.vue'
 import ConnectionStatus from '@/components/ConnectionStatus/ConnectionStatus.vue'
@@ -105,7 +105,6 @@ onMounted(async () => {
 
       <!-- Main content area -->
       <main class="app-main">
-        <GlobalProgressBar />
         <FileList v-if="uiStore.activePanel === 'files'" />
         <SettingsPanel v-else-if="uiStore.activePanel === 'settings'" />
         <PromptLibrary v-else-if="uiStore.activePanel === 'prompts'" @select="promptsStore.setCurrentPrompt($event.name)" />

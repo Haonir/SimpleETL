@@ -79,6 +79,7 @@ def _create_tables(conn) -> None:
             id              TEXT PRIMARY KEY,
             status          TEXT NOT NULL DEFAULT 'pending',
             file_ids        TEXT NOT NULL DEFAULT '[]',
+            file_names      TEXT NOT NULL DEFAULT '[]',
             config          TEXT NOT NULL DEFAULT '{}',
             output_dir      TEXT,
             log_path        TEXT,
@@ -112,6 +113,13 @@ def _create_tables(conn) -> None:
         CREATE INDEX IF NOT EXISTS idx_job_logs_job_id ON job_logs(job_id);
         """
     )
+
+    # Migration: add file_names column if missing
+    try:
+        conn.execute("ALTER TABLE jobs ADD COLUMN file_names TEXT NOT NULL DEFAULT '[]'")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
 
 
 def ensure_tables(db_path: str | None = None) -> None:

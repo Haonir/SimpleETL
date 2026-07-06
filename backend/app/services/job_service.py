@@ -79,19 +79,26 @@ class JobService:
         now = datetime.now(timezone.utc)
         output_dir = str(self._output_base / job_id / "output")
 
+        # Resolve file names for display
+        file_names = []
+        for fid in file_ids:
+            f = file_service.get_file(fid)
+            file_names.append(f.filename if f else fid)
+
         # Persist job to SQLite
         with get_cursor() as cur:
             cur.execute(
-                """INSERT INTO jobs (id, status, file_ids, config, created_at, file_count, output_dir)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO jobs (id, status, file_ids, file_names, config, created_at, file_count, output_dir)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (job_id, JobStatus.pending.value, json.dumps(file_ids),
-                 json.dumps(config), now.isoformat(), len(file_ids), output_dir),
+                 json.dumps(file_names), json.dumps(config), now.isoformat(), len(file_ids), output_dir),
             )
 
         job = JobItem(
             id=job_id,
             status=JobStatus.pending,
             file_ids=file_ids,
+            file_names=file_names,
             config=config,
             created_at=now,
             file_count=len(file_ids),
@@ -135,6 +142,7 @@ class JobService:
             id=data["id"],
             status=JobStatus(data["status"]),
             file_ids=file_ids,
+            file_names=json.loads(data.get("file_names", "[]")),
             config=config,
             created_at=datetime.fromisoformat(data["created_at"]),
             started_at=datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None,
@@ -175,6 +183,7 @@ class JobService:
                 id=data["id"],
                 status=JobStatus(data["status"]),
                 file_ids=file_ids,
+                file_names=json.loads(data.get("file_names", "[]")),
                 config=config,
                 created_at=datetime.fromisoformat(data["created_at"]),
                 started_at=(datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None),

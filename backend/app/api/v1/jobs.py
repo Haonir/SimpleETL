@@ -114,11 +114,12 @@ async def get_job(job_id: str) -> JobResponse:
 
 
 @router.delete("/jobs/{job_id}", response_model=JobResponse)
-async def stop_job(job_id: str) -> JobResponse:
+async def stop_job(job_id: str, delete_files: bool = False) -> JobResponse:
     """Stop a running job or delete a completed one.
 
     - Running/pending: requests graceful stop, returns current state.
     - Completed/stopped/error: removes from registry, returns final state.
+    - If delete_files=True: also deletes uploaded and output files.
     """
     service = get_job_service()
     job = service.get(job_id)
@@ -133,7 +134,15 @@ async def stop_job(job_id: str) -> JobResponse:
         return JobResponse(job=job)
 
     # Terminal state: remove from registry
-    service.delete(job_id)
+    if delete_files:
+        # Delete uploaded files
+        file_service = get_file_service()
+        for file_id in job.file_ids:
+            file_service.delete(file_id)
+        # Delete output files and job record
+        service.delete_job_files(job_id)
+    else:
+        service.delete(job_id)
     return JobResponse(job=job)
 
 

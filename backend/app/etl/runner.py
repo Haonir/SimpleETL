@@ -317,12 +317,13 @@ async def _phase_llm(
         True if processing completed (even with some errors), False if stopped.
     """
     loop = asyncio.get_event_loop()
-    total = sum(len(info["chunk_paths"]) for info in registry.values())
-
-    counter = {"done": 0}
+    # Per-file chunk tracking
+    file_list = list(registry.items())  # [(base_name, info), ...]
+    file_chunk_counts = {i: len(info["chunk_paths"]) for i, (_, info) in enumerate(file_list)}
+    file_counters = {i: 0 for i in range(len(file_list))}
     lock = threading.Lock()
 
-    def _process_one_chunk(chunk_path: Path, processed_path: Path, config: dict) -> Optional[str]:
+    def _process_one_chunk(chunk_path: Path, processed_path: Path, config: dict, file_idx: int) -> Optional[str]:
         """Process one chunk (sync, runs in thread pool via run_in_executor)."""
         if processed_path.exists():
             return "skip"
@@ -352,12 +353,17 @@ async def _phase_llm(
             f.write(response.choices[0].message.content)
 
         with lock:
-            counter["done"] += 1
-            progress_cb(counter["done"] * 100 // max(total, 1), 100, 0)
+            file_counters[file_idx] += 1
+            total_chunks = file_chunk_counts[file_idx]
+            file_pct = file_counters[file_idx] * 100 // max(total_chunks, 1)
+            global_done = sum(file_counters.values())
+            global_total = sum(file_chunk_counts.values())
+            global_pct = global_done * 100 // max(global_total, 1)
+            progress_cb(file_pct, global_pct, file_idx)
 
     # Submit chunks one at a time, checking stop between each submission.
     futures = []
-    for base_name, info in registry.items():
+    for file_idx, (base_name, info) in enumerate(file_list):
         for chunk_path_str in info["chunk_paths"]:
             if stop_cb():
                 # Don't submit more chunks if stop was requested
@@ -374,6 +380,7 @@ async def _phase_llm(
                 Path(chunk_path_str),
                 processed_path,
                 flat_config,
+                file_idx,
             )
             futures.append(future)
 

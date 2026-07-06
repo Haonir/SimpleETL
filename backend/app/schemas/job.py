@@ -25,6 +25,7 @@ class JobItem(BaseModel):
     id: str = Field(..., description="Unique job identifier (UUID4).")
     status: JobStatus = Field(default=JobStatus.pending)
     file_ids: list[str] = Field(..., min_length=1, description="IDs of files to process.")
+    file_names: list[str] = Field(default_factory=list, description="Original filenames for display.")
     config: dict = Field(..., description="ETL config snapshot (llm + processing + prompt_text).")
     created_at: datetime = Field(..., description="Job creation timestamp (UTC).")
     started_at: Optional[datetime] = Field(default=None)
