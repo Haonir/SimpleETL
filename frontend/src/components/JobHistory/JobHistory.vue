@@ -32,6 +32,12 @@ function statusLabel(status: string): string {
   return t(key) || status
 }
 
+function getJobFormat(job: { config?: Record<string, unknown> }): string {
+  const processing = job.config?.processing as Record<string, unknown> | undefined
+  const format = processing?.output_format as string | undefined
+  return format?.toUpperCase() || '—'
+}
+
 
 
 const showDeleteDialog = ref(false)
@@ -159,7 +165,10 @@ function closePopovers() {
       <tbody>
         <tr v-for="job in jobStore.jobs" :key="job.id" class="job-history__row" :class="{ 'job-history__row--selected': jobStore.selectedJobId === job.id }" @click="jobStore.selectJob(job.id)">
           <td class="job-history__cell-checkbox" @click.stop><input type="checkbox" :checked="selectedJobIds.has(job.id)" @change="toggleSelectJob(job.id)" /></td>
-          <td class="job-history__cell-id">#{{ job.id.slice(0, 8) }}</td>
+           <td class="job-history__cell-id">
+             <span class="job-history__id-text">#{{ job.id.slice(0, 8) }}</span>
+             <span class="job-history__format">{{ getJobFormat(job) }}</span>
+</td>
           <td>
             <span :class="['job-history__status', statusClass(job.status)]">{{ statusLabel(job.status) }}</span>
           </td>
@@ -250,7 +259,11 @@ function closePopovers() {
 .job-history__table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 8px; overflow: hidden; }
 .job-history__table th { padding: 10px 16px; text-align: left; font-size: 12px; font-weight: 600; color: var(--fg-header); border-bottom: 1px solid var(--border); background: var(--bg-main); }
 .job-history__table td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid var(--border); }
-.job-history__cell-id { font-family: monospace; font-size: 12px; }
+.job-history__cell-id { font-family: monospace; font-size: 12px; white-space: nowrap; }
+
+.job-history__id-text { font-family: var(--font-mono); font-size: var(--font-size-sm); color: var(--fg-muted); }
+
+.job-history__format { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: var(--badge-bg-muted); color: var(--badge-fg-muted); text-transform: uppercase; letter-spacing: 0.5px; vertical-align: middle; margin-left: 8px; }
 .job-history__status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; }
 .job-history__status--pending { background: var(--badge-bg-muted); color: var(--badge-fg-muted); }
 .job-history__status--running { background: var(--badge-bg-running); color: var(--badge-fg-running); }
