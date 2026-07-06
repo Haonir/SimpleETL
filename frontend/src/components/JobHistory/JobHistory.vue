@@ -146,6 +146,7 @@ function closePopovers() {
 .job-history__status--pending { background: #e5e7eb; color: #6b7280; }
 .job-history__status--running { background: #dbeafe; color: #1d4ed8; }
 .job-history__status--completed { background: #dcfce7; color: #166534; }
+.job-history__status--partial { background: #fef3c7; color: #92400e; }
 .job-history__status--stopped { background: #fef3c7; color: #92400e; }
 .job-history__status--error { background: #fee2e2; color: #991b1b; }
 .job-history__row { cursor: pointer; transition: background 0.15s; }

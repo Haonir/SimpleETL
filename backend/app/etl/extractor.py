@@ -156,9 +156,6 @@ def _extract_docx(file_path: str, log_callback: Optional[callable] = None) -> st
             "Install with: pip install python-docx"
         )
     
-    if log_callback:
-        log_callback("Reading Word document...")
-    
     try:
         document = docx.Document(file_path)
         paragraphs = [p.text for p in document.paragraphs]
@@ -190,9 +187,6 @@ def _extract_pdf(file_path: str, log_callback: Optional[callable] = None) -> str
             "PyMuPDF is required for .pdf files. "
             "Install with: pip install PyMuPDF"
         )
-    
-    if log_callback:
-        log_callback("Reading PDF document...")
     
     try:
         doc = fitz.open(file_path)

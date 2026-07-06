@@ -18,6 +18,7 @@ function formatTime(iso: string): string {
 
 const colorMap: Record<string, string> = {
   info: '#3b82f6',
+  llm: '#22c55e',
   warning: '#f59e0b',
   error: '#ef4444',
 }

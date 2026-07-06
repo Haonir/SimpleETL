@@ -70,9 +70,6 @@ def split_to_chunks(
     chunks = splitter.split_text(text)
     total_chunks = len(chunks)
     
-    if log_callback:
-        log_callback(f"Text split into {total_chunks} chunks.")
-    
     # Save chunks as .md files
     chunk_files: list[str] = []
     for i, chunk_text in enumerate(chunks):

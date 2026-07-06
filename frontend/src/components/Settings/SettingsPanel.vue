@@ -63,6 +63,7 @@ async function handleImport(event: Event) {
 
 <template>
   <div class="settings-panel">
+    <h2 class="settings-panel__title">Settings</h2>
     <!-- Tab navigation -->
     <div class="tabs">
       <button
@@ -111,6 +112,13 @@ async function handleImport(event: Event) {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.settings-panel__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg-title);
+  margin: 0 0 1rem;
 }
 
 .tabs {

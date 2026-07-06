@@ -24,7 +24,7 @@ class WSLogMessage(BaseModel):
 
     type: Literal["log"] = "log"
     job_id: str
-    level: Literal["info", "warning", "error"] = "info"
+    level: Literal["info", "llm", "warning", "error"] = "info"
     message: str
 
 
@@ -33,7 +33,7 @@ class WSStatusMessage(BaseModel):
 
     type: Literal["status"] = "status"
     job_id: str
-    status: Literal["pending", "running", "completed", "stopped", "error"]
+    status: Literal["pending", "running", "completed", "partial", "stopped", "error"]
     file_name: str | None = None
 
 

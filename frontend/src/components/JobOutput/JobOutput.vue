@@ -145,6 +145,12 @@ watch(() => jobStore.selectedJobId, loadFiles)
 </template>
 
 <style scoped>
+.job-output {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .job-output__list-header {
   display: flex;
   justify-content: space-between;
@@ -175,13 +181,14 @@ watch(() => jobStore.selectedJobId, loadFiles)
   font-size: 16px;
   font-weight: 600;
   color: var(--fg-title);
-  margin: 0 0 12px 0;
+  margin: 0 0 1rem;
 }
 
 .job-output__content {
   display: flex;
   gap: 16px;
-  height: calc(100vh - 200px);
+  flex: 1;
+  min-height: 0;
 }
 
 /* Left panel — file list */

@@ -15,6 +15,7 @@ class JobStatus(str, Enum):
     pending = "pending"
     running = "running"
     completed = "completed"
+    partial = "partial"
     stopped = "stopped"
     error = "error"
 

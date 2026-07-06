@@ -28,12 +28,18 @@ const promptsStore = usePromptsStore()
 
 interface PanelDef { id: string; label: string; icon: any }
 const panels: PanelDef[] = [
-  { id: 'files', label: 'Files', icon: FileStack },
-  { id: 'settings', label: 'Settings', icon: Settings },
-  { id: 'prompts', label: 'Prompts', icon: MessageSquare },
-  { id: 'logs', label: 'Logs', icon: ScrollText },
+  { id: 'files', label: 'Processing', icon: FileStack },
   { id: 'output', label: 'Output', icon: Package },
   { id: 'history', label: 'History', icon: History },
+]
+
+const panelsSecondary: PanelDef[] = [
+  { id: 'prompts', label: 'Prompts', icon: MessageSquare },
+  { id: 'settings', label: 'Settings', icon: Settings },
+]
+
+const panelsTertiary: PanelDef[] = [
+  { id: 'logs', label: 'Logs', icon: ScrollText },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -88,6 +94,36 @@ onMounted(async () => {
         <nav class="sidebar__nav">
           <button
             v-for="panel in panels"
+            :key="panel.id"
+            :class="['sidebar__item', { 'sidebar__item--active': uiStore.activePanel === panel.id }]"
+            :title="panel.label"
+            @click="uiStore.setPanel(panel.id)"
+          >
+            <component :is="panel.icon" :size="18" />
+            <span v-if="!uiStore.sidebarCollapsed" class="sidebar__item-label">{{ panel.label }}</span>
+          </button>
+        </nav>
+
+        <div class="sidebar__separator" />
+
+        <nav class="sidebar__nav">
+          <button
+            v-for="panel in panelsSecondary"
+            :key="panel.id"
+            :class="['sidebar__item', { 'sidebar__item--active': uiStore.activePanel === panel.id }]"
+            :title="panel.label"
+            @click="uiStore.setPanel(panel.id)"
+          >
+            <component :is="panel.icon" :size="18" />
+            <span v-if="!uiStore.sidebarCollapsed" class="sidebar__item-label">{{ panel.label }}</span>
+          </button>
+        </nav>
+
+        <div class="sidebar__separator" />
+
+        <nav class="sidebar__nav">
+          <button
+            v-for="panel in panelsTertiary"
             :key="panel.id"
             :class="['sidebar__item', { 'sidebar__item--active': uiStore.activePanel === panel.id }]"
             :title="panel.label"
@@ -198,6 +234,12 @@ onMounted(async () => {
   flex-direction: column;
   gap: 2px;
   padding: 8px;
+}
+
+.sidebar__separator {
+  height: 1px;
+  margin: 4px 12px;
+  background: var(--border);
 }
 
 .sidebar__item {

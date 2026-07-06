@@ -76,9 +76,6 @@ def process_with_llm(
     
     total_chunks = len(chunk_files)
     
-    if log_callback:
-        log_callback(f"--- LLM Processing: {total_chunks} chunks ---")
-    
     # Initialize LLM client
     client = OpenAI(base_url=base_url, api_key=api_key)
     
@@ -128,9 +125,6 @@ def process_with_llm(
                 log_callback(f"💥 {error_msg}")
             raise Exception(error_msg)
     
-    if log_callback:
-        log_callback(f"--- LLM Processing complete: {total_chunks} chunks ---")
-    
     return True
 
 
@@ -166,8 +160,5 @@ def copy_chunks_to_processed(
         if not dest.exists():
             shutil.copy2(chunk_path, dest)
             count += 1
-    
-    if log_callback:
-        log_callback(f"Copied {count} chunks to processed directory.")
     
     return count

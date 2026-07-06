@@ -36,6 +36,8 @@ export const usePromptsStore = defineStore('prompts', () => {
         return
       }
       prompts.value.push({ name, text })
+      // Sync with configStore before saving
+      configStore.prompts = prompts.value
       await configStore.save()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save prompt'
@@ -49,6 +51,9 @@ export const usePromptsStore = defineStore('prompts', () => {
       if (currentPromptName.value === name) {
         currentPromptName.value = prompts.value[0]?.name || ''
       }
+      // Sync with configStore before saving
+      configStore.prompts = prompts.value
+      configStore.currentPromptName = currentPromptName.value
       await configStore.save()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to delete prompt'
@@ -58,6 +63,8 @@ export const usePromptsStore = defineStore('prompts', () => {
 
   async function setCurrentPrompt(name: string) {
     currentPromptName.value = name
+    // Sync with configStore before saving
+    configStore.currentPromptName = currentPromptName.value
     await configStore.save()
   }
 

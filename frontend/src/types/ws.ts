@@ -11,7 +11,7 @@ export interface WSProgressMessage {
 export interface WSLogMessage {
   type: "log"
   job_id: string
-  level: "info" | "warning" | "error"
+  level: "info" | "llm" | "warning" | "error"
   message: string
 }
 
@@ -19,7 +19,7 @@ export interface WSLogMessage {
 export interface WSStatusMessage {
   type: "status"
   job_id: string
-  status: "pending" | "running" | "completed" | "stopped" | "error"
+  status: "pending" | "running" | "completed" | "partial" | "stopped" | "error"
 }
 
 /** Job completed successfully. */
@@ -54,7 +54,7 @@ export type WSServerMessage =
 /** Timestamped log entry for the UI log panel. */
 export interface LogEntry {
   timestamp: string
-  level: 'info' | 'warning' | 'error'
+  level: 'info' | 'llm' | 'warning' | 'error'
   message: string
 }
 

@@ -1,5 +1,5 @@
 /** Job status enum matching backend Pydantic schema. */
-export type JobStatus = "pending" | "running" | "completed" | "stopped" | "error"
+export type JobStatus = "pending" | "running" | "completed" | "partial" | "stopped" | "error"
 
 /** Full job metadata stored in the registry. */
 export interface JobItem {

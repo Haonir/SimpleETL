@@ -128,6 +128,8 @@ async def run_etl_job(
             output_dir_path = Path(_get_output_dir(file_paths[0], config))
             output_dir_path.mkdir(parents=True, exist_ok=True)
 
+            llm_errors: set[str] = set()
+
             # ── Phase 2: LLM (parallel) ──
             if flat_config.get("skip_llm", False):
                 log_and_broadcast("--- Phase 2: Skipping LLM (skip_llm=True) ---")
@@ -138,7 +140,7 @@ async def run_etl_job(
                     )
             else:
                 log_and_broadcast("--- Phase 2: LLM Processing ---")
-                success = await _phase_llm(pool, registry, flat_config, log_cb, stop_cb, progress_cb)
+                success, llm_errors = await _phase_llm(pool, registry, flat_config, log_cb, stop_cb, progress_cb)
 
                 if not success and stop_cb():
                     job_service.update_status(job_id, JobStatus.stopped)
@@ -148,6 +150,7 @@ async def run_etl_job(
 
             # ── Phase 3: pack (parallel) ──
             log_and_broadcast("--- Phase 3: Packing ---")
+            log_and_broadcast(f"Packing as '{flat_config.get('output_format', 'spr')}'")
             output_files = await _phase_pack(pool, registry, flat_config, log_cb)
 
             # Save output file records to SQLite
@@ -166,9 +169,22 @@ async def run_etl_job(
 
         # Final status
         if not stop_cb():
-            job_service.update_status(job_id, JobStatus.completed)
-            await ws_manager.broadcast(job_id, WSLogMessage(type="log", job_id=job_id, level="info", message="🎉 ETL job completed!").model_dump())
-            await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="completed").model_dump())
+            if llm_errors:
+                if output_files:
+                    # Some files processed, some failed — partial
+                    job_service.update_status(job_id, JobStatus.partial)
+                    log_and_broadcast(f"⚠️ ETL job completed with errors in {len(llm_errors)} file(s): {', '.join(sorted(llm_errors))}", "warning")
+                    await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="partial").model_dump())
+                else:
+                    # No output files at all — full error
+                    job_service.update_status(job_id, JobStatus.error)
+                    log_and_broadcast(f"❌ ETL job failed — no files were processed successfully. Errors in: {', '.join(sorted(llm_errors))}", "error")
+                    await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="error").model_dump())
+            else:
+                # Completed successfully
+                job_service.update_status(job_id, JobStatus.completed)
+                log_and_broadcast("🎉 ETL job completed!", "info")
+                await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="completed").model_dump())
 
             # Broadcast done message
             await ws_manager.broadcast(
@@ -181,12 +197,8 @@ async def run_etl_job(
             )
         elif stop_cb():
             job_service.update_status(job_id, JobStatus.stopped)
-            await ws_manager.broadcast(job_id, WSLogMessage(type="log", job_id=job_id, level="warning", message="⚠️ ETL job stopped by user.").model_dump())
+            log_and_broadcast("⚠️ ETL job stopped by user.", "warning")
             await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="stopped").model_dump())
-        else:
-            job_service.update_status(job_id, JobStatus.completed)
-            await ws_manager.broadcast(job_id, WSLogMessage(type="log", job_id=job_id, level="warning", message="⚠️ ETL job completed with errors.").model_dump())
-            await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="completed").model_dump())
 
     except Exception as e:
         logger.exception("Critical error in ETL job %s", job_id)
@@ -266,14 +278,12 @@ def _extract_and_split(
     final_dir = os.path.join(file_output_dir, "final")
 
     # Step 1: Extract text (sync)
-    log_cb("--- Extracting text ---")
     text = extract_text(file_path, log_cb)
 
     if not text.strip():
         raise Exception("File is empty or contains no readable text.")
 
     # Step 2: Split into chunks (sync)
-    log_cb("--- Splitting into chunks ---")
     chunk_size = flat_config.get("chunk_size", 10000)
     chunk_overlap = flat_config.get("chunk_overlap", 1500)
 
@@ -300,7 +310,7 @@ async def _phase_llm(
     log_cb: callable,
     stop_cb: callable,
     progress_cb: callable,
-) -> bool:
+) -> tuple[bool, set[str]]:
     """Parallel LLM processing for all chunks.
 
     Each chunk is processed individually in the thread pool for true parallelism.
@@ -315,7 +325,9 @@ async def _phase_llm(
         progress_cb: Progress callback (chunk_pct, global_pct, file_idx).
 
     Returns:
-        True if processing completed (even with some errors), False if stopped.
+        Tuple of (success_bool, files_with_errors_set).
+        success_bool is True if processing completed (even with some errors), False if stopped.
+        files_with_errors_set contains base names of files that had LLM errors.
     """
     loop = asyncio.get_event_loop()
     # Per-file chunk tracking
@@ -324,9 +336,12 @@ async def _phase_llm(
     file_counters = {i: 0 for i in range(len(file_list))}
     lock = threading.Lock()
 
-    def _process_one_chunk(chunk_path: Path, processed_path: Path, config: dict, file_idx: int) -> Optional[str]:
+    def _process_one_chunk(chunk_path: Path, processed_path: Path, config: dict, file_idx: int, log_cb: callable, files_with_errors: set) -> Optional[str]:
         """Process one chunk (sync, runs in thread pool via run_in_executor)."""
+        chunk_name = chunk_path.name
+        base_name = file_list[file_idx][0]  # Get base_name from file_list
         if processed_path.exists():
+            log_cb(f"⏭ Chunk {chunk_name} already processed, skipping.", "llm")
             return "skip"
 
         processed_path.parent.mkdir(parents=True, exist_ok=True)
@@ -335,35 +350,44 @@ async def _phase_llm(
         if stop_cb():
             return None
 
-        client = openai.OpenAI(
-            base_url=config["base_url"],
-            api_key=config["api_key"],
-        )
-        response = client.chat.completions.create(
-            model=config.get("model", "llama3"),
-            messages=[
-                {"role": "system", "content": config.get("prompt", "Analyze this text.")},
-                {
-                    "role": "user",
-                    "content": (Path(chunk_path)).read_text(encoding='utf-8'),
-                },
-            ],
-            temperature=0.2,
-        )
-        with open(processed_path, "w") as f:
-            f.write(response.choices[0].message.content)
+        log_cb(f"🤖 Processing chunk {chunk_name}...", "llm")
+        try:
+            client = openai.OpenAI(
+                base_url=config["base_url"],
+                api_key=config["api_key"],
+            )
+            response = client.chat.completions.create(
+                model=config.get("model", "llama3"),
+                messages=[
+                    {"role": "system", "content": config.get("prompt", "Analyze this text.")},
+                    {
+                        "role": "user",
+                        "content": (Path(chunk_path)).read_text(encoding='utf-8'),
+                    },
+                ],
+                temperature=0.2,
+            )
+            with open(processed_path, "w") as f:
+                f.write(response.choices[0].message.content)
 
-        with lock:
-            file_counters[file_idx] += 1
-            total_chunks = file_chunk_counts[file_idx]
-            file_pct = file_counters[file_idx] * 100 // max(total_chunks, 1)
-            global_done = sum(file_counters.values())
-            global_total = sum(file_chunk_counts.values())
-            global_pct = global_done * 100 // max(global_total, 1)
-            progress_cb(file_pct, global_pct, file_idx)
+            with lock:
+                file_counters[file_idx] += 1
+                total_chunks = file_chunk_counts[file_idx]
+                file_pct = file_counters[file_idx] * 100 // max(total_chunks, 1)
+                global_done = sum(file_counters.values())
+                global_total = sum(file_chunk_counts.values())
+                global_pct = global_done * 100 // max(global_total, 1)
+                progress_cb(file_pct, global_pct, file_idx)
+            
+            log_cb(f"✅ Chunk {chunk_name} done ({file_counters[file_idx]}/{total_chunks} for file)", "llm")
+        except Exception as e:
+            files_with_errors.add(base_name)
+            log_cb(f"⚠️ LLM error for {base_name}: {e}", "error")
 
     # Submit chunks one at a time, checking stop between each submission.
     futures = []
+    files_with_errors = set()  # Track files that had errors
+    
     for file_idx, (base_name, info) in enumerate(file_list):
         for chunk_path_str in info["chunk_paths"]:
             if stop_cb():
@@ -373,7 +397,7 @@ async def _phase_llm(
                         f.cancel()
                     except Exception:
                         pass
-                return False
+                return False, files_with_errors
             processed_path = Path(info["processed_dir"]) / Path(chunk_path_str).name
             future = loop.run_in_executor(
                 pool,
@@ -382,6 +406,8 @@ async def _phase_llm(
                 processed_path,
                 flat_config,
                 file_idx,
+                log_cb,
+                files_with_errors,
             )
             futures.append(future)
 
@@ -392,14 +418,18 @@ async def _phase_llm(
                     f.cancel()
                 except Exception:
                     pass
-            return False
+            return False, files_with_errors
 
         try:
             await future  # Non-blocking — event loop processes heartbeats while waiting
         except Exception as e:
-            log_cb(f"⚠️ LLM error: {e}", "error")  # fail-continue
+            log_cb(f"⚠️ Unexpected LLM error: {e}", "error")
 
-    return True
+    # Report files with errors
+    if files_with_errors:
+        log_cb(f"⚠️ LLM errors occurred for {len(files_with_errors)} file(s): {', '.join(sorted(files_with_errors))}", "warning")
+    
+    return True, files_with_errors
 
 
 async def _phase_pack(pool, registry, flat_config, log_cb) -> list[str]:

@@ -6,6 +6,10 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Custom log level for LLM processing
+LLM_LEVEL = 25  # Between INFO (20) and WARNING (30)
+logging.addLevelName(LLM_LEVEL, "LLM")
+
 
 _lock = threading.Lock()
 
@@ -78,6 +82,7 @@ def make_log_cb(logger: logging.Logger) -> callable:
     level_map = {
         "debug": logging.DEBUG,
         "info": logging.INFO,
+        "llm": LLM_LEVEL,
         "warning": logging.WARNING,
         "error": logging.ERROR,
         "critical": logging.CRITICAL,

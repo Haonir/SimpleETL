@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useFilesStore } from '@/stores/files'
 import { useJobStore } from '@/stores/job'
 import { useConfigStore } from '@/stores/config'
@@ -16,7 +16,21 @@ const promptsStore = usePromptsStore()
 const uiStore = useUiStore()
 
 const selectedPromptName = ref(promptsStore.currentPromptName || '')
+
+// Sync local ref when prompts store loads
+watch(() => promptsStore.currentPromptName, (newVal) => {
+  if (newVal && !selectedPromptName.value) {
+    selectedPromptName.value = newVal
+  }
+})
 const selectedFormat = ref<OutputFormat>(configStore.processing.output_format)
+
+// Sync local ref when config store loads
+watch(() => configStore.processing.output_format, (newVal) => {
+  if (newVal) {
+    selectedFormat.value = newVal
+  }
+})
 
 const formatOptions: { value: OutputFormat; label: string }[] = [
   { value: 'markdown', label: 'Raw Markdown' },
@@ -61,6 +75,7 @@ function handleStop() {
 function statusBadgeText(status: string | null): string {
   switch (status) {
     case 'completed': return '✓ Completed'
+    case 'partial':   return '⚠ Partial'
     case 'running':   return '▶ Running'
     case 'error':     return '✗ Error'
     default:          return jobStore.activeJobId ? `#${jobStore.activeJobId.slice(0, 8)}…` : 'Idle'
@@ -214,6 +229,7 @@ function statusBadgeText(status: string | null): string {
 .status-badge--pending { background: #e5e7eb; color: #6b7280; }
 .status-badge--running { background: #dbeafe; color: #1d4ed8; }
 .status-badge--completed { background: #dcfce7; color: #166534; }
+.status-badge--partial  { background: #fef3c7; color: #92400e; }
 .status-badge--error   { background: #fee2e2; color: #991b1b; }
 
 </style>

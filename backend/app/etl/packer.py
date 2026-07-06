@@ -59,7 +59,9 @@ def pack_outputs(
     processed_dir = Path(processed_dir)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
+
+
     # Find processed files
     processed_files = sorted(
         f for f in processed_dir.iterdir()
@@ -67,12 +69,7 @@ def pack_outputs(
     )
     
     if not processed_files:
-        if log_callback:
-            log_callback("⚠️ No processed files found to pack.")
         return []
-    
-    if log_callback:
-        log_callback(f"--- Packing {len(processed_files)} files as '{output_format}' ---")
     
     output_files: list[str] = []
     

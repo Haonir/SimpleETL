@@ -12,6 +12,7 @@ const containerRef = ref<HTMLElement | null>(null)
 const filters = [
   { value: 'all', label: 'All' },
   { value: 'info', label: 'Info' },
+  { value: 'llm', label: 'LLM' },
   { value: 'warning', label: 'Warning' },
   { value: 'error', label: 'Error' },
 ]
@@ -34,6 +35,7 @@ watch(
 
 <template>
   <div class="log-panel">
+    <h2 class="log-panel__title">Logs</h2>
     <!-- Filter bar -->
     <div class="log-panel__filters">
       <button
@@ -61,6 +63,13 @@ watch(
   display: flex;
   flex-direction: column;
   height: 100%;
+}
+
+.log-panel__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg-title);
+  margin: 0 0 1rem;
 }
 
 .log-panel__filters {

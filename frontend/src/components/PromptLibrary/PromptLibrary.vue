@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { usePromptsStore } from '@/stores/prompts'
+import { useConfigStore } from '@/stores/config'
 import { useUiStore } from '@/stores/ui'
 import type { PromptEntry } from '@/types/config'
+import { ChevronRight } from '@lucide/vue'
 import PromptEditor from './PromptEditor.vue'
 import Button from '@/components/UI/Button.vue'
 
 const promptsStore = usePromptsStore()
 const uiStore = useUiStore()
+const configStore = useConfigStore()
 
 const showEditor = ref(false)
 const editingPrompt = ref<PromptEntry | null>(null)
@@ -48,6 +51,13 @@ async function handleDelete(name: string) {
   uiStore.showNotification('success', 'Prompt deleted.')
 }
 
+async function handleSelectNone() {
+  promptsStore.setCurrentPrompt('')
+  configStore.processing.skip_llm = true
+  await configStore.save()
+  uiStore.showNotification('info', 'No prompt selected — LLM step will be skipped.')
+}
+
 function isCurrent(p: PromptEntry): boolean {
   return p.name === promptsStore.currentPromptName
 }
@@ -56,8 +66,17 @@ function isCurrent(p: PromptEntry): boolean {
 <template>
   <div class="prompt-library">
     <div class="library-header">
-      <h3>Prompt Library</h3>
+      <h2 class="prompt-library__title">Prompt Library</h2>
       <Button variant="primary" size="sm" @click="openCreateMode">Add New</Button>
+    </div>
+
+    <div class="prompt-card prompt-card--none" :class="{ 'prompt-card--active': !promptsStore.currentPromptName }">
+      <div class="prompt-card__header">
+        <span class="prompt-name">— None / No LLM —</span>
+        <div class="prompt-card__actions-row">
+          <Button variant="secondary" size="sm" @click="handleSelectNone">Select</Button>
+        </div>
+      </div>
     </div>
 
     <div v-if="promptsStore.prompts.length === 0" class="empty-state">
@@ -71,12 +90,12 @@ function isCurrent(p: PromptEntry): boolean {
         class="prompt-card"
         :class="{ 'prompt-card--active': isCurrent(p), 'prompt-card--expanded': expandedName === p.name }"
       >
-        <div class="prompt-card__header">
-          <span class="prompt-name" @click="toggleExpand(p.name)">{{ p.name }}</span>
+        <div class="prompt-card__header" @click="toggleExpand(p.name)">
+          <span class="prompt-name">{{ p.name }}</span>
           <div class="prompt-card__actions-row">
-            <Button variant="secondary" size="sm" @click="$emit('select', p)">Select</Button>
-            <Button variant="secondary" size="sm" @click="handleDelete(p.name)">Delete</Button>
-            <span class="prompt-expand-arrow" :class="{ 'prompt-expand-arrow--open': expandedName === p.name }" @click="toggleExpand(p.name)">▸</span>
+            <Button variant="secondary" size="sm" @click.stop="$emit('select', p)">Select</Button>
+            <Button variant="secondary" size="sm" @click.stop="handleDelete(p.name)">Delete</Button>
+            <ChevronRight :size="14" class="prompt-expand-arrow" :class="{ 'prompt-expand-arrow--open': expandedName === p.name }" />
           </div>
         </div>
         <div class="prompt-card__body">
@@ -111,6 +130,13 @@ function isCurrent(p: PromptEntry): boolean {
   margin: 0;
   font-size: 14px;
   color: var(--fg-title);
+}
+
+.prompt-library__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg-title);
+  margin: 0 0 1rem;
 }
 
 .empty-state {
@@ -198,5 +224,14 @@ function isCurrent(p: PromptEntry): boolean {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+.prompt-card--none {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.prompt-card--none:hover {
+  opacity: 1;
 }
 </style>
