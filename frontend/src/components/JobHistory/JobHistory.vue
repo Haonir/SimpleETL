@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useJobStore } from '@/stores/job'
+import { List, X } from '@lucide/vue'
 const jobStore = useJobStore()
 
 onMounted(() => {
@@ -87,7 +88,7 @@ function closePopovers() {
             <div class="job-history__files-preview">
               <span class="job-history__file-name">{{ getFirstFileName(job) }}</span>
               <span v-if="job.file_ids.length > 1" class="job-history__file-more">+{{ job.file_ids.length - 1 }}</span>
-              <button v-if="job.file_ids.length > 1" class="job-history__files-btn" @click.stop="togglePopover(job.id)" title="Show all files">📋</button>
+                <button v-if="job.file_ids.length > 1" class="job-history__files-btn" @click.stop="togglePopover(job.id)" title="Show all files"><List :size="14" /></button>
             </div>
             <!-- Popover -->
             <div v-if="popoverJobId === job.id" class="job-history__popover" @click.stop>
@@ -100,7 +101,7 @@ function closePopovers() {
           <td>{{ formatDate(job.created_at) }}</td>
           <td>{{ formatDate(job.completed_at) }}</td>
           <td class="job-history__cell-action">
-            <button class="job-history__delete-btn" @click.stop="confirmDelete(job.id)" title="Delete job">✕</button>
+            <button class="job-history__delete-btn" @click.stop="confirmDelete(job.id)" title="Delete job"><X :size="14" /></button>
           </td>
         </tr>
       </tbody>

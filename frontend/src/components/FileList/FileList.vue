@@ -82,7 +82,11 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
 
     <!-- Job toolbar (Start, prompt, format, skip LLM) -->
     <JobToolbar />
-    <GlobalProgressBar />
+
+    <!-- Progress bar + status badge -->
+    <div class="file-list__progress-row">
+      <GlobalProgressBar />
+    </div>
 
     <!-- Empty state -->
     <div v-if="!store.hasFiles" class="file-list__empty">
@@ -324,5 +328,17 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
 
 .file-list__dialog-btn--danger:hover {
   background: #dc2626;
+}
+
+/* Progress row */
+.file-list__progress-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.file-list__progress-row .global-progress {
+  flex: 1;
+  margin-bottom: 0;
 }
 </style>

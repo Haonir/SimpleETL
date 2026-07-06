@@ -7,6 +7,7 @@ import { usePromptsStore } from '@/stores/prompts'
 import { useUiStore } from '@/stores/ui'
 import type { OutputFormat } from '@/types/config'
 import Button from '@/components/UI/Button.vue'
+import { Play, Square } from '@lucide/vue'
 
 const filesStore = useFilesStore()
 const jobStore = useJobStore()
@@ -56,6 +57,15 @@ async function handleStart() {
 function handleStop() {
   jobStore.stopJob()
 }
+
+function statusBadgeText(status: string | null): string {
+  switch (status) {
+    case 'completed': return '✓ Completed'
+    case 'running':   return '▶ Running'
+    case 'error':     return '✗ Error'
+    default:          return jobStore.activeJobId ? `#${jobStore.activeJobId.slice(0, 8)}…` : 'Idle'
+  }
+}
 </script>
 
 <template>
@@ -67,7 +77,7 @@ function handleStop() {
       class="toolbar-start-btn"
       @click="handleStart"
     >
-      ▶ Start
+      <Play :size="14" /> Start
     </Button>
     <div class="toolbar-stop-area">
       <Button
@@ -77,7 +87,7 @@ function handleStop() {
         class="toolbar-stop-btn"
         @click="handleStop"
       >
-        ⏹ Stop
+        <Square :size="14" /> Stop
       </Button>
       <span v-if="jobStore.stopRequested" class="toolbar-hint toolbar-hint--stop">
         Stop requested…
@@ -101,6 +111,10 @@ function handleStop() {
       </option>
     </select>
     <span v-if="!selectedPromptName" class="toolbar-hint">⚡ LLM step will be skipped</span>
+
+    <span v-if="jobStore.activeJobId" :class="['status-badge', `status-badge--${jobStore.activeStatus || 'idle'}`]">
+      {{ statusBadgeText(jobStore.activeStatus) }}
+    </span>
   </div>
 </template>
 
@@ -183,4 +197,23 @@ function handleStop() {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.status-badge--idle    { background: #f3f4f6; color: #6b7280; }
+.status-badge--pending { background: #e5e7eb; color: #6b7280; }
+.status-badge--running { background: #dbeafe; color: #1d4ed8; }
+.status-badge--completed { background: #dcfce7; color: #166534; }
+.status-badge--error   { background: #fee2e2; color: #991b1b; }
+
 </style>

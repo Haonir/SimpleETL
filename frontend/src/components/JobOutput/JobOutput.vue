@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useJobStore } from '@/stores/job'
 import { downloadJobFile, downloadJobZip } from '@/services/api'
 import Button from '@/components/UI/Button.vue'
+import { Download } from '@lucide/vue'
 
 const jobStore = useJobStore()
 const loading = ref(false)
@@ -106,7 +107,7 @@ watch(() => jobStore.selectedJobId, loadFiles)
           <span v-if="activeJob" class="job-output__job-id">#{{ activeJob.id.slice(0, 8) }}</span>
           <span v-if="activeJob?.created_at" class="job-output__job-date">{{ formatDate(activeJob.created_at) }}</span>
         </div>
-        <Button v-if="jobStore.currentJobFiles.length > 0" variant="secondary" size="sm" @click="handleDownloadAll">ZIP ▼</Button>
+        <Button v-if="jobStore.currentJobFiles.length > 0" variant="secondary" size="sm" @click="handleDownloadAll"><Download :size="14" /> ZIP</Button>
       </div>
       <!-- File entries -->
       <div
@@ -118,7 +119,7 @@ watch(() => jobStore.selectedJobId, loadFiles)
         <div class="job-output__file-name">{{ file.filename }}</div>
         <div class="job-output__file-meta">
           <span class="job-output__file-size">{{ formatSize(file.size_bytes) }}</span>
-          <Button variant="secondary" size="sm" @click.stop="handleDownload(file.filename)">Download ▼</Button>
+          <Button variant="secondary" size="sm" @click.stop="handleDownload(file.filename)"><Download :size="14" /></Button>
         </div>
       </div>
       <div v-if="jobStore.currentJobFiles.length === 0" class="job-output__list-empty">

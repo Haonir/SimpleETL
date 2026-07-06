@@ -2,6 +2,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 
+const props = defineProps<{ compact?: boolean }>()
+
 type ConnState = 'connected' | 'disconnected' | 'checking'
 
 const state = ref<ConnState>('checking')
@@ -51,7 +53,7 @@ onUnmounted(() => {
 <template>
   <span :class="['connection-status', statusClass]">
     <span class="connection-status__dot" />
-    {{ statusText }}
+    <span v-if="!compact" class="connection-status__text">{{ statusText }}</span>
   </span>
 </template>
 

@@ -12,6 +12,7 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
+    "@lucide/vue": "^1.23.0",
     "axios": "^1.18.1",
     "jsdom": "^29.1.1",
     "pinia": "^3.0.4",
