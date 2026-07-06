@@ -42,13 +42,13 @@ function handleCancel() {
 </script>
 
 <template>
-  <Modal :show="show" title="{{ $t('promptEditor.title') }}">
+  <Modal :show="show" :title="$t('promptEditor.title')" @close="handleCancel">
     <div class="prompt-editor">
       <label class="field-label">{{ $t('promptEditor.name') }}</label>
       <Input
         v-model="name"
         type="text"
-        placeholder="{{ $t('promptEditor.namePlaceholder') }}"
+        :placeholder="$t('promptEditor.namePlaceholder')"
         :disabled="isEditing"
       />
 
@@ -57,7 +57,7 @@ function handleCancel() {
         v-model="text"
         rows="6"
         class="prompt-textarea"
-        placeholder="{{ $t('promptEditor.textPlaceholder') }}"
+        :placeholder="$t('promptEditor.textPlaceholder')"
       />
     </div>
 

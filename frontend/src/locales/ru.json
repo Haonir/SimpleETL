@@ -1,7 +1,7 @@
 {
   "nav": {
     "processing": "Обработка",
-    "output": "Результат",
+    "preview": "Превью",
     "history": "История",
     "prompts": "Промпты",
     "settings": "Настройки",
@@ -52,6 +52,7 @@
     "statusPartial": "⚠ Частично",
     "statusRunning": "▶ Выполняется",
     "statusError": "✗ Ошибка",
+    "statusStopped": "⏹ Остановлено",
     "statusIdle": "Ожидание",
     "llmSkipped": "Шаг LLM будет пропущён"
   },
@@ -82,11 +83,15 @@
     "warning": "⚠️ Это действие нельзя отменить!"
   },
   "jobOutput": {
-    "title": "Выходные файлы",
+    "title": "Превью",
     "zip": "ZIP",
     "empty": "Нет файлов",
     "selectPreview": "Выберите файл для предпросмотра",
     "loadingPreview": "Загрузка предпросмотра..."
+  },
+  "processedFiles": {
+    "title": "Обработанные файлы",
+    "empty": "Нет обработанных файлов"
   },
   "logPanel": {
     "title": "Логи",
@@ -130,7 +135,13 @@
     "import": "Импорт конфига",
     "themeSystem": "Системная",
     "themeLight": "Светлая",
-    "themeDark": "Тёмная"
+    "themeDark": "Тёмная",
+    "resetPrompts": "Сбросить промпты",
+    "resetPromptsDone": "Библиотека промптов сброшена",
+    "resetConfirmTitle": "Сброс библиотеки промптов",
+    "resetConfirmText": "Все пользовательские промпты будут удалены и заменены на промпты по умолчанию.",
+    "resetConfirmRecommend": "Экспортируйте конфиг, чтобы сохранить текущие промпты.",
+    "resetConfirmWarning": "⚠️ Это действие нельзя отменить!"
   },
   "settingsProcessing": {
     "chunkSize": "Размер чанка",

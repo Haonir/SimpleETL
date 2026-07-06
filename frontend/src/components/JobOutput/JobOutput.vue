@@ -227,11 +227,11 @@ watch(() => jobStore.selectedJobId, loadFiles)
         :class="['job-output__file', { 'job-output__file--selected': selectedFile === file.filename }]"
         @click="selectFile(file.filename)"
       >
-        <div class="job-output__file-name">{{ file.filename }}</div>
-        <div class="job-output__file-meta">
+        <div class="job-output__file-info">
+          <div class="job-output__file-name">{{ file.filename }}</div>
           <span class="job-output__file-size">{{ formatSize(file.size_bytes) }}</span>
-          <Button variant="secondary" size="sm" @click.stop="handleDownload(file.filename)"><Download :size="14" /></Button>
         </div>
+        <Button variant="secondary" size="sm" @click.stop="handleDownload(file.filename)"><Download :size="14" /></Button>
       </div>
       <div v-if="jobStore.currentJobFiles.length === 0" class="job-output__list-empty">
         {{ t('jobOutput.empty') }}
@@ -323,6 +323,10 @@ watch(() => jobStore.selectedJobId, loadFiles)
   border-bottom: 1px solid var(--border);
   cursor: pointer;
   transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .job-output__file:hover {
@@ -334,18 +338,18 @@ watch(() => jobStore.selectedJobId, loadFiles)
   border-left: 3px solid var(--accent);
 }
 
+.job-output__file-info {
+  min-width: 0;
+  flex: 1;
+}
+
 .job-output__file-name {
   font-size: 13px;
   font-weight: 500;
   color: var(--fg-title);
-  word-break: break-all;
-}
-
-.job-output__file-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .job-output__file-size {

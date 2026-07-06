@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { PromptEntry } from '@/types/config'
 import { useConfigStore } from './config'
 import { useUiStore } from './ui'
+import { DEFAULT_PROMPTS } from '@/data/defaultPrompts'
 
 export const usePromptsStore = defineStore('prompts', () => {
   const prompts = ref<PromptEntry[]>([])
@@ -68,9 +69,17 @@ export const usePromptsStore = defineStore('prompts', () => {
     await configStore.save()
   }
 
+  async function resetToDefaults() {
+    prompts.value = DEFAULT_PROMPTS.map(p => ({ ...p }))
+    currentPromptName.value = DEFAULT_PROMPTS[0]?.name || ''
+    configStore.prompts = prompts.value
+    configStore.currentPromptName = currentPromptName.value
+    await configStore.save()
+  }
+
   return {
     prompts, currentPromptName,
     currentPrompt, promptNames,
-    fetchPrompts, addPrompt, removePrompt, setCurrentPrompt,
+    fetchPrompts, addPrompt, removePrompt, setCurrentPrompt, resetToDefaults,
   }
 })

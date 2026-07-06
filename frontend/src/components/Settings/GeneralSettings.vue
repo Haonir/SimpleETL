@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import type { Language } from '@/types/config'
 import { useConfigStore } from '@/stores/config'
 import { useUiStore } from '@/stores/ui'
 import { useThemeStore } from '@/stores/theme'
+import { usePromptsStore } from '@/stores/prompts'
 import Button from '@/components/UI/Button.vue'
 
 const { t } = useI18n()
@@ -24,6 +25,9 @@ const themeOptions = computed<Option[]>(() => [
 const configStore = useConfigStore()
 const uiStore = useUiStore()
 const themeStore = useThemeStore()
+const promptsStore = usePromptsStore()
+
+const showResetDialog = ref(false)
 
 async function handleImport(event: Event) {
   const input = event.target as HTMLInputElement
@@ -36,6 +40,20 @@ async function handleImport(event: Event) {
     uiStore.showNotification('error', 'Failed to import config')
   }
   input.value = ''
+}
+
+async function confirmResetPrompts() {
+  showResetDialog.value = true
+}
+
+async function handleResetPrompts() {
+  await promptsStore.resetToDefaults()
+  uiStore.showNotification('success', t('settingsGeneral.resetPromptsDone'))
+  showResetDialog.value = false
+}
+
+function cancelReset() {
+  showResetDialog.value = false
 }
 </script>
 
@@ -64,6 +82,21 @@ async function handleImport(event: Event) {
         <span class="btn btn--secondary btn--md">{{ t('settingsGeneral.import') }}</span>
         <input type="file" accept=".json" class="hidden-input" @change="handleImport" />
       </label>
+      <Button variant="secondary" size="md" @click="confirmResetPrompts">{{ t('settingsGeneral.resetPrompts') }}</Button>
+    </div>
+
+    <!-- Reset prompts confirmation dialog -->
+    <div v-if="showResetDialog" class="dialog-overlay" @click.self="cancelReset">
+      <div class="dialog">
+        <h3 class="dialog-title">{{ t('settingsGeneral.resetConfirmTitle') }}</h3>
+        <p class="dialog-text">{{ t('settingsGeneral.resetConfirmText') }}</p>
+        <p class="dialog-recommend">{{ t('settingsGeneral.resetConfirmRecommend') }}</p>
+        <p class="dialog-warning">{{ t('settingsGeneral.resetConfirmWarning') }}</p>
+        <div class="dialog-actions">
+          <button class="dialog-btn dialog-btn--cancel" @click="cancelReset">{{ t('common.cancel') }}</button>
+          <button class="dialog-btn dialog-btn--danger" @click="handleResetPrompts">{{ t('settingsGeneral.resetPrompts') }}</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -146,5 +179,91 @@ async function handleImport(event: Event) {
 
 .settings-select option {
   background: var(--bg-surface);
+}
+
+/* Confirmation dialog */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background: var(--bg-card, #fff);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: var(--shadow-dialog);
+}
+
+.dialog-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fg-on-card);
+  margin: 0 0 16px 0;
+}
+
+.dialog-text {
+  font-size: 14px;
+  color: var(--fg-title);
+  margin: 0 0 16px 0;
+}
+
+.dialog-recommend {
+  font-size: 13px;
+  color: var(--fg-label);
+  margin: 0 0 16px 0;
+  opacity: 0.85;
+}
+
+.dialog-warning {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-error);
+  margin: 0 0 20px 0;
+  padding: 10px;
+  background: var(--btn-danger-bg-light);
+  border-radius: 6px;
+  border: 1px solid var(--border-danger);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dialog-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+}
+
+.dialog-btn--cancel {
+  background: var(--bg-card);
+  color: var(--fg-on-card);
+}
+
+.dialog-btn--cancel:hover {
+  background: var(--bg-hover-subtle);
+}
+
+.dialog-btn--danger {
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-fg);
+  border-color: var(--btn-danger-border);
+}
+
+.dialog-btn--danger:hover {
+  background: var(--btn-danger-hover);
 }
 </style>

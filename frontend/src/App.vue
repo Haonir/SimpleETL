@@ -15,7 +15,7 @@ import JobHistory from '@/components/JobHistory/JobHistory.vue'
 import ConnectionStatus from '@/components/ConnectionStatus/ConnectionStatus.vue'
 import etlIcon from '@/assets/etl-icon.png'
 import {
-  FileStack, Settings, MessageSquare, ScrollText, Package, History,
+  FileStack, Settings, MessageSquare, ScrollText, Eye, History,
   PanelLeftClose, PanelLeftOpen
 } from '@lucide/vue'
 
@@ -31,7 +31,7 @@ const promptsStore = usePromptsStore()
 interface PanelDef { id: string; label: string; icon: any }
 const panels = computed<PanelDef[]>(() => [
   { id: 'processing', label: t('nav.processing'), icon: FileStack },
-  { id: 'output', label: t('nav.output'), icon: Package },
+  { id: 'output', label: t('nav.preview'), icon: Eye },
   { id: 'history', label: t('nav.history'), icon: History },
 ])
 

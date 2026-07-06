@@ -95,8 +95,9 @@ function statusBadgeText(status: string | null): string {
     case 'completed': return t('jobToolbar.statusCompleted')
     case 'partial':   return t('jobToolbar.statusPartial')
     case 'running':   return t('jobToolbar.statusRunning')
+    case 'stopped':   return t('jobToolbar.statusStopped')
     case 'error':     return t('jobToolbar.statusError')
-    default:          return jobStore.activeJobId ? `#${jobStore.activeJobId.slice(0, 8)}…` : t('jobToolbar.statusIdle')
+    default:          return t('jobToolbar.statusIdle')
   }
 }
 </script>
@@ -162,6 +163,7 @@ function statusBadgeText(status: string | null): string {
     </div>
     <span v-if="!selectedPromptName" class="toolbar-hint">⚡ {{ $t('jobToolbar.llmSkipped') }}</span>  
     <span v-if="jobStore.activeJobId" :class="['status-badge', `status-badge--${jobStore.activeStatus || 'idle'}`]">
+      <span class="toolbar-job-id">#{{ jobStore.activeJobId.slice(0, 8) }}</span>
       {{ statusBadgeText(jobStore.activeStatus) }}
     </span>
   </div>
@@ -275,6 +277,13 @@ function statusBadgeText(status: string | null): string {
   animation: fadeIn 0.2s ease;
 }
 
+.toolbar-job-id {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--fg-label);
+  white-space: nowrap;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -297,6 +306,7 @@ function statusBadgeText(status: string | null): string {
 .status-badge--running { background: var(--badge-bg-running); color: var(--badge-fg-running); }
 .status-badge--completed { background: var(--badge-bg-success); color: var(--badge-fg-success); }
 .status-badge--partial  { background: var(--badge-bg-warning); color: var(--badge-fg-warning); }
+.status-badge--stopped  { background: var(--badge-bg-warning); color: var(--badge-fg-warning); }
 .status-badge--error   { background: var(--badge-bg-error); color: var(--badge-fg-error); }
 
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useFilesStore } from '@/stores/files'
 import { useJobStore } from '@/stores/job'
@@ -9,6 +9,9 @@ import FileProgressBar from '@/components/Progress/FileProgressBar.vue'
 import FileDropZone from '@/components/Processing/FileDropZone.vue'
 import JobToolbar from '@/components/Processing/JobToolbar.vue'
 import GlobalProgressBar from '@/components/Progress/GlobalProgressBar.vue'
+
+import { downloadJobFile, downloadJobZip } from '@/services/api'
+import { Download } from '@lucide/vue'
 
 const store = useFilesStore()
 const jobStore = useJobStore()
@@ -75,89 +78,159 @@ function cancelDelete() {
 }
 
 const allSelected = computed(() => store.files.length > 0 && store.selectedIds.length === store.files.length)
+
+// ── Output files panel ────────────────────────────────────────
+const outputLoading = ref(false)
+
+async function loadOutputFiles() {
+  const jobId = jobStore.selectedJobId || jobStore.currentJobId
+  if (!jobId) return
+  outputLoading.value = true
+  try {
+    await jobStore.fetchJobFiles(jobId)
+  } finally {
+    outputLoading.value = false
+  }
+}
+
+async function handleDownload(filename: string) {
+  const jobId = jobStore.selectedJobId || jobStore.currentJobId
+  if (!jobId) return
+  const blob = await downloadJobFile(jobId, filename)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+async function handleDownloadAll() {
+  const jobId = jobStore.selectedJobId || jobStore.currentJobId
+  if (!jobId) return
+  const blob = await downloadJobZip(jobId)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `job-${jobId.slice(0, 8)}.zip`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+onMounted(loadOutputFiles)
+watch(() => jobStore.currentJobId, loadOutputFiles)
+watch(() => jobStore.selectedJobId, loadOutputFiles)
+watch(() => jobStore.status, (newStatus) => {
+  if (newStatus === 'completed') loadOutputFiles()
+})
 </script>
 
 <template>
-  <div class="file-list">
-    <!-- Drop zone (always visible) -->
-    <FileDropZone :disabled="jobStore.isRunning" />
-
-    <!-- Job toolbar (Start, prompt, format, skip LLM) -->
-    <JobToolbar />
-
-    <!-- Progress bar + status badge -->
-    <div class="file-list__progress-row">
-      <GlobalProgressBar />
+  <div class="processing-layout">
+    <!-- Left column (1/3) — output files -->
+    <div class="processing-output">
+      <div class="processing-output__header">
+        <span class="processing-output__title">{{ t('processedFiles.title') }}</span>
+        <Button v-if="jobStore.currentJobFiles.length > 0" variant="secondary" size="sm" @click="handleDownloadAll"><Download :size="14" /> {{ t('jobOutput.zip') }}</Button>
+      </div>
+      <div
+        v-for="file in jobStore.currentJobFiles"
+        :key="file.filename"
+        class="processing-output__file"
+      >
+        <div class="processing-output__file-info">
+          <div class="processing-output__file-name">{{ file.filename }}</div>
+          <span class="processing-output__file-size">{{ formatSize(file.size_bytes) }}</span>
+        </div>
+        <Button variant="secondary" size="sm" @click="handleDownload(file.filename)"><Download :size="14" /></Button>
+      </div>
+      <div v-if="jobStore.currentJobFiles.length === 0 && !outputLoading" class="processing-output__empty">
+        {{ t('processedFiles.empty') }}
+      </div>
     </div>
 
-    <!-- Empty state -->
-    <div v-if="!store.hasFiles" class="file-list__empty">
-      <p class="file-list__empty-text">{{ $t('fileList.empty') }}</p>
-      <p class="file-list__empty-hint">{{ $t('fileList.dragHint') }}</p>
-    </div>
+    <!-- Right column (2/3) — existing content -->
+    <div class="processing-main">
+      <!-- Drop zone (always visible) -->
+      <FileDropZone :disabled="jobStore.isRunning" />
 
-    <!-- Table -->
-    <table v-else class="file-list__table">
-      <thead>
-        <tr class="file-list__header">
-          <th class="file-list__header-cell file-list__header-cell--checkbox">
-            <Checkbox
-              :modelValue="allSelected"
-              @update:modelValue="handleSelectAll($event)"
-            />
-          </th>
-          <th class="file-list__header-cell">{{ $t('fileList.filename') }}</th>
-          <th class="file-list__header-cell file-list__header-cell--size">{{ $t('fileList.size') }}</th>
-          <th class="file-list__header-cell file-list__header-cell--date">{{ $t('fileList.uploaded') }}</th>
-          <th class="file-list__header-cell file-list__header-cell--actions">
-            <Button variant="danger" size="sm" :disabled="store.selectedIds.length === 0" @click="confirmDeleteSelected">{{ $t('fileList.deleteSelected') }}</Button>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(file, fileIndex) in store.files" :key="file.id" class="file-list__row">
-          <td class="file-list__cell file-list__cell--checkbox">
-            <Checkbox
-              :modelValue="store.selectedIds.includes(file.id)"
-              @update:modelValue="store.toggleSelect(file.id)"
-            />
-          </td>
-          <td class="file-list__cell file-list__cell--name">
-            <span :title="file.filename">{{ file.filename }}</span>
-            <FileProgressBar :fileIdx="fileIndex" :fileName="file.filename" />
-          </td>
-          <td class="file-list__cell file-list__cell--size">{{ formatSize(file.size_bytes) }}</td>
-          <td class="file-list__cell file-list__cell--date">{{ formatDate(file.uploaded_at) }}</td>
-          <td class="file-list__cell file-list__cell--actions">
-            <Button variant="secondary" size="sm" @click="confirmDelete(file.id)">{{ $t('common.delete') }}</Button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+      <!-- Job toolbar (Start, prompt, format, skip LLM) -->
+      <JobToolbar />
 
-    <!-- Footer -->
-    <div v-if="store.hasFiles" class="file-list__footer">
-      <span>{{ $t('common.selected', { count: store.selectedCount, total: store.files.length }) }}</span>
-    </div>
+      <!-- Progress bar + status badge -->
+      <div class="file-list__progress-row">
+        <GlobalProgressBar />
+      </div>
 
-    <!-- Delete confirmation dialog -->
-    <div v-if="showDeleteDialog" class="file-list__dialog-overlay" @click.self="cancelDelete">
-      <div class="file-list__dialog">
-        <h3 class="file-list__dialog-title">{{ $t('fileList.confirmTitle') }}</h3>
-        <p class="file-list__dialog-text">
-          <template v-if="deleteMode === 'single'">
-            {{ $t('fileList.confirmSingle') }}
-          </template>
-          <template v-else>
-            {{ $t('fileList.confirmBatch', { count: store.selectedIds.length }) }}
-          </template>
-        </p>
-        <p class="file-list__dialog-warning">
-          {{ $t('fileList.warning') }}
-        </p>
-        <div class="file-list__dialog-actions">
-          <button class="file-list__dialog-btn file-list__dialog-btn--cancel" @click="cancelDelete">{{ $t('common.cancel') }}</button>
-          <button class="file-list__dialog-btn file-list__dialog-btn--danger" @click="handleDeleteConfirm">Delete</button>
+      <!-- Empty state -->
+      <div v-if="!store.hasFiles" class="file-list__empty">
+        <p class="file-list__empty-text">{{ $t('fileList.empty') }}</p>
+        <p class="file-list__empty-hint">{{ $t('fileList.dragHint') }}</p>
+      </div>
+
+      <!-- Table -->
+      <table v-else class="file-list__table">
+        <thead>
+          <tr class="file-list__header">
+            <th class="file-list__header-cell file-list__header-cell--checkbox">
+              <Checkbox
+                :modelValue="allSelected"
+                @update:modelValue="handleSelectAll($event)"
+              />
+            </th>
+            <th class="file-list__header-cell">{{ $t('fileList.filename') }}</th>
+            <th class="file-list__header-cell file-list__header-cell--size">{{ $t('fileList.size') }}</th>
+            <th class="file-list__header-cell file-list__header-cell--date">{{ $t('fileList.uploaded') }}</th>
+            <th class="file-list__header-cell file-list__header-cell--actions">
+              <Button variant="danger" size="sm" :disabled="store.selectedIds.length === 0" @click="confirmDeleteSelected">{{ $t('fileList.deleteSelected') }}</Button>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(file, fileIndex) in store.files" :key="file.id" class="file-list__row">
+            <td class="file-list__cell file-list__cell--checkbox">
+              <Checkbox
+                :modelValue="store.selectedIds.includes(file.id)"
+                @update:modelValue="store.toggleSelect(file.id)"
+              />
+            </td>
+            <td class="file-list__cell file-list__cell--name">
+              <span :title="file.filename">{{ file.filename }}</span>
+              <FileProgressBar :fileIdx="fileIndex" :fileName="file.filename" />
+            </td>
+            <td class="file-list__cell file-list__cell--size">{{ formatSize(file.size_bytes) }}</td>
+            <td class="file-list__cell file-list__cell--date">{{ formatDate(file.uploaded_at) }}</td>
+            <td class="file-list__cell file-list__cell--actions">
+              <Button variant="secondary" size="sm" @click="confirmDelete(file.id)">{{ $t('common.delete') }}</Button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Footer -->
+      <div v-if="store.hasFiles" class="file-list__footer">
+        <span>{{ $t('common.selected', { count: store.selectedCount, total: store.files.length }) }}</span>
+      </div>
+
+      <!-- Delete confirmation dialog -->
+      <div v-if="showDeleteDialog" class="file-list__dialog-overlay" @click.self="cancelDelete">
+        <div class="file-list__dialog">
+          <h3 class="file-list__dialog-title">{{ $t('fileList.confirmTitle') }}</h3>
+          <p class="file-list__dialog-text">
+            <template v-if="deleteMode === 'single'">
+              {{ $t('fileList.confirmSingle') }}
+            </template>
+            <template v-else>
+              {{ $t('fileList.confirmBatch', { count: store.selectedIds.length }) }}
+            </template>
+          </p>
+          <p class="file-list__dialog-warning">
+            {{ $t('fileList.warning') }}
+          </p>
+          <div class="file-list__dialog-actions">
+            <button class="file-list__dialog-btn file-list__dialog-btn--cancel" @click="cancelDelete">{{ $t('common.cancel') }}</button>
+            <button class="file-list__dialog-btn file-list__dialog-btn--danger" @click="handleDeleteConfirm">Delete</button>
+          </div>
         </div>
       </div>
     </div>
@@ -165,11 +238,91 @@ const allSelected = computed(() => store.files.length > 0 && store.selectedIds.l
 </template>
 
 <style scoped>
-.file-list {
+
+/* ── Two-column layout ──────────────────────────────────────── */
+.processing-layout {
+  display: flex;
+  gap: 16px;
+  height: 100%;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ── Left column: output files (1/3) ────────────────────────── */
+.processing-output {
+  flex: 1;
+  min-width: 220px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.processing-output__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-main);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.processing-output__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-title);
+}
+
+.processing-output__file {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.processing-output__file:last-child {
+  border-bottom: none;
+}
+
+.processing-output__file-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.processing-output__file-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-title);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.processing-output__file-size {
+  font-size: 11px;
+  color: var(--fg-label);
+}
+
+.processing-output__empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--fg-label);
+  font-size: 13px;
+}
+
+/* ── Right column: main content (2/3) ───────────────────────── */
+.processing-main {
+  flex: 4;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-family: 'Segoe UI', system-ui, sans-serif;
 }
 
 /* Empty state */

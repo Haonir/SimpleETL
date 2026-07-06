@@ -391,7 +391,8 @@ async def _phase_llm(
             log_cb(f"✅ Chunk {chunk_name} done ({file_counters[file_idx]}/{total_chunks} for file)", "llm")
         except Exception as e:
             files_with_errors.add(base_name)
-            log_cb(f"⚠️ LLM error for {base_name}: {e}", "error")
+            err_detail = f"{type(e).__name__}: {e}"
+            log_cb(f"⚠️ LLM error for {base_name}: {err_detail} (base_url={config.get('base_url', 'N/A')}, model={config.get('model', 'N/A')})", "error")
 
     # Submit chunks one at a time, checking stop between each submission.
     futures = []

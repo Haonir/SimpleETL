@@ -306,11 +306,13 @@ export const useJobStore = defineStore('job', () => {
         updateJobInList(msg.job_id, msg.status)
         break
       case 'done':
-        status.value = 'completed'
+        // Don't overwrite terminal statuses (stopped, error, partial) — 'done' just signals job is finished
+        if (status.value !== 'stopped' && status.value !== 'error' && status.value !== 'partial') {
+          status.value = 'completed'
+          updateJobInList(msg.job_id, 'completed')
+        }
         globalProgress.value = 100
         stopRequested.value = false
-        // Sync status to jobs array for history table
-        updateJobInList(msg.job_id, 'completed')
         // Keep JOB_STORAGE_KEY so restoreJob() can restore logs/outputs on refresh
         break
       case 'error':

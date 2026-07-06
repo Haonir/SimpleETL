@@ -1,7 +1,7 @@
 {
   "nav": {
     "processing": "Processing",
-    "output": "Output",
+    "preview": "Preview",
     "history": "History",
     "prompts": "Prompts",
     "settings": "Settings",
@@ -52,6 +52,7 @@
     "statusPartial": "⚠ Partial",
     "statusRunning": "▶ Running",
     "statusError": "✗ Error",
+    "statusStopped": "⏹ Stopped",
     "statusIdle": "Idle",
     "llmSkipped": "LLM step will be skipped"
   },
@@ -82,11 +83,15 @@
     "warning": "⚠️ This action cannot be undone!"
   },
   "jobOutput": {
-    "title": "Output Files",
+    "title": "Preview",
     "zip": "ZIP",
     "empty": "No files",
     "selectPreview": "Select a file to preview",
     "loadingPreview": "Loading preview..."
+  },
+  "processedFiles": {
+    "title": "Processed Files",
+    "empty": "No processed files"
   },
   "logPanel": {
     "title": "Logs",
@@ -130,7 +135,13 @@
     "import": "Import Config",
     "themeSystem": "System",
     "themeLight": "Light",
-    "themeDark": "Dark"
+    "themeDark": "Dark",
+    "resetPrompts": "Reset Prompts",
+    "resetPromptsDone": "Prompt library has been reset",
+    "resetConfirmTitle": "Reset Prompt Library",
+    "resetConfirmText": "All custom prompts will be deleted and replaced with the default prompts.",
+    "resetConfirmRecommend": "Export your config first to save the current prompts.",
+    "resetConfirmWarning": "⚠️ This action cannot be undone!"
   },
   "settingsProcessing": {
     "chunkSize": "Chunk Size",

@@ -346,7 +346,7 @@ function closePopovers() {
 
 .job-history__dialog-text {
   font-size: 14px;
-  color: var(--fg-subtle);
+  color: var(--fg-title);
   margin: 0 0 12px 0;
 }
 
