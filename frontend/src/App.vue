@@ -12,6 +12,7 @@ import FileList from '@/components/FileList/FileList.vue'
 import JobOutput from '@/components/JobOutput/JobOutput.vue'
 import JobHistory from '@/components/JobHistory/JobHistory.vue'
 import ConnectionStatus from '@/components/ConnectionStatus/ConnectionStatus.vue'
+import etlIcon from '@/assets/etl-icon.png'
 import {
   FileStack, Settings, MessageSquare, ScrollText, Package, History,
   PanelLeftClose, PanelLeftOpen
@@ -75,9 +76,12 @@ onMounted(async () => {
       <aside :class="['sidebar', { 'sidebar--collapsed': uiStore.sidebarCollapsed }]">
         <!-- Sidebar header: title + toggle -->
         <div class="sidebar__header">
-          <h1 v-if="!uiStore.sidebarCollapsed" class="sidebar__title">SimpleETL</h1>
+          <h1 v-if="!uiStore.sidebarCollapsed" class="sidebar__title"><img :src="etlIcon" alt="SimpleETL" class="sidebar__icon" /> SimpleETL</h1>
           <button class="sidebar__toggle" @click="uiStore.toggleSidebar()">
-            <PanelLeftOpen v-if="uiStore.sidebarCollapsed" :size="18" />
+            <span v-if="uiStore.sidebarCollapsed" class="sidebar__toggle-collapsed">
+              <img :src="etlIcon" alt="SimpleETL" class="sidebar__toggle-icon" />
+              <PanelLeftOpen :size="18" class="sidebar__toggle-expand" />
+            </span>
             <PanelLeftClose v-else :size="18" />
           </button>
         </div>
@@ -178,12 +182,12 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: min-width 0.2s ease, width 0.2s ease;
+  transition: min-width 0.3s ease, width 0.3s ease;
 }
 
 .sidebar--collapsed {
-  width: 52px;
-  min-width: 52px;
+  width: 62px;
+  min-width: 62px;
 }
 
 .sidebar__header {
@@ -192,7 +196,8 @@ onMounted(async () => {
   justify-content: space-between;
   padding: 12px;
   border-bottom: 1px solid var(--border);
-  min-height: 48px;
+  height: 57px;
+  flex-shrink: 0;
 }
 
 .sidebar__title {
@@ -201,6 +206,13 @@ onMounted(async () => {
   color: var(--fg-title);
   margin: 0;
   white-space: nowrap;
+}
+
+.sidebar__icon {
+  width: 29px;
+  height: 33px;
+  vertical-align: middle;
+  margin-right: 6px;
 }
 
 .sidebar__toggle {
@@ -219,6 +231,35 @@ onMounted(async () => {
 .sidebar__toggle:hover {
   background: rgba(59, 130, 246, 0.08);
   color: var(--fg-title);
+}
+
+.sidebar__toggle-collapsed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 29px;
+  height: 33px;
+}
+
+.sidebar__toggle-icon {
+  width: 29px;
+  height: 33px;
+  transition: opacity 0.15s;
+}
+
+.sidebar__toggle-expand {
+  position: absolute;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.sidebar__toggle-collapsed:hover .sidebar__toggle-icon {
+  opacity: 0;
+}
+
+.sidebar__toggle-collapsed:hover .sidebar__toggle-expand {
+  opacity: 1;
 }
 
 .sidebar__nav {

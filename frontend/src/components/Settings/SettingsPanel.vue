@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Server, Cog, SlidersHorizontal } from '@lucide/vue'
+import { Server, Cog, SlidersHorizontal, Save } from '@lucide/vue'
 import { useConfigStore } from '@/stores/config'
 import { useUiStore } from '@/stores/ui'
 import type { LLMConfig, ProcessingConfig } from '@/types/config'
@@ -55,6 +55,10 @@ async function saveSettings() {
       >
         <SlidersHorizontal :size="14" /> General
       </button>
+
+      <button class="settings-save-btn" title="Save settings" @click="saveSettings">
+        <Save :size="14" /> Save
+      </button>
     </div>
 
     <!-- Tab content -->
@@ -64,8 +68,7 @@ async function saveSettings() {
       <GeneralSettings v-if="activeTab === 'general'" />
     </div>
 
-    <!-- Save button -->
-    <button class="btn btn--primary btn--md settings-save-btn" @click="saveSettings">Save</button>
+
   </div>
 </template>
 
@@ -83,8 +86,38 @@ async function saveSettings() {
   margin: 0 0 1rem;
 }
 
+.settings-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-label);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.settings-save-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+
+.tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .tabs {
   display: flex;
+  gap: 2px;
+  padding-bottom: 2px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -112,40 +145,6 @@ async function saveSettings() {
   border-bottom-color: var(--accent);
 }
 
-.tab-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
 
-.btn {
-  height: 34px;
-  padding: 0 16px;
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.15s, opacity 0.15s;
-}
 
-.btn--primary {
-  background: var(--accent);
-  color: white;
-  border: 1px solid var(--accent);
-}
-
-.btn--primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.btn--primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.settings-save-btn {
-  align-self: flex-end;
-  min-width: 120px;
-}
 </style>
