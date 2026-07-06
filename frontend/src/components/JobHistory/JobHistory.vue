@@ -1,31 +1,65 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useJobStore } from '@/stores/job'
-import { List, X } from '@lucide/vue'
+import { List, X, Trash2 } from '@lucide/vue'
+import { useUiStore } from '@/stores/ui'
+
+
 const jobStore = useJobStore()
+const uiStore = useUiStore()
+
 
 onMounted(() => {
   jobStore.fetchJobs()
 })
+
 
 function formatDate(iso: string | undefined): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleString('ru-RU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+
 function statusClass(status: string): string {
   return `job-history__status--${status}`
 }
 
+
 const showDeleteDialog = ref(false)
 const jobToDelete = ref<string | null>(null)
 const keepSourceFiles = ref(true)
+const showBulkDeleteDialog = ref(false)
+
+
+const selectedJobIds = ref<Set<string>>(new Set())
+const allSelected = computed(() => jobStore.jobs.length > 0 && jobStore.jobs.every(j => selectedJobIds.value.has(j.id)))
+const hasSelection = computed(() => selectedJobIds.value.size > 0)
+
+function toggleSelectAll() {
+  if (allSelected.value) {
+    selectedJobIds.value = new Set()
+  } else {
+    selectedJobIds.value = new Set(jobStore.jobs.map(j => j.id))
+  }
+}
+
+function toggleSelectJob(jobId: string) {
+  const next = new Set(selectedJobIds.value)
+  if (next.has(jobId)) {
+    next.delete(jobId)
+  } else {
+    next.add(jobId)
+  }
+  selectedJobIds.value = next
+}
+
 
 function confirmDelete(jobId: string) {
   jobToDelete.value = jobId
   keepSourceFiles.value = true
   showDeleteDialog.value = true
 }
+
 
 async function handleDelete() {
   if (!jobToDelete.value) return
@@ -34,52 +68,88 @@ async function handleDelete() {
   jobToDelete.value = null
 }
 
+
 function cancelDelete() {
   showDeleteDialog.value = false
   jobToDelete.value = null
 }
+
+
+function confirmBulkDelete() {
+  keepSourceFiles.value = true
+  showBulkDeleteDialog.value = true
+}
+
+async function handleBulkDelete() {
+  const ids = [...selectedJobIds.value]
+  for (const id of ids) {
+    await jobStore.deleteJob(id, keepSourceFiles.value)
+  }
+  selectedJobIds.value = new Set()
+  showBulkDeleteDialog.value = false
+}
+
+function cancelBulkDelete() {
+  showBulkDeleteDialog.value = false
+}
+
 
 function getJobFileNames(job: { file_names?: string[], file_ids: string[] }): string[] {
   if (job.file_names && job.file_names.length > 0) return job.file_names
   return job.file_ids.map(id => id.slice(0, 8))
 }
 
+
 function getFirstFileName(job: { file_names?: string[], file_ids: string[] }): string {
   return getJobFileNames(job)[0] || '—'
 }
 
+
 const popoverJobId = ref<string | null>(null)
+
 
 function togglePopover(jobId: string) {
   popoverJobId.value = popoverJobId.value === jobId ? null : jobId
 }
 
+
 function closePopovers() {
   popoverJobId.value = null
 }
+
+
+
+
 </script>
+
 
 <template>
   <div class="job-history" @click="closePopovers">
     <h2 class="job-history__title">Job History</h2>
 
+
     <div v-if="jobStore.jobs.length === 0" class="job-history__empty">
       <p>No jobs yet.</p>
     </div>
 
+
     <table v-else class="job-history__table">
       <thead>
         <tr>
+          <th class="job-history__th-checkbox"><input type="checkbox" :checked="allSelected" @change="toggleSelectAll" /></th>
           <th>ID</th>
           <th>Status</th>
           <th>Files</th>
           <th>Created</th>
           <th>Completed</th>
-          <th class="job-history__th-action" />
+          <th class="job-history__th-action">
+            <button class="job-history__delete-btn" :disabled="!hasSelection" @click.stop="confirmBulkDelete" title="Delete selected"><Trash2 :size="14" /></button>
+          </th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="job in jobStore.jobs" :key="job.id" class="job-history__row" :class="{ 'job-history__row--selected': jobStore.selectedJobId === job.id }" @click="jobStore.selectJob(job.id)">
+          <td class="job-history__cell-checkbox" @click.stop><input type="checkbox" :checked="selectedJobIds.has(job.id)" @change="toggleSelectJob(job.id)" /></td>
           <td class="job-history__cell-id">#{{ job.id.slice(0, 8) }}</td>
           <td>
             <span :class="['job-history__status', statusClass(job.status)]">{{ job.status }}</span>
@@ -108,6 +178,7 @@ function closePopovers() {
     </table>
   </div>
 
+
   <!-- Delete confirmation dialog -->
   <div v-if="showDeleteDialog" class="job-history__dialog-overlay" @click.self="cancelDelete">
     <div class="job-history__dialog">
@@ -133,7 +204,36 @@ function closePopovers() {
       </div>
     </div>
   </div>
+
+
+  <!-- Bulk delete confirmation dialog -->
+  <div v-if="showBulkDeleteDialog" class="job-history__dialog-overlay" @click.self="cancelBulkDelete">
+    <div class="job-history__dialog">
+      <h3 class="job-history__dialog-title">Delete {{ selectedJobIds.size }} Job(s)</h3>
+      <p class="job-history__dialog-text">
+        This action will permanently delete:
+      </p>
+      <ul class="job-history__dialog-list">
+        <li>All selected Job records and all its metadata</li>
+        <li :class="{ 'job-history__dialog-struck': keepSourceFiles }">All uploaded source files</li>
+        <li>All output/processed files</li>
+      </ul>
+      <label class="job-history__dialog-checkbox">
+        <input type="checkbox" v-model="keepSourceFiles" />
+        <span>Keep source files</span>
+      </label>
+      <p class="job-history__dialog-warning">
+        ⚠️ This action cannot be undone!
+      </p>
+      <div class="job-history__dialog-actions">
+        <button class="job-history__dialog-btn job-history__dialog-btn--cancel" @click="cancelBulkDelete">Cancel</button>
+        <button class="job-history__dialog-btn job-history__dialog-btn--danger" @click="handleBulkDelete">Delete</button>
+      </div>
+    </div>
+  </div>
+
 </template>
+
 
 <style scoped>
 .job-history__title { font-size: 16px; font-weight: 600; color: var(--fg-title); margin: 0 0 1rem; }
@@ -153,8 +253,13 @@ function closePopovers() {
 .job-history__row:hover { background: rgba(59, 130, 246, 0.05); }
 .job-history__row--selected { background: rgba(59, 130, 246, 0.1); }
 
+.job-history__th-checkbox, .job-history__cell-checkbox { width: 40px; text-align: center; }
+.job-history__th-checkbox input[type="checkbox"], .job-history__cell-checkbox input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; }
+
+
 /* Delete button */
 .job-history__th-action, .job-history__cell-action { width: 50px; text-align: center; }
+
 
 .job-history__delete-btn {
   background: none;
@@ -167,11 +272,25 @@ function closePopovers() {
   transition: all 0.15s;
 }
 
+
 .job-history__delete-btn:hover {
   color: #ef4444;
   background: #fef2f2;
   border-color: #fecaca;
 }
+
+
+.job-history__delete-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.job-history__delete-btn:disabled:hover {
+  color: var(--fg-label, #999);
+  background: none;
+  border-color: transparent;
+}
+
 
 /* Dialog styles */
 .job-history__dialog-overlay {
@@ -184,6 +303,7 @@ function closePopovers() {
   z-index: 1000;
 }
 
+
 .job-history__dialog {
   background: var(--bg-card, #fff);
   border-radius: 12px;
@@ -193,6 +313,7 @@ function closePopovers() {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
+
 .job-history__dialog-title {
   font-size: 18px;
   font-weight: 600;
@@ -200,11 +321,13 @@ function closePopovers() {
   margin: 0 0 16px 0;
 }
 
+
 .job-history__dialog-text {
   font-size: 14px;
   color: var(--fg-label, #666);
   margin: 0 0 12px 0;
 }
+
 
 .job-history__dialog-list {
   font-size: 14px;
@@ -213,9 +336,11 @@ function closePopovers() {
   padding-left: 20px;
 }
 
+
 .job-history__dialog-list li {
   margin-bottom: 4px;
 }
+
 
 .job-history__dialog-warning {
   font-size: 14px;
@@ -228,11 +353,13 @@ function closePopovers() {
   border: 1px solid #fecaca;
 }
 
+
 .job-history__dialog-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
 }
+
 
 .job-history__dialog-btn {
   padding: 8px 16px;
@@ -244,14 +371,17 @@ function closePopovers() {
   transition: all 0.15s;
 }
 
+
 .job-history__dialog-btn--cancel {
   background: var(--bg-card, #fff);
   color: var(--fg-title, #111);
 }
 
+
 .job-history__dialog-btn--cancel:hover {
   background: var(--bg-main, #f5f5f5);
 }
+
 
 .job-history__dialog-btn--danger {
   background: #ef4444;
@@ -259,9 +389,11 @@ function closePopovers() {
   border-color: #ef4444;
 }
 
+
 .job-history__dialog-btn--danger:hover {
   background: #dc2626;
 }
+
 
 /* Files preview & popover */
 .job-history__cell-files {
@@ -269,11 +401,13 @@ function closePopovers() {
   max-width: 200px;
 }
 
+
 .job-history__files-preview {
   display: flex;
   align-items: center;
   gap: 6px;
 }
+
 
 .job-history__file-name {
   overflow: hidden;
@@ -281,6 +415,7 @@ function closePopovers() {
   white-space: nowrap;
   font-size: 13px;
 }
+
 
 .job-history__file-more {
   font-size: 11px;
@@ -290,6 +425,7 @@ function closePopovers() {
   border-radius: 10px;
   white-space: nowrap;
 }
+
 
 .job-history__files-btn {
   background: none;
@@ -301,9 +437,11 @@ function closePopovers() {
   transition: opacity 0.15s;
 }
 
+
 .job-history__files-btn:hover {
   opacity: 1;
 }
+
 
 .job-history__popover {
   position: absolute;
@@ -319,6 +457,7 @@ function closePopovers() {
   padding: 8px 0;
 }
 
+
 .job-history__popover-title {
   font-size: 12px;
   font-weight: 600;
@@ -326,6 +465,7 @@ function closePopovers() {
   padding: 4px 12px 8px;
   border-bottom: 1px solid var(--border);
 }
+
 
 .job-history__popover-list {
   list-style: none;
@@ -335,6 +475,7 @@ function closePopovers() {
   overflow-y: auto;
 }
 
+
 .job-history__popover-item {
   font-size: 13px;
   padding: 4px 12px;
@@ -342,15 +483,18 @@ function closePopovers() {
   word-break: break-all;
 }
 
+
 .job-history__popover-item:hover {
   background: var(--bg-main);
 }
+
 
 /* Delete confirmation dialog */
 .job-history__dialog-struck {
   text-decoration: line-through;
   opacity: 0.4;
 }
+
 
 .job-history__dialog-checkbox {
   display: flex;
@@ -362,9 +506,12 @@ function closePopovers() {
   cursor: pointer;
 }
 
+
 .job-history__dialog-checkbox input[type="checkbox"] {
   width: 16px;
   height: 16px;
   cursor: pointer;
 }
+
+
 </style>

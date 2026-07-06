@@ -60,7 +60,7 @@ async def run_etl_job(
             - model, base_url, api_key (LLM settings)
             - chunk_size, chunk_overlap, max_workers, output_format
             - prompt (system prompt text)
-            - skip_llm (bool), cleanup (bool)
+            - skip_llm (bool)
         job_service: Job service singleton.
         ws_manager: WebSocket manager singleton.
     """
@@ -108,7 +108,7 @@ async def run_etl_job(
         if "prompt_text" in config:
             flat_config.setdefault("prompt", config["prompt_text"])
 
-        for key in ("output_dir", "output_format", "skip_llm", "cleanup"):
+        for key in ("output_dir", "output_format", "skip_llm"):
             if key in config:
                 flat_config.setdefault(key, config[key])
 

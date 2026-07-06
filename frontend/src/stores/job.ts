@@ -157,6 +157,21 @@ export const useJobStore = defineStore('job', () => {
     selectedJobLogs.value = []
   }
 
+  function clearActiveJob(): void {
+    disconnectWS()
+    currentJobId.value = null
+    selectedJobId.value = null
+    selectedJobLogs.value = []
+    currentJobFiles.value = []
+    currentJobFileIds.value = []
+    status.value = null
+    progress.value = {}
+    globalProgress.value = 0
+    logs.value = []
+    stopRequested.value = false
+    localStorage.removeItem(JOB_STORAGE_KEY)
+  }
+
   // ── WebSocket actions (existing) ──────────────────────────────────────────
 
   function startJob(jobId: string, fileIds: string[] = []) {
@@ -305,7 +320,7 @@ export const useJobStore = defineStore('job', () => {
     currentJobId, status, progress, globalProgress, logs, stopRequested,
     jobs, currentJobFiles, selectedJobId, selectedJobLogs, activeLogs, activeFiles,
     activeJobId, activeJobFileIds, activeStatus, activeProgress, currentJobFileIds,
-    selectJob, clearSelection,
+    selectJob, clearSelection, clearActiveJob,
     isRunning, isCompleted, isActive,
     startJob, stopJob, restoreJob, connectWS, disconnectWS, addLog,
     createAndStartJob, fetchJobs, fetchJobFiles, deleteJob,

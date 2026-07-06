@@ -187,32 +187,6 @@ class FileService:
         logger.info("Deleted file: %s (id=%s)", item.filename, file_id)
         return True
 
-    def cleanup(self, max_age_hours: int = 24) -> int:
-        """Remove files older than max_age_hours. Returns count of removed files."""
-        now = datetime.now(timezone.utc)
-        to_remove: list[str] = []
-
-        with get_cursor() as cur:
-            cur.execute("SELECT id, uploaded_at FROM files")
-            rows = cur.fetchall()
-
-        for row in rows:
-            file_id = row[0]
-            uploaded_at = datetime.fromisoformat(row[1]) if isinstance(row[1], str) else row[1]
-            age_hours = (now - uploaded_at).total_seconds() / 3600
-            if age_hours > max_age_hours:
-                to_remove.append(file_id)
-
-        count = 0
-        for file_id in to_remove:
-            if self.delete(file_id):
-                count += 1
-
-        if count > 0:
-            logger.info("Cleaned up %d old files", count)
-        return count
-
-
 # ── Singleton ───────────────────────────────────────────────────────────────
 
 _file_service: Optional[FileService] = None

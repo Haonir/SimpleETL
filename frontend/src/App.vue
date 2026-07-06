@@ -12,7 +12,6 @@ import FileList from '@/components/FileList/FileList.vue'
 import JobOutput from '@/components/JobOutput/JobOutput.vue'
 import JobHistory from '@/components/JobHistory/JobHistory.vue'
 import ConnectionStatus from '@/components/ConnectionStatus/ConnectionStatus.vue'
-import { cleanupJobs } from '@/services/api'
 import {
   FileStack, Settings, MessageSquare, ScrollText, Package, History,
   PanelLeftClose, PanelLeftOpen
@@ -56,14 +55,7 @@ onMounted(async () => {
   await filesStore.fetchFiles()
   await jobStore.restoreJob()
 
-  // Auto-cleanup if enabled
-  if (configStore.cleanup?.enabled) {
-    try {
-      await cleanupJobs(configStore.cleanup.max_age_hours)
-    } catch {
-      // Ignore cleanup errors on startup
-    }
-  }
+
 })
 </script>
 

@@ -315,39 +315,6 @@ class JobService:
         with get_cursor() as cur:
             cur.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
 
-    def cleanup(self, max_age_hours: int = 24) -> int:
-        """Remove terminal-state jobs older than max_age_hours.
-
-        Args:
-            max_age_hours: Maximum age in hours before a job is cleaned up.
-
-        Returns:
-            Number of jobs removed.
-        """
-        from datetime import timedelta
-
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
-        removed = 0
-
-        with get_cursor() as cur:
-            cur.execute(
-                "SELECT id, status, completed_at FROM jobs WHERE status IN ('completed', 'error', 'stopped')"
-            )
-            rows = cur.fetchall()
-
-        for row in rows:
-            job_id = row["id"]
-            completed_at = row["completed_at"]
-            if completed_at:
-                try:
-                    completed_dt = datetime.fromisoformat(completed_at)
-                    if completed_dt < cutoff:
-                        self.delete_job_files(job_id)
-                        removed += 1
-                except (ValueError, TypeError):
-                    continue
-
-        return removed
 
     @property
     def output_base_dir(self) -> Path:

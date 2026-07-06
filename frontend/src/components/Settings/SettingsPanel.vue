@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { Server, Cog, SlidersHorizontal } from '@lucide/vue'
 import { useConfigStore } from '@/stores/config'
 import { useUiStore } from '@/stores/ui'
-import type { LLMConfig, ProcessingConfig, CleanupConfig } from '@/types/config'
+import type { LLMConfig, ProcessingConfig } from '@/types/config'
 import LLMSettings from './LLMSettings.vue'
+import GeneralSettings from './GeneralSettings.vue'
 import ProcessingSettings from './ProcessingSettings.vue'
-import CleanupSettings from './CleanupSettings.vue'
 
 const configStore = useConfigStore()
 const uiStore = useUiStore()
 
-type TabId = 'llm' | 'processing' | 'cleanup'
-const activeTab = ref<TabId>('llm')
+type TabId = 'llm' | 'processing' | 'general'
+const activeTab = ref<TabId>('processing')
 
 const llmValue = ref<LLMConfig>(configStore.llm)
 const processingValue = ref<ProcessingConfig>(configStore.processing)
-const cleanupValue = ref<CleanupConfig>(configStore.cleanup)
 
 onMounted(() => {
   if (!configStore.loaded) {
@@ -26,39 +26,10 @@ onMounted(() => {
 async function saveSettings() {
   configStore.llm = llmValue.value
   configStore.processing = processingValue.value
-  configStore.cleanup = cleanupValue.value
   await configStore.save()
   uiStore.showNotification('success', 'Settings saved')
 }
 
-async function runCleanup() {
-  try {
-    const res = await fetch(`/api/v1/jobs/cleanup?max_age_hours=${cleanupValue.value.max_age_hours}`, { method: 'POST' })
-    if (res.ok) {
-      const data = await res.json()
-      uiStore.showNotification('success', `Cleaned up ${data.removed} old jobs`)
-    } else {
-      uiStore.showNotification('error', 'Cleanup failed')
-    }
-  } catch {
-    uiStore.showNotification('error', 'Cleanup request failed')
-  }
-}
-
-async function handleImport(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  try {
-    await configStore.importConfig(file)
-    llmValue.value = configStore.llm
-    processingValue.value = configStore.processing
-    uiStore.showNotification('success', 'Config imported')
-  } catch (err) {
-    uiStore.showNotification('error', 'Failed to import config')
-  }
-  input.value = ''
-}
 </script>
 
 <template>
@@ -67,22 +38,22 @@ async function handleImport(event: Event) {
     <!-- Tab navigation -->
     <div class="tabs">
       <button
-        :class="['tab', { 'tab--active': activeTab === 'llm' }]"
-        @click="activeTab = 'llm'"
-      >
-        Providers
-      </button>
-      <button
         :class="['tab', { 'tab--active': activeTab === 'processing' }]"
         @click="activeTab = 'processing'"
       >
-        Processing
+        <Cog :size="14" /> Processing
       </button>
       <button
-        :class="['tab', { 'tab--active': activeTab === 'cleanup' }]"
-        @click="activeTab = 'cleanup'"
+        :class="['tab', { 'tab--active': activeTab === 'llm' }]"
+        @click="activeTab = 'llm'"
       >
-        Cleanup
+        <Server :size="14" /> Providers
+      </button>
+      <button
+        :class="['tab', { 'tab--active': activeTab === 'general' }]"
+        @click="activeTab = 'general'"
+      >
+        <SlidersHorizontal :size="14" /> General
       </button>
     </div>
 
@@ -90,20 +61,11 @@ async function handleImport(event: Event) {
     <div class="tab-content">
       <LLMSettings v-model="llmValue" :disabled="false" v-if="activeTab === 'llm'" />
       <ProcessingSettings v-model="processingValue" :disabled="false" v-if="activeTab === 'processing'" />
-      <CleanupSettings v-model="cleanupValue" @run-cleanup="runCleanup" v-if="activeTab === 'cleanup'" />
+      <GeneralSettings v-if="activeTab === 'general'" />
     </div>
 
     <!-- Save button -->
-    <button class="btn btn--primary btn--md" @click="saveSettings">Save</button>
-
-    <!-- Export / Import config -->
-    <div class="config-actions">
-      <button class="btn btn--secondary btn--md" @click="configStore.exportConfig()">Export Config</button>
-      <label class="btn btn--secondary btn--md import-label">
-        Import Config
-        <input type="file" accept=".json" class="hidden-input" @change="handleImport" />
-      </label>
-    </div>
+    <button class="btn btn--primary btn--md settings-save-btn" @click="saveSettings">Save</button>
   </div>
 </template>
 
@@ -127,6 +89,9 @@ async function handleImport(event: Event) {
 }
 
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 20px;
   background: none;
   border: none;
@@ -179,18 +144,8 @@ async function handleImport(event: Event) {
   cursor: not-allowed;
 }
 
-.config-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.import-label {
-  display: inline-flex;
-  cursor: pointer;
-}
-
-.hidden-input {
-  display: none;
+.settings-save-btn {
+  align-self: flex-end;
+  min-width: 120px;
 }
 </style>

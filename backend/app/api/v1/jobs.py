@@ -277,9 +277,3 @@ async def get_job_outputs(job_id: str) -> JobOutputsResponse:
     return JobOutputsResponse(outputs=outputs, total=len(outputs))
 
 
-@router.post("/jobs/cleanup")
-async def cleanup_jobs(max_age_hours: int = 24) -> dict:
-    """Clean up old completed/errored/stopped jobs and their files."""
-    service = get_job_service()
-    removed = service.cleanup(max_age_hours=max_age_hours)
-    return {"removed": removed}

@@ -7,7 +7,7 @@ import { usePromptsStore } from '@/stores/prompts'
 import { useUiStore } from '@/stores/ui'
 import type { OutputFormat } from '@/types/config'
 import Button from '@/components/UI/Button.vue'
-import { Play, Square } from '@lucide/vue'
+import { Play, Square, Save, RefreshCw } from '@lucide/vue'
 
 const filesStore = useFilesStore()
 const jobStore = useJobStore()
@@ -31,6 +31,22 @@ watch(() => configStore.processing.output_format, (newVal) => {
     selectedFormat.value = newVal
   }
 })
+
+async function handleSaveDefaults() {
+  configStore.processing.output_format = selectedFormat.value
+  configStore.processing.skip_llm = !selectedPromptName.value
+  if (selectedPromptName.value) {
+    await promptsStore.setCurrentPrompt(selectedPromptName.value)
+  } else {
+    configStore.currentPromptName = ''
+    await configStore.save()
+  }
+  uiStore.showNotification('success', 'Format & prompt saved')
+}
+
+function handleClearJob() {
+  jobStore.clearActiveJob()
+}
 
 const formatOptions: { value: OutputFormat; label: string }[] = [
   { value: 'markdown', label: 'Raw Markdown' },
@@ -125,8 +141,14 @@ function statusBadgeText(status: string | null): string {
         {{ p.name }}
       </option>
     </select>
+    <button class="toolbar-save-btn" title="Save format & prompt to config" @click="handleSaveDefaults">
+      <Save :size="14" />
+    </button>
     <span v-if="!selectedPromptName" class="toolbar-hint">⚡ LLM step will be skipped</span>
 
+    <button v-if="jobStore.activeJobId" class="toolbar-save-btn" title="Clear current job" @click="handleClearJob">
+      <RefreshCw :size="14" />
+    </button>
     <span v-if="jobStore.activeJobId" :class="['status-badge', `status-badge--${jobStore.activeStatus || 'idle'}`]">
       {{ statusBadgeText(jobStore.activeStatus) }}
     </span>
@@ -199,6 +221,27 @@ function statusBadgeText(status: string | null): string {
 
 .toolbar-select--sm {
   max-width: 140px;
+}
+
+.toolbar-save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--fg-label);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.toolbar-save-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .toolbar-hint {

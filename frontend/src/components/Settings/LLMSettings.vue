@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { Eye, EyeOff } from '@lucide/vue'
 import type { LLMConfig } from '@/types/config'
 
 interface Props {
@@ -87,7 +88,8 @@ defineEmits<{
         class="btn--icon"
         @click="toggleApiKey"
       >
-        {{ showApiKey ? '👁' : '🙈' }}
+        <EyeOff v-if="showApiKey" :size="16" />
+        <Eye v-else :size="16" />
       </button>
     </div>
 
@@ -121,7 +123,8 @@ defineEmits<{
         class="btn--icon"
         @click="toggleServerKey"
       >
-        {{ showServerKey ? '👁' : '🙈' }}
+        <EyeOff v-if="showServerKey" :size="16" />
+        <Eye v-else :size="16" />
       </button>
     </div>
     <p class="settings-hint">
@@ -176,12 +179,14 @@ defineEmits<{
 }
 
 .btn--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0 8px;
   cursor: pointer;
-  font-size: 14px;
   color: var(--fg-label);
 }
 
