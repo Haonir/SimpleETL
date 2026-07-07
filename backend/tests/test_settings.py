@@ -60,6 +60,14 @@ class TestAppSettingsEnvVars:
         finally:
             del os.environ["APP_MAX_WORKERS"]
 
+    def test_server_port_env_override(self):
+        os.environ["APP_SERVER_PORT"] = "8005"
+        try:
+            settings = AppSettings()
+            assert settings.server_port == 8005
+        finally:
+            del os.environ["APP_SERVER_PORT"]
+
     def test_env_prefix_case_insensitive(self):
         """case_sensitive=False allows mixed-case prefix."""
         os.environ["app_llm_base_url"] = "http://custom:8080/v1"

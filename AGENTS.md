@@ -15,7 +15,8 @@ Vue 3 + FastAPI web app for text chunking + LLM SPR generation → Markdown/YAML
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-uvicorn app.main:app --reload --port 8000
+APP_SERVER_PORT=8000 uvicorn app.main:app --reload
+# OR: python -m app.main  # uses APP_SERVER_PORT env var
 
 # Frontend (separate terminal)
 cd frontend
@@ -77,6 +78,7 @@ frontend/src/
 - **`config.json`**: Legacy file, not used by web app. Frontend loads from `public/config.json` defaults + localStorage.
 - **API key auth**: Optional `APP_API_KEY` env var → `X-API-Key` header required.
 - **`.env`**: Backend reads `APP_*` env vars. Frontend reads `VITE_*` vars.
+- **`APP_SERVER_PORT`**: Backend server port (default: 8000). Used by `python -m app.main`.
 
 ---
 
