@@ -7,6 +7,7 @@ import { useUiStore } from '@/stores/ui'
 import { useThemeStore } from '@/stores/theme'
 import { usePromptsStore } from '@/stores/prompts'
 import Button from '@/components/UI/Button.vue'
+import Checkbox from '@/components/UI/Checkbox.vue'
 
 const { t } = useI18n()
 
@@ -59,6 +60,25 @@ function cancelReset() {
 
 <template>
   <div class="general-settings">
+    <h4 class="section-title">{{ t('settingsGeneral.notifications') }}</h4>
+    <div class="notification-settings">
+      <label class="notification-option">
+        <Checkbox
+          :modelValue="configStore.notifications.enabled"
+          @update:modelValue="configStore.updateNotifications({ enabled: $event as boolean })"
+        />
+        <span class="notification-option__label">{{ t('settingsGeneral.notificationsEnabled') }}</span>
+      </label>
+      <label class="notification-option" :class="{ 'notification-option--disabled': !configStore.notifications.enabled }">
+        <Checkbox
+          :modelValue="configStore.notifications.enabled && configStore.notifications.sound"
+          :disabled="!configStore.notifications.enabled"
+          @update:modelValue="configStore.updateNotifications({ sound: $event as boolean })"
+        />
+        <span class="notification-option__label">{{ t('settingsGeneral.notificationsSound') }}</span>
+      </label>
+    </div>
+
     <h4 class="section-title">{{ t('settingsGeneral.language') }}</h4>
     <label class="settings-label">{{ t('settingsGeneral.interfaceLanguage') }}</label>
     <select v-model="configStore.language" class="settings-select">
@@ -182,6 +202,29 @@ function cancelReset() {
 }
 
 /* Confirmation dialog */
+.notification-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notification-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.notification-option--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.notification-option__label {
+  font-size: 12px;
+  color: var(--fg-label);
+}
+
 .dialog-overlay {
   position: fixed;
   inset: 0;

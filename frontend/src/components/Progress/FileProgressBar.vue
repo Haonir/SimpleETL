@@ -12,7 +12,7 @@ const fileProgress = computed(() => {
 
 const visible = computed(() => {
   const s = jobStore.activeStatus
-  return (s === 'running' || s === 'completed') && jobStore.activeJobFileIds.length > 0
+  return (s === 'running' || s === 'completed' || s === 'stopped' || s === 'partial') && jobStore.activeJobFileIds.length > 0
 })
 </script>
 

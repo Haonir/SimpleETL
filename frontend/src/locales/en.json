@@ -141,7 +141,10 @@
     "resetConfirmTitle": "Reset Prompt Library",
     "resetConfirmText": "All custom prompts will be deleted and replaced with the default prompts.",
     "resetConfirmRecommend": "Export your config first to save the current prompts.",
-    "resetConfirmWarning": "⚠️ This action cannot be undone!"
+    "resetConfirmWarning": "⚠️ This action cannot be undone!",
+    "notifications": "Notifications",
+    "notificationsEnabled": "Enable notifications on job completion",
+    "notificationsSound": "Play sound on job completion"
   },
   "settingsProcessing": {
     "chunkSize": "Chunk Size",

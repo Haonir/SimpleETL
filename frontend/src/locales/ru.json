@@ -141,7 +141,10 @@
     "resetConfirmTitle": "Сброс библиотеки промптов",
     "resetConfirmText": "Все пользовательские промпты будут удалены и заменены на промпты по умолчанию.",
     "resetConfirmRecommend": "Экспортируйте конфиг, чтобы сохранить текущие промпты.",
-    "resetConfirmWarning": "⚠️ Это действие нельзя отменить!"
+    "resetConfirmWarning": "⚠️ Это действие нельзя отменить!",
+    "notifications": "Уведомления",
+    "notificationsEnabled": "Включить уведомления о завершении работы",
+    "notificationsSound": "Воспроизводить звук при завершении работы"
   },
   "settingsProcessing": {
     "chunkSize": "Размер чанка",

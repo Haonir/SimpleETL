@@ -34,6 +34,14 @@ export interface ProcessingConfig {
   ocr_languages: string
 }
 
+/** Notification preferences for job completion alerts. */
+export interface NotificationConfig {
+  /** Enable browser notifications when a job completes. */
+  enabled: boolean
+  /** Play a sound alert when a job completes (requires enabled=true). */
+  sound: boolean
+}
+
 /** A single prompt entry in the library (name + text). */
 export interface PromptEntry {
   /** Unique prompt identifier. */
@@ -51,4 +59,5 @@ export interface ConfigResponse {
   current_prompt_name: string
   /** UI language code. */
   language: Language
+  notifications?: NotificationConfig // optional for backward compat
 }

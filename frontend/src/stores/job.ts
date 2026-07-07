@@ -8,6 +8,7 @@ const JOB_STORAGE_KEY = 'simpleetl_current_job_id'
 import { useFilesStore } from '@/stores/files'
 import { createJob as apiCreateJob, getJobs as apiGetJobs, getJobFiles as apiGetJobFiles, stopJob as stopJobApi, getJob as apiGetJob, getJobLogs as apiGetJobLogs, getJobOutputs as apiGetJobOutputs } from '@/services/api'
 import type { JobCreateRequest, JobItem, JobFileItem, JobResponse } from '@/types/job'
+import { useConfigStore } from '@/stores/config'
 
 export const useJobStore = defineStore('job', () => {
   const currentJobId = ref<string | null>(null)
@@ -137,13 +138,13 @@ export const useJobStore = defineStore('job', () => {
     // Fetch logs and outputs for the selected job
     try {
       const logsResp = await apiGetJobLogs(jobId)
-      selectedJobLogs.value = logsResp.logs.map((l) => ({
+      jobLogs.value[jobId] = logsResp.logs.map((l) => ({
         timestamp: l.timestamp,
         level: l.level,
         message: l.message,
       }))
     } catch {
-      selectedJobLogs.value = []
+      jobLogs.value[jobId] = []
     }
     try {
       const outputsResp = await apiGetJobOutputs(jobId)
@@ -164,6 +165,7 @@ export const useJobStore = defineStore('job', () => {
     delete jobProgress.value[jobId]
     delete jobGlobalProgress.value[jobId]
     delete jobLogs.value[jobId]
+    clearJobProgress(jobId)
     // Remove from local list
     jobs.value = jobs.value.filter((j) => j.id !== jobId)
     // Clear selection if deleted job was selected
@@ -196,6 +198,11 @@ export const useJobStore = defineStore('job', () => {
     currentJobFileIds.value = []
     status.value = null
     stopRequested.value = false
+    // Clear all cached progress from localStorage (before resetting in-memory)
+    const cachedIds = Object.keys(jobProgress.value)
+    for (const id of cachedIds) {
+      clearJobProgress(id)
+    }
     jobProgress.value = {}
     jobGlobalProgress.value = {}
     jobLogs.value = {}
@@ -222,6 +229,20 @@ export const useJobStore = defineStore('job', () => {
     jobLogs.value[jobId] = []
     localStorage.setItem(JOB_STORAGE_KEY, jobId)
     connectJobWS(jobId)
+    // Backfill logs sent before WS was connected — merge then deduplicate by timestamp+message
+    apiGetJobLogs(jobId).then(resp => {
+      const backfill = resp.logs.map((l: any) => ({
+        timestamp: l.timestamp, level: l.level, message: l.message,
+      }))
+      const merged = [...backfill, ...(jobLogs.value[jobId] ?? [])]
+      const seen = new Set<string>()
+      jobLogs.value[jobId] = merged.filter(l => {
+        const key = `${l.timestamp}|${l.message}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+    }).catch(() => {})
   }
 
   async function stopJob() {
@@ -281,6 +302,17 @@ export const useJobStore = defineStore('job', () => {
           }))
         } catch {}
 
+        // Initialize per-job progress
+        jobProgress.value[savedJobId] = {}
+        jobGlobalProgress.value[savedJobId] = 0
+
+        // Restore cached progress from localStorage (survives page refresh)
+        const cached = loadJobProgress(savedJobId)
+        if (cached) {
+          jobProgress.value[savedJobId] = cached.progress
+          jobGlobalProgress.value[savedJobId] = cached.globalProgress
+        }
+
         return
       } catch {}
     }
@@ -323,6 +355,58 @@ export const useJobStore = defineStore('job', () => {
     return jobs.value.find(j => j.id === jobId)?.file_ids ?? []
   }
 
+  // ── Progress caching in localStorage (survives page refresh) ──────────────
+  function getProgressStorageKey(jobId: string): string {
+    return `simpleetl_progress_${jobId}`
+  }
+
+  function saveJobProgress(jobId: string) {
+    try {
+      localStorage.setItem(getProgressStorageKey(jobId), JSON.stringify({
+        progress: jobProgress.value[jobId] ?? {},
+        globalProgress: jobGlobalProgress.value[jobId] ?? 0,
+      }))
+    } catch {}
+  }
+
+  function loadJobProgress(jobId: string): { progress: Record<string, number>, globalProgress: number } | null {
+    try {
+      const cached = localStorage.getItem(getProgressStorageKey(jobId))
+      if (!cached) return null
+      const parsed = JSON.parse(cached)
+      if (typeof parsed === 'object' && parsed !== null && 'progress' in parsed) {
+        return { progress: parsed.progress ?? {}, globalProgress: parsed.globalProgress ?? 0 }
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  function clearJobProgress(jobId: string) {
+    try {
+      localStorage.removeItem(getProgressStorageKey(jobId))
+    } catch {}
+  }
+
+  function playNotificationSound() {
+    try {
+      const ctx = new AudioContext()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.value = 880
+      gain.gain.value = 0.3
+      osc.start()
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
+      osc.stop(ctx.currentTime + 0.5)
+    } catch {
+      // Audio not available
+    }
+  }
+
   function handleMessage(msg: WSServerMessage) {
     const jobId = msg.job_id
     console.log('[JobStore] handleMessage:', msg.type, msg)
@@ -335,6 +419,7 @@ export const useJobStore = defineStore('job', () => {
           jobProgress.value[jobId][fileId] = msg.chunk_pct
         }
         jobGlobalProgress.value[jobId] = msg.global_pct
+        saveJobProgress(jobId)
         break
       }
       case 'log': {
@@ -364,6 +449,7 @@ export const useJobStore = defineStore('job', () => {
           jobProgress.value[jobId][fid] = 100
         }
         jobGlobalProgress.value[jobId] = 100
+        saveJobProgress(jobId)
         updateJobInList(jobId, 'completed')
         if (jobId === currentJobId.value) {
           if (status.value !== 'stopped' && status.value !== 'error' && status.value !== 'partial') {
@@ -373,6 +459,28 @@ export const useJobStore = defineStore('job', () => {
         }
         if (activeJobId.value === jobId) {
           fetchJobFiles(jobId)
+        }
+        // Send notification if this job is being viewed
+        try {
+          const configStore = useConfigStore()
+          if (configStore.notifications.enabled) {
+            // Browser notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification('SimpleETL', { body: `Job completed: ${jobId.slice(0, 8)}` })
+            } else if ('Notification' in window && Notification.permission !== 'denied') {
+              Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                  new Notification('SimpleETL', { body: `Job completed: ${jobId.slice(0, 8)}` })
+                }
+              })
+            }
+            // Sound
+            if (configStore.notifications.sound) {
+              playNotificationSound()
+            }
+          }
+        } catch {
+          // Notification not available
         }
         disconnectJobWS(jobId)
         break

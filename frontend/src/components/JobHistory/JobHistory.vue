@@ -256,7 +256,7 @@ function closePopovers() {
 <style scoped>
 .job-history__title { font-size: 16px; font-weight: 600; color: var(--fg-title); margin: 0 0 1rem; }
 .job-history__empty { padding: 2rem; text-align: center; color: var(--fg-label); }
-.job-history__table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 8px; overflow: hidden; }
+.job-history__table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 8px; }
 .job-history__table th { padding: 10px 16px; text-align: left; font-size: 12px; font-weight: 600; color: var(--fg-header); border-bottom: 1px solid var(--border); background: var(--bg-main); }
 .job-history__table td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid var(--border); }
 .job-history__cell-id { font-family: monospace; font-size: 12px; white-space: nowrap; }

@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import i18n from '@/i18n'
 import { loadConfigFile, saveConfigFile, downloadConfigFile, importConfigFile, clearConfigFile } from '@/services/configFile'
-import type { LLMConfig, ProcessingConfig, ConfigResponse, PromptEntry, Language } from '@/types/config'
+import type { LLMConfig, ProcessingConfig, ConfigResponse, PromptEntry, Language, NotificationConfig } from '@/types/config'
 import { useUiStore } from './ui'
 
 const DEFAULT_PROCESSING: ProcessingConfig = {
@@ -16,12 +16,18 @@ const DEFAULT_PROCESSING: ProcessingConfig = {
   ocr_languages: 'rus+eng',
 }
 
+const DEFAULT_NOTIFICATIONS: NotificationConfig = {
+  enabled: true,
+  sound: true,
+}
+
 export const useConfigStore = defineStore('config', () => {
   const llm = ref<LLMConfig>({ model: '', base_url: '', api_key: '' })
   const processing = ref<ProcessingConfig>({ ...DEFAULT_PROCESSING })
   const prompts = ref<PromptEntry[]>([])
   const currentPromptName = ref('')
   const language = ref<Language>('en')
+  const notifications = ref<NotificationConfig>({ ...DEFAULT_NOTIFICATIONS })
 
   // Sync language to i18n locale
   watch(language, (lang) => {
@@ -38,6 +44,7 @@ export const useConfigStore = defineStore('config', () => {
       prompts.value = config.prompts || []
       currentPromptName.value = config.current_prompt_name || ''
       language.value = config.language || 'en'
+      notifications.value = { ...DEFAULT_NOTIFICATIONS, ...config.notifications }
       i18n.global.locale.value = language.value
       loaded.value = true
     } catch (err) {
@@ -54,6 +61,7 @@ export const useConfigStore = defineStore('config', () => {
         prompts: prompts.value,
         current_prompt_name: currentPromptName.value,
         language: language.value,
+        notifications: notifications.value,
       }
       saveConfigFile(fullConfig)
     } catch (err) {
@@ -99,9 +107,14 @@ export const useConfigStore = defineStore('config', () => {
     clearConfigFile()
     llm.value = { model: '', base_url: '', api_key: '' }
     processing.value = { ...DEFAULT_PROCESSING }
+    notifications.value = { ...DEFAULT_NOTIFICATIONS }
     loaded.value = false
     language.value = 'en'
   }
 
-  return { llm, processing, loaded, loadConfig, save, updateLLM, updateProcessing, exportConfig, importConfig, clearConfig, prompts, currentPromptName, language }
+  function updateNotifications(partial: Partial<NotificationConfig>) {
+    notifications.value = { ...notifications.value, ...partial }
+  }
+
+  return { llm, processing, loaded, loadConfig, save, updateLLM, updateProcessing, exportConfig, importConfig, clearConfig, prompts, currentPromptName, language, notifications, updateNotifications }
 })
