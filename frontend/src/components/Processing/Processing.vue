@@ -196,7 +196,7 @@ watch(() => jobStore.status, (newStatus) => {
             </td>
             <td class="file-list__cell file-list__cell--name">
               <span :title="file.filename">{{ file.filename }}</span>
-              <FileProgressBar :fileIdx="fileIndex" :fileName="file.filename" />
+              <FileProgressBar :fileId="file.id" :fileName="file.filename" />
             </td>
             <td class="file-list__cell file-list__cell--size">{{ formatSize(file.size_bytes) }}</td>
             <td class="file-list__cell file-list__cell--date">{{ formatDate(file.uploaded_at) }}</td>

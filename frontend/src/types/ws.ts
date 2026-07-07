@@ -43,6 +43,14 @@ export interface WSStopMessage {
   job_id: string
 }
 
+/** Single file processing complete — output files saved to DB. */
+export interface WSFileDoneMessage {
+  type: "file_done"
+  job_id: string
+  file_idx: number
+  base_name: string
+}
+
 /** Union of all server-to-client WebSocket messages. */
 export type WSServerMessage =
   | WSProgressMessage
@@ -50,6 +58,7 @@ export type WSServerMessage =
   | WSStatusMessage
   | WSDoneMessage
   | WSErrorMessage
+  | WSFileDoneMessage
 
 /** Timestamped log entry for the UI log panel. */
 export interface LogEntry {

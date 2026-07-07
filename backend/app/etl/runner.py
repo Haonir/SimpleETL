@@ -23,13 +23,13 @@ from app.settings import get_settings
 from app.etl.callbacks import create_callbacks
 from app.services.log_manager import create_job_logger
 from app.schemas.job import JobStatus
-from app.schemas.websocket import WSLogMessage, WSStatusMessage, WSDoneMessage, WSErrorMessage
+from app.schemas.websocket import WSLogMessage, WSStatusMessage, WSDoneMessage, WSErrorMessage, WSFileDoneMessage
 
 import threading
 
 from app.etl.splitter import _extract_and_split
 from app.etl.llm_processor import run_phase_llm, copy_chunks_to_processed
-from app.etl.packer import run_phase_pack
+from app.etl.packer import pack_outputs
 
 if TYPE_CHECKING:
     from app.services.job_service import JobService
@@ -123,10 +123,20 @@ async def run_etl_job(
                             t.cancel()
                     break
                 try:
-                    base_name, output_files, errors = await coro
+                    file_idx, base_name, output_files, errors = await coro
                     if output_files:
                         all_output_files.extend(output_files)
                         _save_outputs(job_id, output_files)
+                        # Notify frontend that output files are now available
+                        await ws_manager.broadcast(
+                            job_id,
+                            WSFileDoneMessage(
+                                type="file_done",
+                                job_id=job_id,
+                                file_idx=file_idx,
+                                base_name=base_name,
+                            ).model_dump(),
+                        )
                     if errors:
                         all_errors.update(errors)
                 except asyncio.CancelledError:
@@ -195,7 +205,7 @@ async def _process_file(
     job_id: str,
     completed_files_count: list[int],
     progress_lock: threading.Lock,
-) -> tuple[str, list[str], set[str]]:
+) -> tuple[int, str, list[str], set[str]]:
     """Full pipeline for one file: extract → split → LLM → pack.
 
     Args:
@@ -212,7 +222,7 @@ async def _process_file(
         progress_lock: Lock for thread-safe progress updates.
 
     Returns:
-        Tuple of (base_name, output_files, errors_set).
+        Tuple of (file_idx, base_name, output_files, errors_set).
     """
     loop = asyncio.get_event_loop()
 
@@ -235,7 +245,7 @@ async def _process_file(
 
         # Step 2: LLM
         if stop_cb():
-            return base_name, [], errors
+            return file_idx, base_name, [], errors
 
         if flat_config.get("skip_llm", False):
             copy_chunks_to_processed(dirs["chunks_dir"], dirs["processed_dir"], base_name, log_cb)

@@ -5,6 +5,10 @@ import type { WSServerMessage, LogEntry } from '@/types/ws'
 import type { JobStatus } from '@/types/job'
 const JOB_STORAGE_KEY = 'simpleetl_current_job_id'
 
+function getProgressStorageKey(jobId: string | null): string {
+  return jobId ? `simpleetl_progress_${jobId}` : 'simpleetl_progress_unknown'
+}
+
 import { useFilesStore } from '@/stores/files'
 import { createJob as apiCreateJob, getJobs as apiGetJobs, getJobFiles as apiGetJobFiles, stopJob as stopJobApi, getJob as apiGetJob, getJobLogs as apiGetJobLogs, getJobOutputs as apiGetJobOutputs } from '@/services/api'
 import type { JobCreateRequest, JobItem, JobFileItem, JobResponse } from '@/types/job'
@@ -12,7 +16,7 @@ import type { JobCreateRequest, JobItem, JobFileItem, JobResponse } from '@/type
 export const useJobStore = defineStore('job', () => {
   const currentJobId = ref<string | null>(null)
   const status = ref<JobStatus | null>(null)
-  const progress = ref<Record<number, number>>({})
+  const progress = ref<Record<string, number>>({})
   const globalProgress = ref(0)
   const logs = ref<LogEntry[]>([])
   const ws = ref<WSConnection | null>(null)
@@ -90,27 +94,59 @@ export const useJobStore = defineStore('job', () => {
   }
 
   async function selectJob(jobId: string): Promise<void> {
+    // Save current running job's progress before switching
+    if (currentJobId.value && status.value === 'running') {
+      saveProgressToStorage()
+    }
+
     selectedJobId.value = jobId
     localStorage.setItem(JOB_STORAGE_KEY, jobId)
-    // If selected job is running, connect to its WS
     disconnectWS()
+
     const selectedJob = jobs.value.find(j => j.id === jobId)
-    if (selectedJob?.status === 'running' || selectedJob?.status === 'pending') {
+    if (!selectedJob) return
+
+    if (selectedJob.status === 'running' || selectedJob.status === 'pending') {
+      // Switching to a running/pending job
       currentJobId.value = jobId
+      status.value = selectedJob.status
+      // Restore this job's cached progress
+      try {
+        const cached = localStorage.getItem(getProgressStorageKey(jobId))
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (typeof parsed === 'object' && parsed !== null && 'progress' in parsed) {
+            progress.value = parsed.progress
+            globalProgress.value = parsed.globalProgress ?? 0
+          } else {
+            progress.value = parsed
+          }
+        } else {
+          progress.value = {}
+          globalProgress.value = 0
+        }
+      } catch {
+        progress.value = {}
+        globalProgress.value = 0
+      }
       connectWS(jobId)
+    } else {
+      // Switching to a completed/stopped/error job — clear running job state
+      currentJobId.value = null
+      status.value = selectedJob.status
+      progress.value = {}
+      globalProgress.value = selectedJob.status === 'completed' ? 100 : 0
+
+      // Set progress to 100% for completed jobs
+      if (selectedJob.status === 'completed') {
+        const prog: Record<string, number> = {}
+        selectedJob.file_ids?.forEach((fileId) => {
+          prog[fileId] = 100
+        })
+        progress.value = prog
+      }
     }
-    // Set progress for completed jobs — map file_ids to store.files indices
-    const job = jobs.value.find(j => j.id === jobId)
-    if (job?.status === 'completed') {
-      globalProgress.value = 100
-      const prog: Record<number, number> = {}
-      const filesStore = useFilesStore()
-      job.file_ids?.forEach((fileId) => {
-        const storeIdx = filesStore.files.findIndex(f => f.id === fileId)
-        if (storeIdx !== -1) prog[storeIdx] = 100
-      })
-      progress.value = prog
-    }
+
     // Fetch logs
     try {
       const logsResp = await apiGetJobLogs(jobId)
@@ -170,6 +206,8 @@ export const useJobStore = defineStore('job', () => {
   }
 
   function clearActiveJob(): void {
+    // Save job ID before clearing for localStorage cleanup
+    const prevJobId = currentJobId.value
     disconnectWS()
     currentJobId.value = null
     selectedJobId.value = null
@@ -182,6 +220,23 @@ export const useJobStore = defineStore('job', () => {
     logs.value = []
     stopRequested.value = false
     localStorage.removeItem(JOB_STORAGE_KEY)
+    if (prevJobId) {
+      localStorage.removeItem(getProgressStorageKey(prevJobId))
+    } else {
+      localStorage.removeItem('simpleetl_progress_unknown')
+    }
+  }
+
+  function saveProgressToStorage() {
+    if (!currentJobId.value) return
+    try {
+      localStorage.setItem(getProgressStorageKey(currentJobId.value), JSON.stringify({
+        progress: progress.value,
+        globalProgress: globalProgress.value,
+      }))
+    } catch {
+      // Ignore storage errors
+    }
   }
 
   // ── WebSocket actions (existing) ──────────────────────────────────────────
@@ -198,6 +253,8 @@ export const useJobStore = defineStore('job', () => {
     logs.value = []
     stopRequested.value = false
     localStorage.setItem(JOB_STORAGE_KEY, jobId)
+    localStorage.removeItem(getProgressStorageKey(jobId))
+    localStorage.removeItem('simpleetl_progress_unknown')
     connectWS(jobId)
   }
 
@@ -231,13 +288,27 @@ export const useJobStore = defineStore('job', () => {
         // Restore progress for completed jobs — map file_ids to store.files indices
         if (job.status === 'completed') {
           globalProgress.value = 100
-          const prog: Record<number, number> = {}
-          const filesStore = useFilesStore()
+          const prog: Record<string, number> = {}
           job.file_ids?.forEach((fileId) => {
-            const storeIdx = filesStore.files.findIndex(f => f.id === fileId)
-            if (storeIdx !== -1) prog[storeIdx] = 100
+            prog[fileId] = 100
           })
           progress.value = prog
+        } else {
+          // Restore cached progress for running/pending jobs
+          try {
+            const cached = localStorage.getItem(getProgressStorageKey(savedJobId))
+            if (cached) {
+              const parsed = JSON.parse(cached)
+              if (typeof parsed === 'object' && parsed !== null && 'progress' in parsed) {
+                progress.value = parsed.progress
+                globalProgress.value = parsed.globalProgress ?? 0
+              } else {
+                progress.value = parsed
+              }
+            }
+          } catch {
+            // Ignore parse errors
+          }
         }
 
         // Restore logs
@@ -302,10 +373,15 @@ export const useJobStore = defineStore('job', () => {
     if (msg.job_id !== currentJobId.value) return
     console.log('[JobStore] handleMessage:', msg.type, msg)
     switch (msg.type) {
-      case 'progress':
-        progress.value[msg.file_idx] = msg.chunk_pct
+      case 'progress': {
+        const fileId = currentJobFileIds.value[msg.file_idx]
+        if (fileId) {
+          progress.value[fileId] = msg.chunk_pct
+        }
         globalProgress.value = msg.global_pct
+        saveProgressToStorage()
         break
+      }
       case 'log':
         addLog({ timestamp: new Date().toISOString(), level: msg.level, message: msg.message })
         break
@@ -317,6 +393,12 @@ export const useJobStore = defineStore('job', () => {
         // Sync status to jobs array for history table
         updateJobInList(msg.job_id, msg.status)
         break
+      case 'file_done':
+        // A single file's outputs are saved — refresh the output files list
+        if (currentJobId.value) {
+          fetchJobFiles(currentJobId.value)
+        }
+        break
       case 'done':
         // Don't overwrite terminal statuses (stopped, error, partial) — 'done' just signals job is finished
         if (status.value !== 'stopped' && status.value !== 'error' && status.value !== 'partial') {
@@ -324,8 +406,16 @@ export const useJobStore = defineStore('job', () => {
           updateJobInList(msg.job_id, 'completed')
         }
         globalProgress.value = 100
+        // Set all per-file progress to 100%
+        for (const fid of currentJobFileIds.value) {
+          progress.value[fid] = 100
+        }
+        saveProgressToStorage()
         stopRequested.value = false
-        // Keep JOB_STORAGE_KEY so restoreJob() can restore logs/outputs on refresh
+        // Refresh output files list
+        if (currentJobId.value) {
+          fetchJobFiles(currentJobId.value)
+        }
         break
       case 'error':
         status.value = 'error'

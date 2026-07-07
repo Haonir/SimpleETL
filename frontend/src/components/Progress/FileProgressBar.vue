@@ -3,11 +3,11 @@ import { computed } from 'vue'
 import { useJobStore } from '@/stores/job'
 import ProgressBar from './ProgressBar.vue'
 
-const props = defineProps<{ fileIdx: number; fileName: string }>()
+const props = defineProps<{ fileId: string; fileName: string }>()
 const jobStore = useJobStore()
 
 const fileProgress = computed(() => {
-  return jobStore.progress[props.fileIdx] ?? 0
+  return jobStore.progress[props.fileId] ?? 0
 })
 
 const visible = computed(() => {

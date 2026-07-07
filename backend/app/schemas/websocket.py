@@ -53,6 +53,15 @@ class WSErrorMessage(BaseModel):
     message: str
 
 
+class WSFileDoneMessage(BaseModel):
+    """Single file processing complete — output files saved to DB."""
+
+    type: Literal["file_done"] = "file_done"
+    job_id: str
+    file_idx: int
+    base_name: str
+
+
 # ── Client → Server messages ────────────────────────────────────────────────
 
 class WSStopMessage(BaseModel):
