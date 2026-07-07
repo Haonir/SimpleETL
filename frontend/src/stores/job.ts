@@ -145,6 +145,18 @@ export const useJobStore = defineStore('job', () => {
       selectedJobLogs.value = []
       currentJobFiles.value = []
     }
+    // Clear current job if it was the deleted one
+    if (currentJobId.value === jobId) {
+      currentJobId.value = null
+      status.value = null
+      logs.value = []
+      progress.value = {}
+      globalProgress.value = 0
+      currentJobFileIds.value = []
+      disconnectWS()
+      localStorage.removeItem(JOB_STORAGE_KEY)
+    }
+    currentJobFiles.value = []
     // Refresh files list if source files were deleted
     if (!keepSourceFiles) {
       const filesStore = useFilesStore()

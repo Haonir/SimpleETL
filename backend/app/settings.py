@@ -30,6 +30,28 @@ class AppSettings(BaseSettings):
     # ── Paths ────────────────────────────────────────────────────────────────
     config_file: str = ""  # populated from disk or env; empty → default path
     data_dir: Path = Path(".")  # base directory for output files (raw/, processed/, final/)
+    app_data_dir: Path = Path(__file__).resolve().parent.parent.parent / "data"
+
+    @property
+    def uploads_dir(self) -> Path:
+        """Directory for uploaded input files."""
+        return self.app_data_dir / "uploads"
+
+    @property
+    def output_dir(self) -> Path:
+        """Directory for ETL pipeline output files."""
+        return self.app_data_dir / "output"
+
+    @property
+    def jobs_dir(self) -> Path:
+        """Directory for job metadata and logs."""
+        return self.app_data_dir / "jobs"
+
+    def ensure_data_dirs(self) -> None:
+        """Create data directories if they don't exist."""
+        self.uploads_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.jobs_dir.mkdir(parents=True, exist_ok=True)
 
     # ── LLM ──────────────────────────────────────────────────────────────────
     llm_model: str = "llama3"
@@ -41,6 +63,9 @@ class AppSettings(BaseSettings):
     chunk_overlap: int = 1_500
     max_workers: int = 1
     output_format: str = "spr"  # spr | frontmatter | markdown
+
+    # ── Server ───────────────────────────────────────────────────────────────
+    server_port: int = 8000  # APP_SERVER_PORT — uvicorn listen port (default 8000)
 
     # ── Prompts ──────────────────────────────────────────────────────────────
     prompts_file: Optional[str] = None  # path to prompts JSON (optional)

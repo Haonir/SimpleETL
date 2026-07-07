@@ -19,6 +19,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
+from app.settings import get_settings
+
 from app.etl.callbacks import create_callbacks
 from app.services.log_manager import create_job_logger
 from app.schemas.job import JobStatus
@@ -66,15 +68,8 @@ async def run_etl_job(
     """
     loop = asyncio.get_event_loop()
 
-    # Create file-based JSON logger for this job
-    # Use job_dir (parent of output/) so logs.json lives alongside output/
-    job = job_service.get(job_id)
-    if job and job.output_dir:
-        job_dir = Path(job.output_dir).parent
-    else:
-        job_dir = Path("/tmp/SimpleETL/jobs") / job_id
-    job_dir.mkdir(parents=True, exist_ok=True)
-    job_logger = create_job_logger(job_id, job_dir)
+    # Create SQLite logger for this job
+    job_logger = create_job_logger(job_id)
 
     callbacks = create_callbacks(ws_manager, job_id, loop, job_service, job_logger=job_logger)
     progress_cb = callbacks["progress"]
@@ -118,14 +113,14 @@ async def run_etl_job(
             # ── Phase 1: extract + split (parallel) ──
             log_and_broadcast("--- Phase 1: Extract & Split ---")
 
-            registry = await _phase_prepare(pool, file_paths, flat_config, log_cb, stop_cb)
+            registry = await _phase_prepare(pool, file_paths, flat_config, log_cb, stop_cb, job_id)
 
             if registry is None:
                 return
 
             # Ensure output directory exists for phase 3
             first_base_name = next(iter(registry))
-            output_dir_path = Path(_get_output_dir(file_paths[0], config))
+            output_dir_path = Path(_get_output_dir(file_paths[0], job_id))
             output_dir_path.mkdir(parents=True, exist_ok=True)
 
             llm_errors: set[str] = set()
@@ -215,13 +210,13 @@ async def run_etl_job(
         )
 
 
-async def _phase_prepare(pool, file_paths, flat_config, log_cb, stop_cb):
+async def _phase_prepare(pool, file_paths, flat_config, log_cb, stop_cb, job_id):
     """Parallel extract + split for all files."""
     loop = asyncio.get_event_loop()
     registry = {}
     futures = {}
     for file_path in file_paths:
-        future = loop.run_in_executor(pool, _extract_and_split, file_path, flat_config, log_cb)
+        future = loop.run_in_executor(pool, _extract_and_split, file_path, flat_config, log_cb, job_id)
         futures[future] = file_path
     for future in asyncio.as_completed(list(futures.keys())):
         if stop_cb():
@@ -243,6 +238,7 @@ def _extract_and_split(
     file_path: str,
     flat_config: dict,
     log_cb: callable,
+    job_id: str,
 ) -> tuple[str, list[str], dict]:
     """Extract text + split into chunks (sync, runs in thread).
 
@@ -250,6 +246,7 @@ def _extract_and_split(
         file_path: Path to the input file.
         flat_config: Flattened ETL configuration dict.
         log_cb: Logging callback (sync).
+        job_id: Unique job identifier for directory layout.
 
     Returns:
         Tuple of (base_name, chunk_file_paths, dirs_dict) where dirs_dict contains
@@ -262,20 +259,20 @@ def _extract_and_split(
     try:
         from app.services.file_service import get_file_service
         fs = get_file_service()
-        for f in fs.list_files().files:
-            stored_path = fs.get_path(f.id)
-            if stored_path and str(stored_path) == str(file_path):
-                base_name = Path(f.filename).stem
-                break
+        file_id = base_name
+        item = fs.get_file(file_id)
+        if item:
+            base_name = Path(item.filename).stem
     except Exception:
         pass  # Fall back to UUID-based name
 
-    output_base = flat_config.get("output_dir", "/tmp/SimpleETL/output")
-    file_output_dir = os.path.join(output_base, base_name)
-
-    chunks_dir = os.path.join(file_output_dir, "chunks")
-    processed_dir = os.path.join(file_output_dir, "processed")
-    final_dir = os.path.join(file_output_dir, "final")
+    settings = get_settings()
+    # Temp files (chunks, processed) in jobs dir
+    work_dir = settings.jobs_dir / job_id / base_name
+    chunks_dir = str(work_dir / "chunks")
+    processed_dir = str(work_dir / "processed")
+    # Final output in output dir
+    final_dir = str(settings.output_dir / job_id / base_name)
 
     # Step 1: Extract text (sync)
     text = extract_text(file_path, log_cb)
@@ -464,9 +461,19 @@ async def _phase_pack(pool, registry, flat_config, log_cb) -> list[str]:
     return all_outputs
 
 
-def _get_output_dir(file_path: str, config: dict) -> str:
+def _get_output_dir(file_path: str, job_id: str) -> str:
     """Get the output directory for a file."""
     file_name = os.path.basename(file_path)
     base_name = Path(file_name).stem
-    output_base = config.get("output_dir", "/tmp/SimpleETL/output")
-    return os.path.join(output_base, base_name, "final")
+    # Try to get original filename from FileService
+    try:
+        from app.services.file_service import get_file_service
+        fs = get_file_service()
+        file_id = base_name
+        item = fs.get_file(file_id)
+        if item:
+            base_name = Path(item.filename).stem
+    except Exception:
+        pass
+    settings = get_settings()
+    return str(settings.output_dir / job_id / base_name)

@@ -46,6 +46,9 @@ async def lifespan(app: FastAPI):
     # Use DB in backend/ directory (persistent across restarts)
     db_path = str(Path(__file__).parent.parent / "simpleetl.db")
     init_db(db_path)
+    settings = get_settings()
+    settings.ensure_data_dirs()
+    logger.info("Data directories: %s", settings.app_data_dir)
     logger.info("SimpleETL API starting (db=%s)", db_path)
     yield
     logger.info("SimpleETL API shutting down")
@@ -99,3 +102,12 @@ app.include_router(ws_router)
 async def health() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    from app.settings import get_settings
+
+    settings = get_settings()
+    uvicorn.run("app.main:app", host="0.0.0.0", port=settings.server_port, reload=True)

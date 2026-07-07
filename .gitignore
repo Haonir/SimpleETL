@@ -1,9 +1,5 @@
 .opencode
-build
-dist
-backend/config.json
 .env
-PLAN.md
-pipeline_refactor_plan.md
-config_migration.md
+docs
 CHANGELOG.md
+data/

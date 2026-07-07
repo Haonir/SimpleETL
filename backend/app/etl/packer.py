@@ -241,13 +241,15 @@ def _extract_title(content: str, fallback: str) -> str:
     metadata, _ = _parse_frontmatter(content)
     if "title" in metadata:
         return metadata["title"]
-    
+
     # Try first H1
     match = re.match(r"^#\s+(.+)$", content, re.MULTILINE)
     if match:
         return match.group(1).strip()
-    
-    return fallback
+
+    # Strip chunk suffix like _000, _001 etc.
+    clean_fallback = re.sub(r"_\d+$", "", fallback)
+    return clean_fallback or "document"
 
 
 def _sanitize_filename(title: str, max_len: int = 40) -> str:

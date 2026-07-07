@@ -36,12 +36,11 @@ class SQLiteLogHandler(logging.Handler):
             pass  # Don't let DB errors break logging
 
 
-def create_job_logger(job_id: str, job_dir: Path) -> logging.Logger:
-    """Create a thread-safe logger that writes JSON lines to {job_dir}/logs.json.
+def create_job_logger(job_id: str) -> logging.Logger:
+    """Create a thread-safe logger that writes to the job_logs SQLite table.
 
     Args:
         job_id: Unique job identifier used as the logger name prefix.
-        job_dir: Directory where logs.json will be written.
 
     Returns:
         A configured Logger instance named "etl.{job_id}".
@@ -49,20 +48,6 @@ def create_job_logger(job_id: str, job_dir: Path) -> logging.Logger:
     logger = logging.getLogger(f"etl.{job_id}")
     logger.setLevel(logging.INFO)
     logger.propagate = False
-
-    log_path = Path(job_dir) / "logs.json"
-    Path(job_dir).mkdir(parents=True, exist_ok=True)
-    from app.db import get_cursor
-    with get_cursor() as cur:
-        cur.execute("UPDATE jobs SET log_path = ? WHERE id = ?", (str(log_path), job_id))
-
-    handler = logging.FileHandler(log_path, encoding="utf-8")
-    formatter = logging.Formatter(
-        '{"timestamp":"%(asctime)s","level":"%(levelname)s","message":"%(message)s"}',
-        datefmt="%Y-%m-%dT%H:%M:%S",
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
 
     sqlite_handler = SQLiteLogHandler(job_id)
     logger.addHandler(sqlite_handler)

@@ -196,5 +196,7 @@ def get_file_service() -> FileService:
     """Return the global singleton FileService instance."""
     global _file_service
     if _file_service is None:
-        _file_service = FileService()
+        from app.settings import get_settings
+        settings = get_settings()
+        _file_service = FileService(upload_dir=settings.uploads_dir)
     return _file_service

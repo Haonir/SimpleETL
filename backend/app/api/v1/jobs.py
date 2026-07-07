@@ -73,11 +73,8 @@ async def create_job(
             )
         file_paths.append(str(path))
 
-    # Add output_dir to config
-    config = request.config.copy()
-    config["output_dir"] = job.output_dir
-
     # Launch ETL runner in background
+    config = request.config.copy()
     ws_manager = get_ws_manager()
     background_tasks.add_task(
         run_etl_job,

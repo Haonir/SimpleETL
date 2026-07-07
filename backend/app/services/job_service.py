@@ -31,14 +31,13 @@ class JobService:
 
         Args:
             output_base_dir: Base directory for job outputs.
-                            If None, uses system temp dir + 'SimpleETL/jobs'.
+                            If None, uses settings.jobs_dir (data/jobs/).
         """
-        import tempfile
-
         if output_base_dir is not None:
             self._output_base = Path(output_base_dir)
         else:
-            self._output_base = Path(tempfile.gettempdir()) / "SimpleETL" / "jobs"
+            from app.settings import get_settings
+            self._output_base = get_settings().jobs_dir
         self._output_base.mkdir(parents=True, exist_ok=True)
 
         # Stop flags: job_id -> True if stop requested (kept in RAM for performance)
@@ -54,10 +53,6 @@ class JobService:
         """
         from app.db import ensure_tables
         ensure_tables()
-
-    def _get_log_path(self, job_id: str) -> Path:
-        """Return the log file path for a given job."""
-        return self._output_base / job_id / "logs.json"
 
     def create(self, file_ids: list[str], config: dict) -> JobItem:
         """Create a new job. Validates all file_ids exist in FileService.
@@ -77,7 +72,9 @@ class JobService:
 
         job_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc)
-        output_dir = str(self._output_base / job_id / "output")
+        from app.settings import get_settings
+        settings = get_settings()
+        output_dir = str(settings.output_dir / job_id)
 
         # Resolve file names for display
         file_names = []
@@ -127,16 +124,6 @@ class JobService:
         file_ids = json.loads(data["file_ids"])
         config = json.loads(data["config"])
         output_dir = data.get("output_dir") or None
-        log_path_str = data.get("log_path") or None
-        if log_path_str:
-            log_path = Path(log_path_str)
-            if log_path.exists():
-                try:
-                    with open(log_path, "r", encoding="utf-8") as f:
-                        entries = [json.loads(line) for line in f.read().splitlines() if line.strip()]
-                    data["log_entries"] = entries
-                except (json.JSONDecodeError, OSError):
-                    data["log_entries"] = []
 
         return JobItem(
             id=data["id"],
@@ -168,16 +155,6 @@ class JobService:
             file_ids = json.loads(data["file_ids"])
             config = json.loads(data["config"])
             output_dir = data.get("output_dir") or None
-            log_path_str = data.get("log_path") or None
-            if log_path_str:
-                log_path = Path(log_path_str)
-                if log_path.exists():
-                    try:
-                        with open(log_path, "r", encoding="utf-8") as f:
-                            entries = [json.loads(line) for line in f.read().splitlines() if line.strip()]
-                        data["log_entries"] = entries
-                    except (json.JSONDecodeError, OSError):
-                        data["log_entries"] = []
 
             results.append(JobItem(
                 id=data["id"],
@@ -247,13 +224,22 @@ class JobService:
         return self._stop_flags.get(job_id, False)
 
     def delete(self, job_id: str) -> bool:
-        """Delete a job from registry. Returns True if deleted."""
+        """Delete a job from registry and its output/temp files. Returns True if deleted."""
         self._ensure_db()
         job = self.get(job_id)
         if job is None:
             return False
+        # Remove output directory (data/output/{job_id})
+        from app.settings import get_settings
+        settings = get_settings()
+        shutil.rmtree(settings.output_dir / job_id, ignore_errors=True)
+        # Remove temp directory (data/jobs/{job_id})
+        shutil.rmtree(settings.jobs_dir / job_id, ignore_errors=True)
+        # Remove DB records
         with get_cursor() as cur:
             cur.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+            cur.execute("DELETE FROM job_logs WHERE job_id = ?", (job_id,))
+            cur.execute("DELETE FROM job_outputs WHERE job_id = ?", (job_id,))
         # Also clean up stop flag in RAM
         self._stop_flags.pop(job_id, None)
         logger.info("Deleted job %s", job_id)
@@ -307,13 +293,19 @@ class JobService:
             logger.warning("Failed to save outputs for job %s: %s", job_id, e)
 
     def delete_job_files(self, job_id: str) -> None:
-        """Delete job directory from disk + DB records."""
+        """Delete job files from disk + DB records."""
         self._ensure_db()
         job = self.get(job_id)
         if job and job.output_dir:
             shutil.rmtree(job.output_dir, ignore_errors=True)
+        # Also remove temp directory (data/jobs/{job_id})
+        from app.settings import get_settings
+        settings = get_settings()
+        shutil.rmtree(settings.jobs_dir / job_id, ignore_errors=True)
         with get_cursor() as cur:
             cur.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+            cur.execute("DELETE FROM job_logs WHERE job_id = ?", (job_id,))
+            cur.execute("DELETE FROM job_outputs WHERE job_id = ?", (job_id,))
 
 
     @property
