@@ -246,21 +246,25 @@ async def _process_file(
 
         # Step 3: Pack
         if stop_cb():
-            return base_name, [], errors
+            return file_idx, base_name, [], errors
 
-        output_files = await run_phase_pack(pool, registry, flat_config, log_cb)
+        output_files = await loop.run_in_executor(
+            None, pack_outputs,
+            dirs["processed_dir"], dirs["final_dir"], base_name,
+            flat_config.get("output_format", "spr"), log_cb,
+        )
 
         # Mark file as completed for progress tracking
         with progress_lock:
             completed_files_count[0] += 1
 
         log_cb(f"✅ File {file_idx + 1}/{total_files} done: {base_name} ({len(output_files)} output files)")
-        return base_name, output_files, errors
+        return file_idx, base_name, output_files, errors
 
     except Exception as e:
         log_cb(f"⚠️ Error processing {Path(file_path).name}: {e}", "error")
         base_name = Path(file_path).stem
-        return base_name, [], {base_name}
+        return file_idx, base_name, [], {base_name}
 
 
 def _save_outputs(job_id: str, output_files: list[str]) -> None:
