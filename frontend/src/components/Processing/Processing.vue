@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useFilesStore } from '@/stores/files'
 import { useJobStore } from '@/stores/job'
@@ -9,6 +9,7 @@ import FileProgressBar from '@/components/Progress/FileProgressBar.vue'
 import FileDropZone from '@/components/Processing/FileDropZone.vue'
 import JobToolbar from '@/components/Processing/JobToolbar.vue'
 import GlobalProgressBar from '@/components/Progress/GlobalProgressBar.vue'
+import LogEntry from '@/components/LogPanel/LogEntry.vue'
 
 import { downloadJobFile, downloadJobZip } from '@/services/api'
 import { Download } from '@lucide/vue'
@@ -123,6 +124,26 @@ watch(() => jobStore.selectedJobId, loadOutputFiles)
 watch(() => jobStore.status, (newStatus) => {
   if (newStatus === 'completed') loadOutputFiles()
 })
+
+// ── Log panel state ───────────────────────────────────────────
+const LOG_DRAWER_KEY = 'simpleetl_log_drawer_expanded'
+const logContainerRef = ref<HTMLElement | null>(null)
+const logsExpanded = ref(localStorage.getItem(LOG_DRAWER_KEY) === 'true')
+
+function toggleLogDrawer() {
+  logsExpanded.value = !logsExpanded.value
+  localStorage.setItem(LOG_DRAWER_KEY, String(logsExpanded.value))
+}
+
+watch(
+  () => jobStore.activeLogs.length,
+  async () => {
+    if (logsExpanded.value) {
+      await nextTick()
+      logContainerRef.value?.scrollTo({ top: 99999, behavior: 'smooth' })
+    }
+  },
+)
 </script>
 
 <template>
@@ -147,6 +168,7 @@ watch(() => jobStore.status, (newStatus) => {
       <div v-if="jobStore.currentJobFiles.length === 0 && !outputLoading" class="processing-output__empty">
         {{ t('processedFiles.empty') }}
       </div>
+
     </div>
 
     <!-- Right column (2/3) — existing content -->
@@ -231,6 +253,20 @@ watch(() => jobStore.status, (newStatus) => {
             <button class="file-list__dialog-btn file-list__dialog-btn--cancel" @click="cancelDelete">{{ $t('common.cancel') }}</button>
             <button class="file-list__dialog-btn file-list__dialog-btn--danger" @click="handleDeleteConfirm">Delete</button>
           </div>
+        </div>
+      </div>
+      <!-- Log drawer (slides up from bottom) -->
+      <div class="processing-log-drawer" :class="{ 'processing-log-drawer--expanded': logsExpanded }">
+        <div class="processing-log-drawer__handle" @click="toggleLogDrawer">
+          <span class="processing-log-drawer__handle-bar"></span>
+          <span class="processing-log-drawer__title">{{ t('logPanel.title') }}</span>
+          <span class="processing-log-drawer__count" v-if="jobStore.activeLogs.length > 0">{{ jobStore.activeLogs.length }}</span>
+        </div>
+        <div ref="logContainerRef" class="processing-log-drawer__content" :class="{ 'processing-log-drawer__content--expanded': logsExpanded }">
+          <template v-if="jobStore.activeLogs.length === 0">
+            <p class="processing-log-drawer__empty">{{ t('logPanel.empty') }}</p>
+          </template>
+          <LogEntry v-for="(entry, i) in jobStore.activeLogs" :key="i" :entry="entry" />
         </div>
       </div>
     </div>
@@ -495,5 +531,84 @@ watch(() => jobStore.status, (newStatus) => {
 .file-list__progress-row .global-progress {
   flex: 1;
   margin-bottom: 0;
+}
+
+/* ── Log drawer — slides up from bottom of right column ─────── */
+.processing-log-drawer {
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 8px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.processing-log-drawer--expanded {
+  border-radius: 8px;
+}
+
+.processing-log-drawer__handle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+}
+
+.processing-log-drawer--expanded .processing-log-drawer__handle {
+  border-bottom-color: var(--border);
+}
+
+.processing-log-drawer__handle:hover {
+  background: var(--bg-hover-subtle);
+}
+
+.processing-log-drawer__handle-bar {
+  display: block;
+  width: 24px;
+  height: 3px;
+  background: var(--fg-label);
+  border-radius: 2px;
+  opacity: 0.5;
+}
+
+.processing-log-drawer__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-header);
+}
+
+.processing-log-drawer__count {
+  font-size: 10px;
+  background: var(--badge-bg-muted);
+  color: var(--badge-fg-muted);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.processing-log-drawer__content {
+  height: 0;
+  overflow-y: auto;
+  padding: 0 14px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  transition: height 0.3s ease, padding 0.3s ease;
+}
+
+.processing-log-drawer__content--expanded {
+  height: 30vh;
+  padding: 8px 14px;
+}
+
+.processing-log-drawer__empty {
+  color: var(--fg-subtle);
+  text-align: center;
+  padding: 1rem 0;
+  font-size: 12px;
 }
 </style>
