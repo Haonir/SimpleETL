@@ -21,21 +21,28 @@
     },
     {
       "id": "phase-4-config-migration",
-      "title": "Phase 4: Config Migration (Backend → Frontend)",
+      "title": "Phase 4: Config Migration (Backend \u2192 Frontend)",
       "status": "completed",
       "state_file": "docs/phase_4/state.json"
-      },
+    },
+    {
+      "id": "phase-5-pipeline-refactor",
+      "title": "Phase 5: Pipeline Refactor (Parallel LLM + Persistence)",
+      "status": "executing",
+      "state_file": "docs/phase_5/state.json"
+    },
+    {
+      "id": "phase-6-polish-refactor",
+      "title": "Phase 6: Polish & Refactor",
+      "status": "executing",
+      "state_file": "docs/phase_6/state.json"
+    },
       {
-        "id": "phase-5-pipeline-refactor",
-        "title": "Phase 5: Pipeline Refactor (Parallel LLM + Persistence)",
-        "status": "executing",
-        "state_file": "docs/phase_5/state.json"
-      }, {
-        "id": "phase-6-polish-refactor",
-        "title": "Phase 6: Polish & Refactor",
-        "status": "executing",
-        "state_file": "docs/phase_6/state.json"
+        "id": "phase-7-etl-refactor",
+        "title": "Phase 7: ETL Module Refactor",
+        "status": "completed",
+        "state_file": "docs/phase_7/state.json"
       }
-    ],
-    "coder_iterations": 12
+  ],
+  "coder_iterations": 12
 }

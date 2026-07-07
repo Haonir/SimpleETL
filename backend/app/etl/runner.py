@@ -14,7 +14,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -25,14 +24,10 @@ from app.etl.callbacks import create_callbacks
 from app.services.log_manager import create_job_logger
 from app.schemas.job import JobStatus
 from app.schemas.websocket import WSLogMessage, WSStatusMessage, WSDoneMessage, WSErrorMessage
-try:
-    import openai
-except ImportError:
-    openai = None
 
-from app.etl.extractor import extract_text
-from app.etl.packer import pack_outputs
-from app.etl.splitter import split_to_chunks
+from app.etl.splitter import run_phase_prepare
+from app.etl.llm_processor import run_phase_llm, copy_chunks_to_processed
+from app.etl.packer import run_phase_pack
 
 if TYPE_CHECKING:
     from app.services.job_service import JobService
@@ -113,7 +108,7 @@ async def run_etl_job(
             # ── Phase 1: extract + split (parallel) ──
             log_and_broadcast("--- Phase 1: Extract & Split ---")
 
-            registry = await _phase_prepare(pool, file_paths, flat_config, log_cb, stop_cb, job_id)
+            registry = await run_phase_prepare(pool, file_paths, flat_config, log_cb, stop_cb, job_id)
 
             if registry is None:
                 return
@@ -128,14 +123,13 @@ async def run_etl_job(
             # ── Phase 2: LLM (parallel) ──
             if flat_config.get("skip_llm", False):
                 log_and_broadcast("--- Phase 2: Skipping LLM (skip_llm=True) ---")
-                from app.etl.llm_processor import copy_chunks_to_processed
                 for base_name, info in registry.items():
                     copy_chunks_to_processed(
                         info["chunks_dir"], info["processed_dir"], base_name, log_cb
                     )
             else:
                 log_and_broadcast("--- Phase 2: LLM Processing ---")
-                success, llm_errors = await _phase_llm(pool, registry, flat_config, log_cb, stop_cb, progress_cb)
+                success, llm_errors = await run_phase_llm(pool, registry, flat_config, log_cb, stop_cb, progress_cb)
 
                 if not success and stop_cb():
                     job_service.update_status(job_id, JobStatus.stopped)
@@ -146,7 +140,7 @@ async def run_etl_job(
             # ── Phase 3: pack (parallel) ──
             log_and_broadcast("--- Phase 3: Packing ---")
             log_and_broadcast(f"Packing as '{flat_config.get('output_format', 'spr')}'")
-            output_files = await _phase_pack(pool, registry, flat_config, log_cb)
+            output_files = await run_phase_pack(pool, registry, flat_config, log_cb)
 
             # Save output file records to SQLite
             if output_files:
@@ -209,256 +203,6 @@ async def run_etl_job(
             ).model_dump(),
         )
 
-
-async def _phase_prepare(pool, file_paths, flat_config, log_cb, stop_cb, job_id):
-    """Parallel extract + split for all files."""
-    loop = asyncio.get_event_loop()
-    registry = {}
-    futures = {}
-    for file_path in file_paths:
-        future = loop.run_in_executor(pool, _extract_and_split, file_path, flat_config, log_cb, job_id)
-        futures[future] = file_path
-    for future in asyncio.as_completed(list(futures.keys())):
-        if stop_cb():
-            for f in futures:
-                try:
-                    f.cancel()
-                except Exception:
-                    pass
-            return None
-        try:
-            base_name, chunk_paths, dirs = await future
-            registry[base_name] = {"chunk_paths": chunk_paths, **dirs}
-        except Exception as e:
-            log_cb(f"⚠️ Extract error: {e}", "error")
-    return registry
-
-
-def _extract_and_split(
-    file_path: str,
-    flat_config: dict,
-    log_cb: callable,
-    job_id: str,
-) -> tuple[str, list[str], dict]:
-    """Extract text + split into chunks (sync, runs in thread).
-
-    Args:
-        file_path: Path to the input file.
-        flat_config: Flattened ETL configuration dict.
-        log_cb: Logging callback (sync).
-        job_id: Unique job identifier for directory layout.
-
-    Returns:
-        Tuple of (base_name, chunk_file_paths, dirs_dict) where dirs_dict contains
-        chunks_dir, processed_dir, final_dir paths.
-    """
-    file_name = os.path.basename(file_path)
-    base_name = Path(file_name).stem
-
-    # Try to get original filename from FileService
-    try:
-        from app.services.file_service import get_file_service
-        fs = get_file_service()
-        file_id = base_name
-        item = fs.get_file(file_id)
-        if item:
-            base_name = Path(item.filename).stem
-    except Exception:
-        pass  # Fall back to UUID-based name
-
-    settings = get_settings()
-    # Temp files (chunks, processed) in jobs dir
-    work_dir = settings.jobs_dir / job_id / base_name
-    chunks_dir = str(work_dir / "chunks")
-    processed_dir = str(work_dir / "processed")
-    # Final output in output dir
-    final_dir = str(settings.output_dir / job_id / base_name)
-
-    # Step 1: Extract text (sync)
-    text = extract_text(file_path, log_cb)
-
-    if not text.strip():
-        raise Exception("File is empty or contains no readable text.")
-
-    # Step 2: Split into chunks (sync) — or skip chunking
-    if flat_config.get("skip_chunking", False):
-        log_cb("⏭️ Chunking skipped — processing file as a whole.")
-        chunks_dir_path = Path(chunks_dir)
-        chunks_dir_path.mkdir(parents=True, exist_ok=True)
-        single_chunk_path = chunks_dir_path / f"{base_name}_000.md"
-        with open(single_chunk_path, "w", encoding="utf-8") as f:
-            f.write(text)
-        chunk_files = [str(single_chunk_path)]
-    else:
-        chunk_size = flat_config.get("chunk_size", 10000)
-        chunk_overlap = flat_config.get("chunk_overlap", 1500)
-
-        chunk_files = split_to_chunks(
-            text=text,
-            output_dir=chunks_dir,
-            base_name=base_name,
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            log_callback=log_cb,
-        )
-
-    return base_name, chunk_files, {
-        "chunks_dir": chunks_dir,
-        "processed_dir": processed_dir,
-        "final_dir": final_dir,
-    }
-
-
-async def _phase_llm(
-    pool: ThreadPoolExecutor,
-    registry: dict[str, dict],
-    flat_config: dict,
-    log_cb: callable,
-    stop_cb: callable,
-    progress_cb: callable,
-) -> tuple[bool, set[str]]:
-    """Parallel LLM processing for all chunks.
-
-    Each chunk is processed individually in the thread pool for true parallelism.
-    Failures on individual chunks are logged but do not stop the pipeline (fail-continue).
-
-    Args:
-        pool: Thread pool executor.
-        registry: Registry from Phase 1 with chunk_paths per file.
-        flat_config: Flattened ETL configuration dict.
-        log_cb: Logging callback (sync).
-        stop_cb: Stop-check callback (returns True when stopped).
-        progress_cb: Progress callback (chunk_pct, global_pct, file_idx).
-
-    Returns:
-        Tuple of (success_bool, files_with_errors_set).
-        success_bool is True if processing completed (even with some errors), False if stopped.
-        files_with_errors_set contains base names of files that had LLM errors.
-    """
-    loop = asyncio.get_event_loop()
-    # Per-file chunk tracking
-    file_list = list(registry.items())  # [(base_name, info), ...]
-    file_chunk_counts = {i: len(info["chunk_paths"]) for i, (_, info) in enumerate(file_list)}
-    file_counters = {i: 0 for i in range(len(file_list))}
-    lock = threading.Lock()
-
-    def _process_one_chunk(chunk_path: Path, processed_path: Path, config: dict, file_idx: int, log_cb: callable, files_with_errors: set) -> Optional[str]:
-        """Process one chunk (sync, runs in thread pool via run_in_executor)."""
-        chunk_name = chunk_path.name
-        base_name = file_list[file_idx][0]  # Get base_name from file_list
-        if processed_path.exists():
-            log_cb(f"⏭ Chunk {chunk_name} already processed, skipping.", "llm")
-            return "skip"
-
-        processed_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Check stop flag before making the (potentially long) API call
-        if stop_cb():
-            return None
-
-        log_cb(f"🤖 Processing chunk {chunk_name}...", "llm")
-        try:
-            client = openai.OpenAI(
-                base_url=config["base_url"],
-                api_key=config["api_key"],
-            )
-            response = client.chat.completions.create(
-                model=config.get("model", "llama3"),
-                messages=[
-                    {"role": "system", "content": config.get("prompt", "Analyze this text.")},
-                    {
-                        "role": "user",
-                        "content": (Path(chunk_path)).read_text(encoding='utf-8'),
-                    },
-                ],
-                temperature=0.2,
-            )
-            with open(processed_path, "w") as f:
-                f.write(response.choices[0].message.content)
-
-            with lock:
-                file_counters[file_idx] += 1
-                total_chunks = file_chunk_counts[file_idx]
-                file_pct = file_counters[file_idx] * 100 // max(total_chunks, 1)
-                global_done = sum(file_counters.values())
-                global_total = sum(file_chunk_counts.values())
-                global_pct = global_done * 100 // max(global_total, 1)
-                progress_cb(file_pct, global_pct, file_idx)
-            
-            log_cb(f"✅ Chunk {chunk_name} done ({file_counters[file_idx]}/{total_chunks} for file)", "llm")
-        except Exception as e:
-            files_with_errors.add(base_name)
-            err_detail = f"{type(e).__name__}: {e}"
-            log_cb(f"⚠️ LLM error for {base_name}: {err_detail} (base_url={config.get('base_url', 'N/A')}, model={config.get('model', 'N/A')})", "error")
-
-    # Submit chunks one at a time, checking stop between each submission.
-    futures = []
-    files_with_errors = set()  # Track files that had errors
-    
-    for file_idx, (base_name, info) in enumerate(file_list):
-        for chunk_path_str in info["chunk_paths"]:
-            if stop_cb():
-                # Don't submit more chunks if stop was requested
-                for f in futures:
-                    try:
-                        f.cancel()
-                    except Exception:
-                        pass
-                return False, files_with_errors
-            processed_path = Path(info["processed_dir"]) / Path(chunk_path_str).name
-            future = loop.run_in_executor(
-                pool,
-                _process_one_chunk,
-                Path(chunk_path_str),
-                processed_path,
-                flat_config,
-                file_idx,
-                log_cb,
-                files_with_errors,
-            )
-            futures.append(future)
-
-    for future in asyncio.as_completed(futures):
-        if stop_cb():
-            for f in futures:
-                try:
-                    f.cancel()
-                except Exception:
-                    pass
-            return False, files_with_errors
-
-        try:
-            await future  # Non-blocking — event loop processes heartbeats while waiting
-        except Exception as e:
-            log_cb(f"⚠️ Unexpected LLM error: {e}", "error")
-
-    # Report files with errors
-    if files_with_errors:
-        log_cb(f"⚠️ LLM errors occurred for {len(files_with_errors)} file(s): {', '.join(sorted(files_with_errors))}", "warning")
-    
-    return True, files_with_errors
-
-
-async def _phase_pack(pool, registry, flat_config, log_cb) -> list[str]:
-    """Parallel pack for all files. Returns list of output file paths."""
-    loop = asyncio.get_event_loop()
-    output_format = flat_config.get("output_format", "spr")
-    all_outputs = []
-    futures = []
-    for base_name, info in registry.items():
-        future = loop.run_in_executor(
-            pool, pack_outputs,
-            info["processed_dir"], info["final_dir"], base_name, output_format, log_cb,
-        )
-        futures.append(future)
-    for future in asyncio.as_completed(futures):
-        try:
-            result = await future
-            if result:
-                all_outputs.extend(result)
-        except Exception as e:
-            log_cb(f"⚠️ Pack error: {e}", "error")
-    return all_outputs
 
 
 def _get_output_dir(file_path: str, job_id: str) -> str:

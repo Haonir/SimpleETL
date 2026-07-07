@@ -9,9 +9,11 @@ Supports 4 output formats:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
@@ -272,3 +274,40 @@ def _escape_html(text: str) -> str:
         .replace(">", "&gt;")
         .replace('"', "&quot;")
     )
+
+
+async def run_phase_pack(
+    pool: ThreadPoolExecutor,
+    registry: dict[str, dict],
+    flat_config: dict,
+    log_cb: callable,
+) -> list[str]:
+    """Parallel pack for all files. Returns list of output file paths.
+
+    Args:
+        pool: Thread pool executor.
+        registry: Registry from Phase 1 with chunk_paths per file.
+        flat_config: Flattened ETL configuration dict.
+        log_cb: Logging callback (sync).
+
+    Returns:
+        List of output file paths created.
+    """
+    loop = asyncio.get_event_loop()
+    output_format = flat_config.get("output_format", "spr")
+    all_outputs = []
+    futures = []
+    for base_name, info in registry.items():
+        future = loop.run_in_executor(
+            pool, pack_outputs,
+            info["processed_dir"], info["final_dir"], base_name, output_format, log_cb,
+        )
+        futures.append(future)
+    for future in asyncio.as_completed(futures):
+        try:
+            result = await future
+            if result:
+                all_outputs.extend(result)
+        except Exception as e:
+            log_cb(f"⚠️ Pack error: {e}", "error")
+    return all_outputs

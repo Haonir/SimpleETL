@@ -19,113 +19,139 @@ try:
 except ImportError:
     OpenAI = None
 
+import asyncio
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
-def process_with_llm(
-    chunks_dir: str | Path,
-    processed_dir: str | Path,
-    base_name: str = "chunk",
-    model: str = "llama3",
-    base_url: str = "http://localhost:11434/v1",
-    api_key: str = "ollama",
-    prompt: str = "Analyze this text and create a structured summary.",
-    log_callback: Optional[callable] = None,
-    stop_check_callback: Optional[callable] = None,
-) -> bool:
-    """Process all chunk files through LLM and save results.
-    
-    Reads from chunks_dir, writes to processed_dir.
-    Skips chunks that already have corresponding processed files.
-    
+
+async def run_phase_llm(
+    pool: ThreadPoolExecutor,
+    registry: dict[str, dict],
+    flat_config: dict,
+    log_cb: callable,
+    stop_cb: callable,
+    progress_cb: callable,
+) -> tuple[bool, set[str]]:
+    """Parallel LLM processing for all chunks.
+
+    Each chunk is processed individually in the thread pool for true parallelism.
+    Failures on individual chunks are logged but do not stop the pipeline (fail-continue).
+
     Args:
-        chunks_dir: Directory containing chunk .md files.
-        processed_dir: Directory to save processed .md files.
-        base_name: Prefix for chunk filenames.
-        model: LLM model name.
-        base_url: OpenAI-compatible API base URL.
-        api_key: API key for the LLM provider.
-        prompt: System prompt for LLM analysis.
-        log_callback: Optional logging callback.
-        stop_check_callback: Optional stop check callback (returns True to stop).
-        
+        pool: Thread pool executor.
+        registry: Registry from Phase 1 with chunk_paths per file.
+        flat_config: Flattened ETL configuration dict.
+        log_cb: Logging callback (sync).
+        stop_cb: Stop-check callback (returns True when stopped).
+        progress_cb: Progress callback (chunk_pct, global_pct, file_idx).
+
     Returns:
-        True if all chunks processed successfully, False if stopped or failed.
-        
-    Raises:
-        ImportError: If openai package is not installed.
+        Tuple of (success_bool, files_with_errors_set).
+        success_bool is True if processing completed (even with some errors), False if stopped.
+        files_with_errors_set contains base names of files that had LLM errors.
     """
-    if OpenAI is None:
-        raise ImportError(
-            "openai package is required for LLM processing. "
-            "Install with: pip install openai"
-        )
-    
-    chunks_dir = Path(chunks_dir)
-    processed_dir = Path(processed_dir)
-    processed_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Find all chunk files
-    chunk_files = sorted(
-        f for f in chunks_dir.iterdir()
-        if f.is_file() and f.name.startswith(base_name) and f.suffix == ".md"
-    )
-    
-    if not chunk_files:
-        if log_callback:
-            log_callback("⚠️ No chunk files found to process.")
-        return True
-    
-    total_chunks = len(chunk_files)
-    
-    # Initialize LLM client
-    client = OpenAI(base_url=base_url, api_key=api_key)
-    
-    for idx, chunk_path in enumerate(chunk_files):
-        # Check stop flag
-        if stop_check_callback and stop_check_callback():
-            if log_callback:
-                log_callback("⚠️ LLM processing stopped by user.", "warning")
-            return False
-        
-        processed_path = processed_dir / chunk_path.name
-        
-        # Skip if already processed
+    loop = asyncio.get_event_loop()
+    # Per-file chunk tracking
+    file_list = list(registry.items())  # [(base_name, info), ...]
+    file_chunk_counts = {i: len(info["chunk_paths"]) for i, (_, info) in enumerate(file_list)}
+    file_counters = {i: 0 for i in range(len(file_list))}
+    lock = threading.Lock()
+
+    def _process_one_chunk(chunk_path: Path, processed_path: Path, config: dict, file_idx: int, log_cb: callable, files_with_errors: set) -> Optional[str]:
+        """Process one chunk (sync, runs in thread pool via run_in_executor)."""
+        chunk_name = chunk_path.name
+        base_name = file_list[file_idx][0]  # Get base_name from file_list
         if processed_path.exists():
-            if log_callback:
-                log_callback(f"[{idx+1}/{total_chunks}] {chunk_path.name} already processed, skipping.")
-            continue
-        
-        # Read chunk
-        with open(chunk_path, "r", encoding="utf-8") as f:
-            chunk_text = f.read()
-        
-        if log_callback:
-            log_callback(f"[{idx+1}/{total_chunks}] Processing {chunk_path.name} with {model}...")
-        
+            log_cb(f"⏭ Chunk {chunk_name} already processed, skipping.", "llm")
+            return "skip"
+
+        processed_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Check stop flag before making the (potentially long) API call
+        if stop_cb():
+            return None
+
+        log_cb(f"🤖 Processing chunk {chunk_name}...", "llm")
         try:
+            client = OpenAI(
+                base_url=config["base_url"],
+                api_key=config["api_key"],
+            )
             response = client.chat.completions.create(
-                model=model,
+                model=config.get("model", "llama3"),
                 messages=[
-                    {"role": "system", "content": prompt},
-                    {"role": "user", "content": f"Process this text:\n\n{chunk_text}"},
+                    {"role": "system", "content": config.get("prompt", "Analyze this text.")},
+                    {
+                        "role": "user",
+                        "content": (Path(chunk_path)).read_text(encoding='utf-8'),
+                    },
                 ],
                 temperature=0.2,
             )
-            llm_output = response.choices[0].message.content
+            with open(processed_path, "w") as f:
+                f.write(response.choices[0].message.content)
+
+            with lock:
+                file_counters[file_idx] += 1
+                total_chunks = file_chunk_counts[file_idx]
+                file_pct = file_counters[file_idx] * 100 // max(total_chunks, 1)
+                global_done = sum(file_counters.values())
+                global_total = sum(file_chunk_counts.values())
+                global_pct = global_done * 100 // max(global_total, 1)
+                progress_cb(file_pct, global_pct, file_idx)
             
-            # Save processed output
-            with open(processed_path, "w", encoding="utf-8") as f:
-                f.write(llm_output)
-            
-            if log_callback:
-                log_callback(f"[{idx+1}/{total_chunks}] ✅ {chunk_path.name} processed.")
-                
+            log_cb(f"✅ Chunk {chunk_name} done ({file_counters[file_idx]}/{total_chunks} for file)", "llm")
         except Exception as e:
-            error_msg = f"LLM error on chunk {chunk_path.name}: {e}"
-            if log_callback:
-                log_callback(f"💥 {error_msg}")
-            raise Exception(error_msg)
+            files_with_errors.add(base_name)
+            err_detail = f"{type(e).__name__}: {e}"
+            log_cb(f"⚠️ LLM error for {base_name}: {err_detail} (base_url={config.get('base_url', 'N/A')}, model={config.get('model', 'N/A')})", "error")
+
+    # Submit chunks one at a time, checking stop between each submission.
+    futures = []
+    files_with_errors = set()  # Track files that had errors
     
-    return True
+    for file_idx, (base_name, info) in enumerate(file_list):
+        for chunk_path_str in info["chunk_paths"]:
+            if stop_cb():
+                # Don't submit more chunks if stop was requested
+                for f in futures:
+                    try:
+                        f.cancel()
+                    except Exception:
+                        pass
+                return False, files_with_errors
+            processed_path = Path(info["processed_dir"]) / Path(chunk_path_str).name
+            future = loop.run_in_executor(
+                pool,
+                _process_one_chunk,
+                Path(chunk_path_str),
+                processed_path,
+                flat_config,
+                file_idx,
+                log_cb,
+                files_with_errors,
+            )
+            futures.append(future)
+
+    for future in asyncio.as_completed(futures):
+        if stop_cb():
+            for f in futures:
+                try:
+                    f.cancel()
+                except Exception:
+                    pass
+            return False, files_with_errors
+
+        try:
+            await future  # Non-blocking — event loop processes heartbeats while waiting
+        except Exception as e:
+            log_cb(f"⚠️ Unexpected LLM error: {e}", "error")
+
+    # Report files with errors
+    if files_with_errors:
+        log_cb(f"⚠️ LLM errors occurred for {len(files_with_errors)} file(s): {', '.join(sorted(files_with_errors))}", "warning")
+    
+    return True, files_with_errors
 
 
 def copy_chunks_to_processed(

@@ -13,9 +13,9 @@ Modules:
 """
 
 from app.etl.extractor import extract_text
-from app.etl.splitter import split_to_chunks, list_chunks
-from app.etl.llm_processor import process_with_llm
-from app.etl.packer import pack_outputs
+from app.etl.splitter import split_to_chunks, list_chunks, run_phase_prepare
+from app.etl.llm_processor import run_phase_llm, copy_chunks_to_processed
+from app.etl.packer import pack_outputs, run_phase_pack
 from app.etl.runner import run_etl_job
 from app.etl.callbacks import create_callbacks
 
@@ -23,8 +23,11 @@ __all__ = [
     "extract_text",
     "split_to_chunks",
     "list_chunks",
-    "process_with_llm",
+    "run_phase_prepare",
+    "run_phase_llm",
+    "copy_chunks_to_processed",
     "pack_outputs",
+    "run_phase_pack",
     "run_etl_job",
     "create_callbacks",
 ]
