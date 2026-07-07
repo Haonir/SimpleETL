@@ -25,7 +25,9 @@ from app.services.log_manager import create_job_logger
 from app.schemas.job import JobStatus
 from app.schemas.websocket import WSLogMessage, WSStatusMessage, WSDoneMessage, WSErrorMessage
 
-from app.etl.splitter import run_phase_prepare
+import threading
+
+from app.etl.splitter import _extract_and_split
 from app.etl.llm_processor import run_phase_llm, copy_chunks_to_processed
 from app.etl.packer import run_phase_pack
 
@@ -43,29 +45,22 @@ async def run_etl_job(
     job_service: JobService,
     ws_manager: ConnectionManager,
 ) -> None:
-    """Run an ETL job asynchronously.
+    """Run an ETL job with file-level streaming pipeline.
 
-    Three-phase parallel pipeline:
-      Phase 1: extract + split ALL files in parallel (ThreadPoolExecutor)
-      Phase 2: LLM ALL chunks in parallel (ThreadPoolExecutor)
-      Phase 3: pack ALL files in parallel (ThreadPoolExecutor)
+    Each file independently goes through: extract → split → LLM → pack.
+    Files are processed in parallel. Output is available as each file completes.
+    If one file fails, others continue. On stop, partial output is preserved.
 
     Args:
         job_id: Unique job identifier.
         file_paths: List of file paths to process.
-        config: ETL configuration dict with keys:
-            - model, base_url, api_key (LLM settings)
-            - chunk_size, chunk_overlap, max_workers, output_format
-            - prompt (system prompt text)
-            - skip_llm (bool)
+        config: ETL configuration dict.
         job_service: Job service singleton.
         ws_manager: WebSocket manager singleton.
     """
     loop = asyncio.get_event_loop()
 
-    # Create SQLite logger for this job
     job_logger = create_job_logger(job_id)
-
     callbacks = create_callbacks(ws_manager, job_id, loop, job_service, job_logger=job_logger)
     progress_cb = callbacks["progress"]
     log_cb = callbacks["log"]
@@ -73,11 +68,9 @@ async def run_etl_job(
     stop_cb = callbacks["stop"]
 
     def log_and_broadcast(message: str, level: str = "info") -> None:
-        """Log to SQLite + broadcast via WS with specified level."""
         log_cb(message, level)
 
     try:
-        # Transition job to running
         job_service.update_status(job_id, JobStatus.running)
         await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="running").model_dump())
 
@@ -90,92 +83,74 @@ async def run_etl_job(
         total_files = len(file_paths)
         log_and_broadcast(f"🚀 Starting ETL job with {total_files} file(s)...")
 
-        # Flatten nested config: frontend sends {"llm": {...}, "processing": {...}}
-        # but pipeline expects flat keys like "model", "base_url", etc.
         llm_cfg = config.get("llm", {})
         proc_cfg = config.get("processing", {})
         flat_config = {**proc_cfg, **llm_cfg}
         if "prompt_text" in config:
             flat_config.setdefault("prompt", config["prompt_text"])
-
         for key in ("output_dir", "output_format", "skip_llm", "skip_chunking"):
             if key in config:
                 flat_config.setdefault(key, config[key])
 
         max_workers = flat_config.get("max_workers", 2)
 
+        # Shared state for progress tracking across files
+        completed_files_count = [0]
+        progress_lock = threading.Lock()
+
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            # ── Phase 1: extract + split (parallel) ──
-            log_and_broadcast("--- Phase 1: Extract & Split ---")
-
-            registry = await run_phase_prepare(pool, file_paths, flat_config, log_cb, stop_cb, job_id)
-
-            if registry is None:
-                return
-
-            # Ensure output directory exists for phase 3
-            first_base_name = next(iter(registry))
-            output_dir_path = Path(_get_output_dir(file_paths[0], job_id))
-            output_dir_path.mkdir(parents=True, exist_ok=True)
-
-            llm_errors: set[str] = set()
-
-            # ── Phase 2: LLM (parallel) ──
-            if flat_config.get("skip_llm", False):
-                log_and_broadcast("--- Phase 2: Skipping LLM (skip_llm=True) ---")
-                for base_name, info in registry.items():
-                    copy_chunks_to_processed(
-                        info["chunks_dir"], info["processed_dir"], base_name, log_cb
+            # Create per-file pipeline tasks
+            tasks = []
+            for i, fp in enumerate(file_paths):
+                task = asyncio.create_task(
+                    _process_file(
+                        pool, fp, flat_config, log_cb, stop_cb, progress_cb,
+                        file_idx=i, total_files=total_files, job_id=job_id,
+                        completed_files_count=completed_files_count,
+                        progress_lock=progress_lock,
                     )
-            else:
-                log_and_broadcast("--- Phase 2: LLM Processing ---")
-                success, llm_errors = await run_phase_llm(pool, registry, flat_config, log_cb, stop_cb, progress_cb)
+                )
+                tasks.append(task)
 
-                if not success and stop_cb():
-                    job_service.update_status(job_id, JobStatus.stopped)
-                    log_and_broadcast("⚠️ ETL job stopped by user.", "warning")
-                    await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="stopped").model_dump())
-                    return
+            all_output_files: list[str] = []
+            all_errors: set[str] = set()
 
-            # ── Phase 3: pack (parallel) ──
-            log_and_broadcast("--- Phase 3: Packing ---")
-            log_and_broadcast(f"Packing as '{flat_config.get('output_format', 'spr')}'")
-            output_files = await run_phase_pack(pool, registry, flat_config, log_cb)
-
-            # Save output file records to SQLite
-            if output_files:
-                from app.services.job_service import get_job_service
-                output_records = []
-                for fpath in output_files:
-                    p = Path(fpath)
-                    output_records.append({
-                        "filename": p.name,
-                        "file_path": str(p),
-                        "size_bytes": p.stat().st_size if p.exists() else 0,
-                        "format": p.suffix.lstrip(".") or "unknown",
-                    })
-                get_job_service().save_outputs(job_id, output_records)
+            # Process results as each file completes
+            for coro in asyncio.as_completed(tasks):
+                if stop_cb():
+                    for t in tasks:
+                        if not t.done():
+                            t.cancel()
+                    break
+                try:
+                    base_name, output_files, errors = await coro
+                    if output_files:
+                        all_output_files.extend(output_files)
+                        _save_outputs(job_id, output_files)
+                    if errors:
+                        all_errors.update(errors)
+                except asyncio.CancelledError:
+                    pass
 
         # Final status
+        settings = get_settings()
+        output_dir_path = settings.output_dir / job_id
+
         if not stop_cb():
-            if llm_errors:
-                if output_files:
-                    # Some files processed, some failed — partial
+            if all_errors:
+                if all_output_files:
                     job_service.update_status(job_id, JobStatus.partial)
-                    log_and_broadcast(f"⚠️ ETL job completed with errors in {len(llm_errors)} file(s): {', '.join(sorted(llm_errors))}", "warning")
+                    log_and_broadcast(f"⚠️ ETL job completed with errors in {len(all_errors)} file(s): {', '.join(sorted(all_errors))}", "warning")
                     await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="partial").model_dump())
                 else:
-                    # No output files at all — full error
                     job_service.update_status(job_id, JobStatus.error)
-                    log_and_broadcast(f"❌ ETL job failed — no files were processed successfully. Errors in: {', '.join(sorted(llm_errors))}", "error")
+                    log_and_broadcast(f"❌ ETL job failed — no files were processed successfully. Errors in: {', '.join(sorted(all_errors))}", "error")
                     await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="error").model_dump())
             else:
-                # Completed successfully
                 job_service.update_status(job_id, JobStatus.completed)
                 log_and_broadcast("🎉 ETL job completed!", "info")
                 await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="completed").model_dump())
 
-            # Broadcast done message
             await ws_manager.broadcast(
                 job_id,
                 WSDoneMessage(
@@ -185,23 +160,125 @@ async def run_etl_job(
                 ).model_dump(),
             )
         elif stop_cb():
-            job_service.update_status(job_id, JobStatus.stopped)
-            log_and_broadcast("⚠️ ETL job stopped by user.", "warning")
-            await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="stopped").model_dump())
+            if all_output_files:
+                job_service.update_status(job_id, JobStatus.partial)
+                log_and_broadcast(f"⚠️ ETL job stopped. Partial output: {len(all_output_files)} file(s).", "warning")
+                await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="partial").model_dump())
+                await ws_manager.broadcast(
+                    job_id,
+                    WSDoneMessage(type="done", job_id=job_id, output_dir=str(output_dir_path)).model_dump(),
+                )
+            else:
+                job_service.update_status(job_id, JobStatus.stopped)
+                log_and_broadcast("⚠️ ETL job stopped by user.", "warning")
+                await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="stopped").model_dump())
 
     except Exception as e:
         logger.exception("Critical error in ETL job %s", job_id)
         job_service.update_status(job_id, JobStatus.error, error_message=str(e))
         await ws_manager.broadcast(job_id, WSStatusMessage(type="status", job_id=job_id, status="error").model_dump())
-
         await ws_manager.broadcast(
             job_id,
-            WSErrorMessage(
-                type="error",
-                job_id=job_id,
-                message=str(e),
-            ).model_dump(),
+            WSErrorMessage(type="error", job_id=job_id, message=str(e)).model_dump(),
         )
+
+
+async def _process_file(
+    pool: ThreadPoolExecutor,
+    file_path: str,
+    flat_config: dict,
+    log_cb: callable,
+    stop_cb: callable,
+    progress_cb: callable,
+    file_idx: int,
+    total_files: int,
+    job_id: str,
+    completed_files_count: list[int],
+    progress_lock: threading.Lock,
+) -> tuple[str, list[str], set[str]]:
+    """Full pipeline for one file: extract → split → LLM → pack.
+
+    Args:
+        pool: Thread pool executor.
+        file_path: Path to the input file.
+        flat_config: Flattened ETL configuration dict.
+        log_cb: Logging callback (sync).
+        stop_cb: Stop-check callback.
+        progress_cb: Progress callback (chunk_pct, global_pct, file_idx).
+        file_idx: Index of this file in the job.
+        total_files: Total number of files in the job.
+        job_id: Unique job identifier.
+        completed_files_count: Mutable list [int] tracking completed files.
+        progress_lock: Lock for thread-safe progress updates.
+
+    Returns:
+        Tuple of (base_name, output_files, errors_set).
+    """
+    loop = asyncio.get_event_loop()
+
+    def file_progress(chunk_pct: int, global_pct: int, _: int) -> None:
+        """Adjust global_pct to account for completed files."""
+        with progress_lock:
+            adjusted = int((completed_files_count[0] * 100 + chunk_pct) / total_files)
+        progress_cb(chunk_pct, adjusted, file_idx)
+
+    try:
+        log_cb(f"📄 Processing file {file_idx + 1}/{total_files}: {Path(file_path).name}")
+
+        # Step 1: Extract + split
+        base_name, chunk_paths, dirs = await loop.run_in_executor(
+            pool, _extract_and_split, file_path, flat_config, log_cb, job_id
+        )
+        registry = {base_name: {"chunk_paths": chunk_paths, **dirs}}
+
+        errors: set[str] = set()
+
+        # Step 2: LLM
+        if stop_cb():
+            return base_name, [], errors
+
+        if flat_config.get("skip_llm", False):
+            copy_chunks_to_processed(dirs["chunks_dir"], dirs["processed_dir"], base_name, log_cb)
+        else:
+            success, errors = await run_phase_llm(
+                pool, registry, flat_config, log_cb, stop_cb, file_progress
+            )
+
+        # Step 3: Pack
+        if stop_cb():
+            return base_name, [], errors
+
+        output_files = await run_phase_pack(pool, registry, flat_config, log_cb)
+
+        # Mark file as completed for progress tracking
+        with progress_lock:
+            completed_files_count[0] += 1
+
+        log_cb(f"✅ File {file_idx + 1}/{total_files} done: {base_name} ({len(output_files)} output files)")
+        return base_name, output_files, errors
+
+    except Exception as e:
+        log_cb(f"⚠️ Error processing {Path(file_path).name}: {e}", "error")
+        base_name = Path(file_path).stem
+        return base_name, [], {base_name}
+
+
+def _save_outputs(job_id: str, output_files: list[str]) -> None:
+    """Save output file records to SQLite."""
+    try:
+        from app.services.job_service import get_job_service
+        output_records = []
+        for fpath in output_files:
+            p = Path(fpath)
+            output_records.append({
+                "filename": p.name,
+                "file_path": str(p),
+                "size_bytes": p.stat().st_size if p.exists() else 0,
+                "format": p.suffix.lstrip(".") or "unknown",
+            })
+        get_job_service().save_outputs(job_id, output_records)
+    except Exception as e:
+        logger.warning("Failed to save outputs for job %s: %s", job_id, e)
 
 
 
