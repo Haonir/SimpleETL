@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from app.etl.packer import pack_outputs, _extract_title, _sanitize_filename, _parse_frontmatter
+from app.etl.packer import (
+    pack_outputs, _to_frontmatter, _extract_title, _sanitize_filename, _parse_frontmatter,
+)
 
 
 SAMPLE_MD_WITH_FRONTMATTER = """---
@@ -181,3 +183,80 @@ class TestParseFrontmatter:
         metadata, content = _parse_frontmatter(SAMPLE_MD_PLAIN)
         assert metadata == {}
         assert "# Plain Title" in content
+
+
+    def test_leading_empty_lines(self):
+        """Parses metadata when there are leading empty lines before frontmatter."""
+        content = "\n\n---\ntitle: Empty Lines Doc\nauthor: Tester\n---\n\n# Title\nBody text."
+        metadata, body = _parse_frontmatter(content)
+        assert metadata["title"] == "Empty Lines Doc"
+        assert metadata["author"] == "Tester"
+
+    def test_leading_llm_intro(self):
+        """Parses metadata when there is LLM intro text before frontmatter."""
+        content = (
+            "Here is the processed document:\n\n---\ntitle: LLM Intro Doc\n"
+            "---\n\n# Title\nBody text."
+        )
+        metadata, body = _parse_frontmatter(content)
+        assert metadata["title"] == "LLM Intro Doc"
+
+class TestToFrontmatter:
+    """Tests for _to_frontmatter converter."""
+
+    def test_preserves_existing_frontmatter(self):
+        """Existing frontmatter with folded style is preserved as-is."""
+        raw = "---\nname: orch-protocol-coder\ndescription: >-\n  The Coder invocation protocol.\n---\n\n# Title\nContent here."
+        result = _to_frontmatter(raw)
+        assert result == raw
+
+    def test_preserves_existing_frontmatter_literal_style(self):
+        """Existing frontmatter with literal block style is preserved as-is."""
+        raw = "---\ntitle: My Doc\nbody: |\n  Line one\n  Line two\n---\n\nContent."
+        result = _to_frontmatter(raw)
+        assert result == raw
+
+    def test_creates_frontmatter_for_plain_content(self):
+        """Plain markdown without frontmatter gets new frontmatter created."""
+        plain = "# My Title\n\nSome content here.\n"
+        result = _to_frontmatter(plain)
+        assert result.startswith("---")
+        assert "title:" in result
+
+    def test_no_title_default_document(self):
+        """Plain content without title gets default 'Document' title."""
+        plain = "# My Title\n\nContent."
+        result = _to_frontmatter(plain)
+        assert "---" not in result.split("---")[1] or "title:" in result
+
+    def test_frontmatter_with_title_preserved(self):
+        """Frontmatter with existing title is preserved without re-serialization."""
+        raw = "---\ntitle: Existing Title\nauthor: Test Author\n---\n\nContent."
+        result = _to_frontmatter(raw)
+        assert result == raw
+
+    def test_content_without_leading_whitespace(self):
+        """Frontmatter detection works even without leading whitespace."""
+        raw = "---\ntitle: Direct Start\n---\n\nContent."
+        result = _to_frontmatter(raw)
+        assert result == raw
+
+    def test_content_with_leading_whitespace(self):
+        """Frontmatter detection strips leading whitespace before checking."""
+        raw = "  ---\ntitle: Indented Start\n---\n\nContent."
+        result = _to_frontmatter(raw)
+        assert result == raw
+
+    def test_strips_empty_lines_before_frontmatter(self):
+        """Empty lines before frontmatter are stripped."""
+        raw = "\n\n---\ntitle: My Doc\n---\n\nContent."
+        result = _to_frontmatter(raw)
+        assert not result.startswith("\n")
+        assert result.startswith("---")
+
+    def test_strips_llm_intro_before_frontmatter(self):
+        """LLM introductory text before frontmatter is stripped."""
+        raw = "Here is the processed document:\n\n---\ntitle: My Doc\n---\n\nContent."
+        result = _to_frontmatter(raw)
+        assert not result.startswith("Here")
+        assert result.startswith("---")

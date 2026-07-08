@@ -155,10 +155,17 @@ def _to_frontmatter(raw_content: str) -> str:
             "Install with: pip install python-frontmatter"
         )
     
+    # If already has valid frontmatter, strip leading content and preserve
+    first_fm = raw_content.find("---")
+    if first_fm >= 0:
+        # Strip everything before first --- (empty lines, LLM intros, etc.)
+        return raw_content[first_fm:]
+    
     metadata, content = _parse_frontmatter(raw_content)
     
-    title = metadata.pop("title", "Document")
-    metadata["title"] = title
+    # Only add default title if not present
+    if "title" not in metadata:
+        metadata["title"] = "Document"
     
     post = frontmatter.Post(content, **metadata)
     return frontmatter.dumps(post)
@@ -210,6 +217,10 @@ def _parse_frontmatter(content: str) -> tuple[dict, str]:
     Returns:
         Tuple of (metadata_dict, content_without_frontmatter).
     """
+    # Strip leading empty lines / LLM introductions before frontmatter
+    first_fm = content.find("---")
+    if first_fm > 0:
+        content = content[first_fm:]
     if frontmatter is not None:
         try:
             post = frontmatter.loads(content)
