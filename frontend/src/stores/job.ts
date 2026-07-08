@@ -5,6 +5,8 @@ import type { WSServerMessage, LogEntry } from '@/types/ws'
 import type { JobStatus } from '@/types/job'
 const JOB_STORAGE_KEY = 'simpleetl_current_job_id'
 
+import { logger } from '@/utils/logger'
+import { saveJobProgress as saveProgress, loadJobProgress as loadProgress, clearJobProgress as clearProgress } from '@/utils/progressCache'
 import { useFilesStore } from '@/stores/files'
 import { createJob as apiCreateJob, getJobs as apiGetJobs, getJobFiles as apiGetJobFiles, stopJob as stopJobApi, getJob as apiGetJob, getJobLogs as apiGetJobLogs, getJobOutputs as apiGetJobOutputs } from '@/services/api'
 import type { JobCreateRequest, JobItem, JobFileItem, JobResponse } from '@/types/job'
@@ -48,11 +50,7 @@ export const useJobStore = defineStore('job', () => {
   const activeJobFileIds = computed(() => {
     const id = activeJobId.value
     if (!id) return []
-    // If it's the current running job, use stored file IDs
-    if (id === currentJobId.value && currentJobFileIds.value.length > 0) return currentJobFileIds.value
-    // Otherwise look up from jobs list
-    const job = jobs.value.find(j => j.id === id)
-    return job?.file_ids ?? []
+    return getJobFileIds(id)
   })
   const activeStatus = computed(() => {
     const id = activeJobId.value
@@ -143,7 +141,8 @@ export const useJobStore = defineStore('job', () => {
         level: l.level,
         message: l.message,
       }))
-    } catch {
+    } catch (err) {
+      logger.warn('[JobStore] Failed to fetch logs for job', jobId, err)
       jobLogs.value[jobId] = []
     }
     try {
@@ -153,19 +152,25 @@ export const useJobStore = defineStore('job', () => {
         path: o.file_path,
         size_bytes: o.size_bytes,
       }))
-    } catch {
+    } catch (err) {
+      logger.warn('[JobStore] Failed to fetch outputs for job', jobId, err)
       currentJobFiles.value = []
     }
   }
 
-  async function deleteJob(jobId: string, keepSourceFiles: boolean = true): Promise<void> {
-    await stopJobApi(jobId, !keepSourceFiles)
+  async function deleteJob(jobId: string, keepSourceFiles: boolean = true): Promise<boolean> {
+    try {
+      await stopJobApi(jobId, !keepSourceFiles)
+    } catch (err) {
+      logger.error('[JobStore] Failed to delete job', jobId, err)
+      return false
+    }
     disconnectJobWS(jobId)
     // Clean up per-job data
     delete jobProgress.value[jobId]
     delete jobGlobalProgress.value[jobId]
     delete jobLogs.value[jobId]
-    clearJobProgress(jobId)
+    clearProgress(jobId)
     // Remove from local list
     jobs.value = jobs.value.filter((j) => j.id !== jobId)
     // Clear selection if deleted job was selected
@@ -187,6 +192,7 @@ export const useJobStore = defineStore('job', () => {
       const filesStore = useFilesStore()
       await filesStore.fetchFiles()
     }
+    return true
   }
 
   function clearActiveJob(): void {
@@ -201,7 +207,7 @@ export const useJobStore = defineStore('job', () => {
     // Clear all cached progress from localStorage (before resetting in-memory)
     const cachedIds = Object.keys(jobProgress.value)
     for (const id of cachedIds) {
-      clearJobProgress(id)
+      clearProgress(id)
     }
     jobProgress.value = {}
     jobGlobalProgress.value = {}
@@ -355,40 +361,6 @@ export const useJobStore = defineStore('job', () => {
     return jobs.value.find(j => j.id === jobId)?.file_ids ?? []
   }
 
-  // ── Progress caching in localStorage (survives page refresh) ──────────────
-  function getProgressStorageKey(jobId: string): string {
-    return `simpleetl_progress_${jobId}`
-  }
-
-  function saveJobProgress(jobId: string) {
-    try {
-      localStorage.setItem(getProgressStorageKey(jobId), JSON.stringify({
-        progress: jobProgress.value[jobId] ?? {},
-        globalProgress: jobGlobalProgress.value[jobId] ?? 0,
-      }))
-    } catch {}
-  }
-
-  function loadJobProgress(jobId: string): { progress: Record<string, number>, globalProgress: number } | null {
-    try {
-      const cached = localStorage.getItem(getProgressStorageKey(jobId))
-      if (!cached) return null
-      const parsed = JSON.parse(cached)
-      if (typeof parsed === 'object' && parsed !== null && 'progress' in parsed) {
-        return { progress: parsed.progress ?? {}, globalProgress: parsed.globalProgress ?? 0 }
-      }
-      return null
-    } catch {
-      return null
-    }
-  }
-
-  function clearJobProgress(jobId: string) {
-    try {
-      localStorage.removeItem(getProgressStorageKey(jobId))
-    } catch {}
-  }
-
   function playNotificationSound() {
     try {
       const ctx = new AudioContext()
@@ -407,92 +379,96 @@ export const useJobStore = defineStore('job', () => {
     }
   }
 
+  function handleProgress(jobId: string, msg: Extract<WSServerMessage, { type: 'progress' }>) {
+    const fileIds = getJobFileIds(jobId)
+    const fileId = fileIds[msg.file_idx]
+    if (fileId) {
+      if (!jobProgress.value[jobId]) jobProgress.value[jobId] = {}
+      jobProgress.value[jobId][fileId] = msg.chunk_pct
+    }
+    jobGlobalProgress.value[jobId] = msg.global_pct
+    saveProgress(jobId, jobProgress.value[jobId] ?? {}, jobGlobalProgress.value[jobId] ?? 0)
+  }
+
+  function handleLog(jobId: string, msg: Extract<WSServerMessage, { type: 'log' }>) {
+    if (!jobLogs.value[jobId]) jobLogs.value[jobId] = []
+    jobLogs.value[jobId].push({ timestamp: new Date().toISOString(), level: msg.level, message: msg.message })
+  }
+
+  function handleStatus(jobId: string, msg: Extract<WSServerMessage, { type: 'status' }>) {
+    updateJobInList(jobId, msg.status)
+    if (jobId === currentJobId.value) {
+      status.value = msg.status
+      if (msg.status === 'stopped' || msg.status === 'completed' || msg.status === 'error') {
+        stopRequested.value = false
+      }
+    }
+  }
+
+  function handleFileDone(jobId: string) {
+    if (activeJobId.value === jobId) {
+      fetchJobFiles(jobId)
+    }
+  }
+
+  function handleDone(jobId: string) {
+    const fileIds = getJobFileIds(jobId)
+    if (!jobProgress.value[jobId]) jobProgress.value[jobId] = {}
+    for (const fid of fileIds) {
+      jobProgress.value[jobId][fid] = 100
+    }
+    jobGlobalProgress.value[jobId] = 100
+    saveProgress(jobId, jobProgress.value[jobId] ?? {}, jobGlobalProgress.value[jobId] ?? 0)
+    updateJobInList(jobId, 'completed')
+    if (jobId === currentJobId.value) {
+      if (status.value !== 'stopped' && status.value !== 'error' && status.value !== 'partial') {
+        status.value = 'completed'
+      }
+      stopRequested.value = false
+    }
+    if (activeJobId.value === jobId) {
+      fetchJobFiles(jobId)
+    }
+    // Notification
+    try {
+      const configStore = useConfigStore()
+      if (configStore.notifications.enabled) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('SimpleETL', { body: `Job completed: ${jobId.slice(0, 8)}` })
+        } else if ('Notification' in window && Notification.permission !== 'denied') {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+              new Notification('SimpleETL', { body: `Job completed: ${jobId.slice(0, 8)}` })
+            }
+          })
+        }
+        if (configStore.notifications.sound) {
+          playNotificationSound()
+        }
+      }
+    } catch {}
+    disconnectJobWS(jobId)
+  }
+
+  function handleError(jobId: string) {
+    updateJobInList(jobId, 'error')
+    if (jobId === currentJobId.value) {
+      status.value = 'error'
+      stopRequested.value = false
+    }
+    disconnectJobWS(jobId)
+  }
+
   function handleMessage(msg: WSServerMessage) {
     const jobId = msg.job_id
-    console.log('[JobStore] handleMessage:', msg.type, msg)
+    logger.debug('[JobStore] handleMessage:', msg.type, msg)
     switch (msg.type) {
-      case 'progress': {
-        const fileIds = getJobFileIds(jobId)
-        const fileId = fileIds[msg.file_idx]
-        if (fileId) {
-          if (!jobProgress.value[jobId]) jobProgress.value[jobId] = {}
-          jobProgress.value[jobId][fileId] = msg.chunk_pct
-        }
-        jobGlobalProgress.value[jobId] = msg.global_pct
-        saveJobProgress(jobId)
-        break
-      }
-      case 'log': {
-        if (!jobLogs.value[jobId]) jobLogs.value[jobId] = []
-        jobLogs.value[jobId].push({ timestamp: new Date().toISOString(), level: msg.level, message: msg.message })
-        break
-      }
-      case 'status':
-        updateJobInList(jobId, msg.status)
-        if (jobId === currentJobId.value) {
-          status.value = msg.status
-          if (msg.status === 'stopped' || msg.status === 'completed' || msg.status === 'error') {
-            stopRequested.value = false
-          }
-        }
-        break
-      case 'file_done':
-        if (activeJobId.value === jobId) {
-          fetchJobFiles(jobId)
-        }
-        break
-      case 'done': {
-        // Set all per-file progress to 100%
-        const fileIds = getJobFileIds(jobId)
-        if (!jobProgress.value[jobId]) jobProgress.value[jobId] = {}
-        for (const fid of fileIds) {
-          jobProgress.value[jobId][fid] = 100
-        }
-        jobGlobalProgress.value[jobId] = 100
-        saveJobProgress(jobId)
-        updateJobInList(jobId, 'completed')
-        if (jobId === currentJobId.value) {
-          if (status.value !== 'stopped' && status.value !== 'error' && status.value !== 'partial') {
-            status.value = 'completed'
-          }
-          stopRequested.value = false
-        }
-        if (activeJobId.value === jobId) {
-          fetchJobFiles(jobId)
-        }
-        // Send notification if this job is being viewed
-        try {
-          const configStore = useConfigStore()
-          if (configStore.notifications.enabled) {
-            // Browser notification
-            if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification('SimpleETL', { body: `Job completed: ${jobId.slice(0, 8)}` })
-            } else if ('Notification' in window && Notification.permission !== 'denied') {
-              Notification.requestPermission().then(permission => {
-                if (permission === 'granted') {
-                  new Notification('SimpleETL', { body: `Job completed: ${jobId.slice(0, 8)}` })
-                }
-              })
-            }
-            // Sound
-            if (configStore.notifications.sound) {
-              playNotificationSound()
-            }
-          }
-        } catch {
-          // Notification not available
-        }
-        disconnectJobWS(jobId)
-        break
-      }
-      case 'error':
-        updateJobInList(jobId, 'error')
-        if (jobId === currentJobId.value) {
-          status.value = 'error'
-          stopRequested.value = false
-        }
-        disconnectJobWS(jobId)
-        break
+      case 'progress': handleProgress(jobId, msg); break
+      case 'log': handleLog(jobId, msg); break
+      case 'status': handleStatus(jobId, msg); break
+      case 'file_done': handleFileDone(jobId); break
+      case 'done': handleDone(jobId); break
+      case 'error': handleError(jobId); break
     }
   }
 

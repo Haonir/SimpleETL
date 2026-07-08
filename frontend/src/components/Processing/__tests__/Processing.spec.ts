@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
+import i18n from '@/i18n'
 import Processing from '../Processing.vue'
 
 vi.mock('@/services/websocket', () => ({
@@ -67,6 +68,7 @@ describe('Processing.vue', () => {
 
     const wrapper = mount(Processing, {
       global: {
+        plugins: [i18n],
         stubs: { teleport: true, Checkbox: { template: '<div class="checkbox-stub" />' } },
       },
     })
@@ -80,6 +82,7 @@ describe('Processing.vue', () => {
   it('shows empty state when no files', () => {
     const wrapper = mount(Processing, {
       global: {
+        plugins: [i18n],
         stubs: { teleport: true, Checkbox: { template: '<div class="checkbox-stub" />' } },
       },
     })
@@ -96,6 +99,7 @@ describe('Processing.vue', () => {
 
     const wrapper = mount(Processing, {
       global: {
+        plugins: [i18n],
         stubs: { teleport: true, Checkbox: { template: '<div class="checkbox-stub" />', props: ['modelValue'] } },
       },
     })
@@ -116,6 +120,7 @@ describe('Processing.vue', () => {
 
     const wrapper = mount(Processing, {
       global: {
+        plugins: [i18n],
         stubs: {
           teleport: true,
           Checkbox: { template: '<div class="checkbox-stub" />', props: ['modelValue'] },

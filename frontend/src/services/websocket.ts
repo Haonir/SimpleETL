@@ -6,6 +6,7 @@
  */
 
 import type { WSServerMessage, WSClientMessage } from '@/types/ws'
+import { logger } from '@/utils/logger'
 
 export class WSConnection {
   private ws: WebSocket | null = null
@@ -59,11 +60,10 @@ export class WSConnection {
     this.ws = new WebSocket(url)
 
     this.ws.onopen = () => {
-      console.log(`[WS] Connected to ${url}`)
+      logger.info('[WS] Connected to', url)
     }
 
     this.ws.onmessage = (event: MessageEvent) => {
-      console.log('[WS] Raw message:', event.data)
       try {
         const msg = JSON.parse(event.data) as WSServerMessage
         onMessage(msg)
@@ -73,12 +73,12 @@ export class WSConnection {
     }
 
     this.ws.onerror = (e) => {
-      console.error('[WS] Error:', e)
+      logger.error('[WS] Error:', e)
       if (onError) onError(e)
     }
 
     this.ws.onclose = (event: CloseEvent) => {
-      console.log(`[WS] Closed: code=${event.code} reason=${event.reason}`)
+      logger.info('[WS] Closed: code=' + event.code, 'reason=' + event.reason)
       if (onClose) {
         onClose(event)
         return
@@ -114,7 +114,7 @@ export class WSConnection {
     onReconnect?: () => void,
   ): void {
     if (this.reconnectAttempts >= this.maxRetries) {
-      console.warn('[WSConnection] Max reconnection attempts reached. Giving up.')
+      logger.warn('[WSConnection] Max reconnection attempts reached. Giving up.')
       return
     }
 
@@ -127,7 +127,7 @@ export class WSConnection {
       try {
         this.connect(jobId, onMessage, onError)
       } catch {
-        console.error('[WSConnection] Failed to reconnect after', delay, 'ms')
+        logger.error('[WSConnection] Failed to reconnect after', delay, 'ms')
       }
     }, delay)
   }

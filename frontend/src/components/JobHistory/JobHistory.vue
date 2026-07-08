@@ -81,6 +81,7 @@ async function handleDelete() {
   await jobStore.deleteJob(jobToDelete.value, keepSourceFiles.value)
   showDeleteDialog.value = false
   jobToDelete.value = null
+  await jobStore.fetchJobs()
 }
 
 
@@ -102,6 +103,7 @@ async function handleBulkDelete() {
   }
   selectedJobIds.value = new Set()
   showBulkDeleteDialog.value = false
+  await jobStore.fetchJobs()
 }
 
 function cancelBulkDelete() {
