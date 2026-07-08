@@ -44,3 +44,6 @@ run_etl.py
 simpleetl.db
 simpleetl.db-shm
 simpleetl.db-wal
+
+# static
+static

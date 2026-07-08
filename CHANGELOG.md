@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1] - 2026-07-08
+
+### Fixed
+- **Language switching** — vue-i18n locale now updates correctly via `.value` assignment
+
+---
+
 ## [1.0.0] - 2026-07-08
 
 ### 🎉 Initial Web Release

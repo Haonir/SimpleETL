@@ -31,7 +31,7 @@ export const useConfigStore = defineStore('config', () => {
 
   // Sync language to i18n locale
   watch(language, (lang) => {
-    i18n.global.locale = lang
+    (i18n.global.locale as any).value = lang
   }, { immediate: true })
 
   const loaded = ref(false)
@@ -44,8 +44,8 @@ export const useConfigStore = defineStore('config', () => {
       prompts.value = config.prompts || []
       currentPromptName.value = config.current_prompt_name || ''
       language.value = config.language || 'en'
-      notifications.value = { ...DEFAULT_NOTIFICATIONS, ...config.notifications }
-      i18n.global.locale = language.value
+      notifications.value = { ...DEFAULT_NOTIFICATIONS, ...(config.notifications || {}) } as NotificationConfig
+      (i18n.global.locale as any).value = language.value
       loaded.value = true
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load configuration'
