@@ -505,6 +505,8 @@ class TestRunEtlJob:
         mock = MagicMock()
         mock.output_dir = tmp_path / "output"
         mock.jobs_dir = tmp_path / "jobs"
+        mock.max_workers_limit = 0    # disable capping for integration tests
+        mock.chunk_size_limit = 0     # disable capping for integration tests
         with patch("app.etl.runner.get_settings", return_value=mock):
             with patch("app.etl.splitter.get_settings", return_value=mock):
                 with patch("app.services.job_service.get_job_service") as mock_gjs:

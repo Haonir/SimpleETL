@@ -21,9 +21,9 @@ class TestAppSettingsDefaults:
         assert settings.llm_model == "llama3"
         assert settings.llm_base_url == "http://localhost:11434/v1"
         assert settings.llm_api_key == "ollama"
-        assert settings.chunk_size == 10_000
+        assert settings.chunk_size_limit == 10_000
         assert settings.chunk_overlap == 1_500
-        assert settings.max_workers == 1
+        assert settings.max_workers_limit == 1
         assert settings.output_format == "spr"
 
     def test_default_prompts_dict_empty(self, tmp_path):
@@ -44,21 +44,21 @@ class TestAppSettingsEnvVars:
         finally:
             del os.environ["APP_LLM_MODEL"]
 
-    def test_env_override_chunk_size(self):
-        os.environ["APP_CHUNK_SIZE"] = "5000"
+    def test_env_override_chunk_size_limit(self):
+        os.environ["APP_CHUNK_SIZE_LIMIT"] = "5000"
         try:
             settings = AppSettings()
-            assert settings.chunk_size == 5000
+            assert settings.chunk_size_limit == 5000
         finally:
-            del os.environ["APP_CHUNK_SIZE"]
+            del os.environ["APP_CHUNK_SIZE_LIMIT"]
 
-    def test_env_override_max_workers(self):
-        os.environ["APP_MAX_WORKERS"] = "4"
+    def test_env_override_max_workers_limit(self):
+        os.environ["APP_MAX_WORKERS_LIMIT"] = "4"
         try:
             settings = AppSettings()
-            assert settings.max_workers == 4
+            assert settings.max_workers_limit == 4
         finally:
-            del os.environ["APP_MAX_WORKERS"]
+            del os.environ["APP_MAX_WORKERS_LIMIT"]
 
     def test_server_port_env_override(self):
         os.environ["APP_SERVER_PORT"] = "8005"

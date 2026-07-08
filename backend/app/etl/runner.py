@@ -92,6 +92,19 @@ async def run_etl_job(
             if key in config:
                 flat_config.setdefault(key, config[key])
 
+        # Cap values to server-side limits
+        settings = get_settings()
+        if settings.max_workers_limit:
+            flat_config["max_workers"] = min(
+                flat_config.get("max_workers", 2),
+                settings.max_workers_limit
+            )
+        if settings.chunk_size_limit:
+            flat_config["chunk_size"] = min(
+                flat_config.get("chunk_size", 10000),
+                settings.chunk_size_limit
+            )
+
         max_workers = flat_config.get("max_workers", 2)
 
         # Shared state for progress tracking across files

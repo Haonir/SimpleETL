@@ -59,9 +59,9 @@ class AppSettings(BaseSettings):
     llm_api_key: str = "ollama"
 
     # ── Processing ───────────────────────────────────────────────────────────
-    chunk_size: int = 10_000
+    chunk_size_limit: int = 10_000
     chunk_overlap: int = 1_500
-    max_workers: int = 1
+    max_workers_limit: int = 1
     output_format: str = "spr"  # spr | frontmatter | markdown
 
     # ── Server ───────────────────────────────────────────────────────────────
