@@ -24,10 +24,8 @@ let timer: ReturnType<typeof setInterval> | null = null
 
 async function checkHealth() {
   try {
-    const stored = localStorage.getItem('simpleetl_api_base_url')
-    const base = stored || import.meta.env.VITE_API_BASE_URL || ''
     const key = localStorage.getItem('simpleetl_api_server_key') || ''
-    const url = `${base}/health`
+    const url = '/health'
     const headers: Record<string, string> = {}
     if (key) headers['X-API-Key'] = key
     const res = await axios.get(url, { timeout: 5000, headers })

@@ -4,6 +4,8 @@
 
 ### Fixed
 - **Language switching** — vue-i18n locale now updates correctly via `.value` assignment
+- **Health endpoint routing** — `/health` route now registered before the SPA catch-all `/{full_path:path}`, so health checks return JSON instead of HTML
+- **Health check URL** — `ConnectionStatus.vue` now uses a relative URL `/health` instead of an absolute URL from localStorage, fixing IPv6/IPv4 resolution issues when switching between local dev and Docker
 
 ---
 

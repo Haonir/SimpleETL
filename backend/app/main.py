@@ -9,7 +9,10 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from app.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +64,6 @@ app = FastAPI(
 )
 
 # ── API Key middleware ──────────────────────────────────────────────────────
-from app.settings import get_settings
 _api_key = get_settings().api_key or None
 if _api_key:
     logger.info("API key authentication enabled")
@@ -81,7 +83,6 @@ app.add_middleware(
 # ── Routers ─────────────────────────────────────────────────────────────────
 from app.api.v1 import config_router, files_router, jobs_router, ws_router  # noqa: E402
 
-
 @app.get("/api/v1/capabilities")
 async def capabilities():
     """Return system capabilities (OCR availability, supported input formats)."""
@@ -98,10 +99,12 @@ app.include_router(jobs_router)
 app.include_router(ws_router)
 app.include_router(config_router)
 
-# ── Static files (Vue frontend) ─────────────────────────────────────────────
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+@app.get("/health")
+async def health() -> dict[str, str]:
+    """Health check endpoint."""
+    return {"status": "ok"}
 
+# ── Static files (Vue frontend) ─────────────────────────────────────────────
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
@@ -113,12 +116,6 @@ if static_dir.exists():
         if file_path.is_file():
             return FileResponse(str(file_path))
         return FileResponse(str(static_dir / "index.html"))
-
-@app.get("/health")
-async def health() -> dict[str, str]:
-    """Health check endpoint."""
-    return {"status": "ok"}
-
 
 if __name__ == "__main__":
     import uvicorn
