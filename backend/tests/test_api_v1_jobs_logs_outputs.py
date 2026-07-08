@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import json
-import os
-import shutil
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -14,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.v1.jobs import router
+from app.db import get_cursor
 
 
 @pytest.fixture(autouse=True)
@@ -103,20 +100,21 @@ def test_get_logs_empty(client: tuple[TestClient, object], sample_config: dict, 
 
 
 def test_get_logs_with_entries(client: tuple[TestClient, object], sample_config: dict, registered_file_id: str):
-    """GET /jobs/{id}/logs returns log entries from logs.json."""
+    """GET /jobs/{id}/logs returns log entries from SQLite."""
     test_client, service = client
 
     job = service.create(file_ids=[registered_file_id], config=sample_config)
 
-    # Create logs.json in the correct location
-    job_dir = Path(job.output_dir).parent  # job_id directory
-    job_dir.mkdir(parents=True, exist_ok=True)
-    log_path = job_dir / "logs.json"
-    with open(log_path, "w", encoding="utf-8") as f:
-        f.write(json.dumps({"timestamp": "2026-07-05T12:00:00", "level": "INFO", "message": "Step 1"}))
-        f.write("\n")
-        f.write(json.dumps({"timestamp": "2026-07-05T12:01:00", "level": "WARNING", "message": "Slow chunk"}))
-        f.write("\n")
+    # Insert log entries into SQLite
+    with get_cursor() as cur:
+        cur.execute(
+            "INSERT INTO job_logs (job_id, timestamp, level, message) VALUES (?, ?, ?, ?)",
+            (job.id, "2026-07-05T12:00:00", "info", "Step 1"),
+        )
+        cur.execute(
+            "INSERT INTO job_logs (job_id, timestamp, level, message) VALUES (?, ?, ?, ?)",
+            (job.id, "2026-07-05T12:01:00", "warning", "Slow chunk"),
+        )
 
     resp = test_client.get(f"/api/v1/jobs/{job.id}/logs")
     assert resp.status_code == 200
@@ -124,30 +122,10 @@ def test_get_logs_with_entries(client: tuple[TestClient, object], sample_config:
     assert data["total"] == 2
     assert len(data["logs"]) == 2
     assert data["logs"][0]["timestamp"] == "2026-07-05T12:00:00"
-    assert data["logs"][0]["level"] == "INFO"
+    assert data["logs"][0]["level"] == "info"
     assert data["logs"][0]["message"] == "Step 1"
-    assert data["logs"][1]["level"] == "WARNING"
+    assert data["logs"][1]["level"] == "warning"
 
-
-def test_get_logs_invalid_json_ignored(client: tuple[TestClient, object], sample_config: dict, registered_file_id: str):
-    """GET /jobs/{id}/logs skips lines that are not valid JSON."""
-    test_client, service = client
-
-    job = service.create(file_ids=[registered_file_id], config=sample_config)
-    # Create logs.json in the correct location
-    job_dir = Path(job.output_dir).parent  # job_id directory
-    job_dir.mkdir(parents=True, exist_ok=True)
-    log_path = job_dir / "logs.json"
-    with open(log_path, "w", encoding="utf-8") as f:
-        f.write(json.dumps({"timestamp": "2026-07-05T12:00:00", "level": "INFO", "message": "ok"}))
-        f.write("\n")
-        f.write("not valid json\n")
-        f.write(json.dumps({"timestamp": "2026-07-05T12:01:00", "level": "ERROR", "message": "fail"}))
-
-    resp = test_client.get(f"/api/v1/jobs/{job.id}/logs")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["total"] == 2
 
 
 def test_get_logs_response_schema(client: tuple[TestClient, object], sample_config: dict, registered_file_id: str):
@@ -155,10 +133,13 @@ def test_get_logs_response_schema(client: tuple[TestClient, object], sample_conf
     test_client, service = client
 
     job = service.create(file_ids=[registered_file_id], config=sample_config)
-    log_path = Path(job.output_dir, "logs.json")
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(log_path, "w", encoding="utf-8") as f:
-        f.write(json.dumps({"timestamp": "2026-07-05T12:00:00", "level": "INFO", "message": "test"}))
+
+    # Insert a log entry into SQLite
+    with get_cursor() as cur:
+        cur.execute(
+            "INSERT INTO job_logs (job_id, timestamp, level, message) VALUES (?, ?, ?, ?)",
+            (job.id, "2026-07-05T12:00:00", "info", "test"),
+        )
 
     resp = test_client.get(f"/api/v1/jobs/{job.id}/logs")
     assert resp.status_code == 200
@@ -199,11 +180,16 @@ def test_get_outputs_with_files(client: tuple[TestClient, object], sample_config
     test_client, service = client
     job = service.create(file_ids=[registered_file_id], config=sample_config)
 
-    # Create output directory with test files
-    output_dir = Path(job.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "test.spr.md").write_text("test output")
-    (output_dir / "test.frontmatter.md").write_text("test output 2")
+    # Insert output records into SQLite
+    with get_cursor() as cur:
+        cur.execute(
+            "INSERT INTO job_outputs (job_id, filename, file_path, size_bytes, format, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (job.id, "test.spr.md", "/path/to/test.spr.md", 11, "md", "2026-07-05T12:00:00"),
+        )
+        cur.execute(
+            "INSERT INTO job_outputs (job_id, filename, file_path, size_bytes, format, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (job.id, "test.frontmatter.md", "/path/to/test.frontmatter.md", 13, "md", "2026-07-05T12:00:00"),
+        )
 
     resp = test_client.get(f"/api/v1/jobs/{job.id}/outputs")
     assert resp.status_code == 200
@@ -217,10 +203,12 @@ def test_get_outputs_response_schema(client: tuple[TestClient, object], sample_c
 
     job = service.create(file_ids=[registered_file_id], config=sample_config)
 
-    # Create output directory with test files
-    output_dir = Path(job.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "test.spr").write_text("content")
+    # Insert an output record into SQLite
+    with get_cursor() as cur:
+        cur.execute(
+            "INSERT INTO job_outputs (job_id, filename, file_path, size_bytes, format, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (job.id, "test.spr", "/path/to/test.spr", 8, "", "2026-07-05T12:00:00"),
+        )
 
     resp = test_client.get(f"/api/v1/jobs/{job.id}/outputs")
     assert resp.status_code == 200

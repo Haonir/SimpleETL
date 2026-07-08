@@ -140,7 +140,7 @@ async def run_etl_job(
                     if errors:
                         all_errors.update(errors)
                 except asyncio.CancelledError:
-                    pass
+                    logger.debug("File processing task cancelled")
 
         # Final status
         settings = get_settings()
@@ -309,6 +309,6 @@ def _get_output_dir(file_path: str, job_id: str) -> str:
         if item:
             base_name = Path(item.filename).stem
     except Exception:
-        pass
+        logger.debug("Failed to get original filename from FileService, using UUID-based name")
     settings = get_settings()
     return str(settings.output_dir / job_id / base_name)

@@ -11,7 +11,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from app.etl.extractor import extract_text
 from app.settings import get_settings
@@ -163,7 +163,7 @@ async def run_phase_prepare(
                 try:
                     f.cancel()
                 except Exception:
-                    pass
+                    logger.debug("Failed to cancel future during stop")
             return None
         try:
             base_name, chunk_paths, dirs = await future
@@ -176,7 +176,7 @@ async def run_phase_prepare(
 def _extract_and_split(
     file_path: str,
     flat_config: dict,
-    log_cb: callable,
+    log_cb: Callable[[str, str | None], None],
     job_id: str,
 ) -> tuple[str, list[str], dict]:
     """Extract text + split into chunks (sync, runs in thread).
@@ -203,7 +203,7 @@ def _extract_and_split(
         if item:
             base_name = Path(item.filename).stem
     except Exception:
-        pass  # Fall back to UUID-based name
+        logger.debug("Failed to get original filename from FileService, using UUID-based name")
 
     settings = get_settings()
     # Temp files (chunks, processed) in jobs dir

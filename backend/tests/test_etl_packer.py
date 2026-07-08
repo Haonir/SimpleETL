@@ -245,7 +245,7 @@ class TestToFrontmatter:
         """Frontmatter detection strips leading whitespace before checking."""
         raw = "  ---\ntitle: Indented Start\n---\n\nContent."
         result = _to_frontmatter(raw)
-        assert result == raw
+        assert result == "---\ntitle: Indented Start\n---\n\nContent."
 
     def test_strips_empty_lines_before_frontmatter(self):
         """Empty lines before frontmatter are stripped."""

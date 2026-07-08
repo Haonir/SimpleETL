@@ -256,7 +256,8 @@ class JobService:
                 rows = cur.fetchall()
             return [{"timestamp": r["timestamp"], "level": r["level"].lower(), "message": r["message"]} for r in rows]
         except Exception:
-            return []
+            logger.warning("Failed to read logs for job %s", job_id, exc_info=True)
+            raise
 
     def get_outputs(self, job_id: str) -> list[dict]:
         """List output files from the job_outputs table."""
@@ -269,7 +270,8 @@ class JobService:
                 rows = cur.fetchall()
             return [{"filename": r["filename"], "file_path": r["file_path"], "size_bytes": r["size_bytes"], "format": r["format"]} for r in rows]
         except Exception:
-            return []
+            logger.warning("Failed to read outputs for job %s", job_id, exc_info=True)
+            raise
 
     def save_outputs(self, job_id: str, outputs: list[dict]) -> None:
         """Save output file records to the job_outputs table.

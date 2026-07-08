@@ -10,7 +10,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ async def run_phase_llm(
                     try:
                         f.cancel()
                     except Exception:
-                        pass
+                        logger.debug("Failed to cancel future during stop")
                 return False, files_with_errors
             processed_path = Path(info["processed_dir"]) / Path(chunk_path_str).name
             future = loop.run_in_executor(
@@ -139,7 +139,7 @@ async def run_phase_llm(
                 try:
                     f.cancel()
                 except Exception:
-                    pass
+                    logger.debug("Failed to cancel future during stop")
             return False, files_with_errors
 
         try:
@@ -158,7 +158,7 @@ def copy_chunks_to_processed(
     chunks_dir: str | Path,
     processed_dir: str | Path,
     base_name: str = "chunk",
-    log_callback: Optional[callable] = None,
+    log_callback: Optional[Callable[[str], None]] = None,
 ) -> int:
     """Copy chunk files to processed directory (for skip_llm mode).
     
@@ -181,7 +181,12 @@ def copy_chunks_to_processed(
     )
     
     count = 0
+    resolved_chunks_dir = chunks_dir.resolve()
     for chunk_path in chunk_files:
+        resolved_chunk = chunk_path.resolve()
+        if not str(resolved_chunk).startswith(str(resolved_chunks_dir)):
+            logger.warning("Skipping chunk outside expected directory: %s", chunk_path)
+            continue
         dest = processed_dir / chunk_path.name
         if not dest.exists():
             shutil.copy2(chunk_path, dest)

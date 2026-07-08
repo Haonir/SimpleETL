@@ -95,9 +95,9 @@ def test_create_job_assigns_uuid(service: JobService, registered_file_id: str, s
 
 
 def test_create_job_output_dir(service: JobService, registered_file_id: str, sample_config: dict):
-    """Created job has output_dir set to /jobs/{id}/output."""
+    """Created job has output_dir set to /output/{id}."""
     job = service.create(file_ids=[registered_file_id], config=sample_config)
-    assert job.output_dir.endswith(f"/{job.id}/output")
+    assert job.output_dir.endswith(f"/{job.id}")
 
 
 def test_create_job_multiple_files(service: JobService, tmp_path, monkeypatch, sample_config: dict):
@@ -276,39 +276,32 @@ def test_get_logs_empty(service: JobService, registered_file_id: str, sample_con
 
 
 def test_get_logs_with_entries(service: JobService, registered_file_id: str, sample_config: dict):
-    """get_logs() reads and parses log entries from logs.json."""
-    import json
+    """get_logs() reads log entries from SQLite."""
+    from app.db import get_cursor
 
     job = service.create(file_ids=[registered_file_id], config=sample_config)
-    log_path = service._get_log_path(job.id)
-    # Create parent directories for logs.json
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    # Write some test log entries
-    with open(log_path, "w", encoding="utf-8") as f:
-        f.write(json.dumps({"step": "extract", "message": "Reading file 1"}))
-        f.write("\n")
-        f.write(json.dumps({"step": "split", "message": "Chunked into 5 pieces"}))
-        f.write("\n")
+    with get_cursor() as cur:
+        cur.execute("INSERT INTO job_logs (job_id, timestamp, level, message) VALUES (?, ?, ?, ?)",
+                    (job.id, "2026-07-05T12:00:00", "info", "Reading file 1"))
+        cur.execute("INSERT INTO job_logs (job_id, timestamp, level, message) VALUES (?, ?, ?, ?)",
+                    (job.id, "2026-07-05T12:01:00", "info", "Chunked into 5 pieces"))
 
     entries = service.get_logs(job.id)
     assert len(entries) == 2
-    assert entries[0]["step"] == "extract"
-    assert entries[1]["step"] == "split"
+    assert entries[0]["message"] == "Reading file 1"
+    assert entries[1]["message"] == "Chunked into 5 pieces"
 
 
 def test_get_logs_invalid_json_ignored(service: JobService, registered_file_id: str, sample_config: dict):
-    """get_logs() skips lines that are not valid JSON."""
-    import json
+    """get_logs() returns all entries from SQLite (no JSON parsing needed)."""
+    from app.db import get_cursor
 
     job = service.create(file_ids=[registered_file_id], config=sample_config)
-    log_path = service._get_log_path(job.id)
-    # Create parent directories for logs.json
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(log_path, "w", encoding="utf-8") as f:
-        f.write(json.dumps({"step": "ok"}))
-        f.write("\n")
-        f.write("not valid json\n")
-        f.write(json.dumps({"step": "also_ok"}))
+    with get_cursor() as cur:
+        cur.execute("INSERT INTO job_logs (job_id, timestamp, level, message) VALUES (?, ?, ?, ?)",
+                    (job.id, "2026-07-05T12:00:00", "info", "ok"))
+        cur.execute("INSERT INTO job_logs (job_id, timestamp, level, message) VALUES (?, ?, ?, ?)",
+                    (job.id, "2026-07-05T12:01:00", "error", "fail"))
 
     entries = service.get_logs(job.id)
     assert len(entries) == 2

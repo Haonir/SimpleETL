@@ -15,7 +15,7 @@ import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def pack_outputs(
     output_dir: str | Path,
     base_name: str = "chunk",
     output_format: str = "spr",
-    log_callback: Optional[callable] = None,
+    log_callback: Optional[Callable[[str], None]] = None,
 ) -> list[str]:
     """Pack processed files into the specified output format.
     
@@ -226,7 +226,7 @@ def _parse_frontmatter(content: str) -> tuple[dict, str]:
             post = frontmatter.loads(content)
             return post.metadata, post.content
         except Exception:
-            pass
+            logger.debug("frontmatter.parse_failed, falling back to manual regex parsing")
     
     # Fallback: manual parsing
     metadata = {}

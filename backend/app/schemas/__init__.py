@@ -1,4 +1,4 @@
-"""Схемы данных (Pydantic v2) для SimpleETL backend."""
+"""Data schemas (Pydantic v2) for SimpleETL backend."""
 
 from .config import (
     ConfigResponse,
