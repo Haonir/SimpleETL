@@ -1,10 +1,14 @@
 # SimpleETL — Text Processing & SPR Pipeline
 
-**SimpleETL** — web application (Vue 3 + FastAPI) for automated text document processing. Chunks text, sends to LLM for Structured Presentation (SPR) generation and packs the result into Markdown/YAML files for RAG systems.
+**SimpleETL** — web application (Vue 3 + FastAPI) for automated text document processing. Chunks text, sends to LLM for Structured Presentation (SPR) generation and packs the result into Markdown, YAML, and HTML files for RAG systems.
 
-**Application goal** — prepare structured Markdown files with YAML Front Matter metadata for subsequent transfer to an embedding model when building RAG systems (Retrieval-Augmented Generation). Thanks to the SPR format, each fragment contains not only the original text but also a concentrated semantic representation: concept, algorithm, formula, metaphor, connections and tags. This significantly improves the quality of semantic search during vectorization.
+**Application goal** — prepare structured Markdown files with YAML Front Matter metadata for subsequent transfer to an embedding model when building RAG systems (Retrieval-Augmented Generation). Thanks to the SPR format, each fragment contains not only the original text but also a concentrated semantic representation: concept, algorithm, formula, metaphor, connections and tags. This significantly improves the quality of semantic search during vectorization — the embedding model receives not "raw" text, but enriched context with explicitly highlighted connections and key concepts, allowing the RAG system to find more relevant fragments when generating responses.
 
-**Why chunking is needed?** Sending entire documents to an LLM leads to two problems: the model "loses" system instructions or the document gets cut off at the context window boundary. Chunking into manageable pieces allows the model to retain instructions and sequentially analyze the file part by part.
+**Why chunking is needed?** Sending entire documents — tens and hundreds of thousands of characters — to an LLM leads to two critical problems: the model "loses" system instructions in the stream of user text and begins to act arbitrarily, or the document gets cut off at the context window boundary, and a significant portion of the content is simply not processed. Chunking into manageable pieces allows the model to retain instructions in "working memory" throughout the entire processing, sequentially analyzing the source file in parts. Thanks to this approach, clear instruction following is achieved even with compact models with 4B active parameters — each chunk is small relative to the context window, and the model gets enough "attention" for both instructions and chunk content.
+
+**Prompt flexibility.** Although the program was originally created for SPR text enrichment, the system prompt can be completely replaced for other tasks: summarization, entity extraction, classification, question-answer generation, Obsidian note creation, translation, etc. The built-in prompt library allows saving and switching between various templates, turning SimpleETL into a universal text processing pipeline.
+
+**HTML output.** The `html` output format enables rapid preparation of web pages from documents, allowing native browser loading without the need to download the original documents.
 
 ![SimpleETL — ETL Pipeline Concept](assets/etl.jpg)
 
