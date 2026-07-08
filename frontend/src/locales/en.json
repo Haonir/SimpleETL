@@ -1,0 +1,187 @@
+{
+  "nav": {
+    "processing": "Processing",
+    "preview": "Preview",
+    "history": "History",
+    "prompts": "Prompts",
+    "settings": "Settings",
+    "logs": "Logs"
+  },
+  "common": {
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "confirm": "Confirm",
+    "selected": "{count} of {total} selected",
+    "activeJobs": "Active jobs: {count}",
+    "loading": "Loading..."
+  },
+  "connection": {
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "checking": "Checking…"
+  },
+  "fileList": {
+    "empty": "No files uploaded",
+    "dragHint": "Drag files here or use the upload zone",
+    "filename": "Filename",
+    "size": "Size",
+    "uploaded": "Uploaded",
+    "deleteSelected": "Delete Selected",
+    "confirmTitle": "Confirm Deletion",
+    "confirmSingle": "Are you sure you want to delete this file?",
+    "confirmBatch": "Are you sure you want to delete {count} selected file(s)?",
+    "warning": "⚠️ This action cannot be undone!"
+  },
+  "fileDropZone": {
+    "dragHint": "Drag files here or",
+    "browse": "Browse",
+    "pdfOcrHint": "PDF OCR requires Tesseract-OCR installed on the system"
+  },
+  "jobToolbar": {
+    "formatSaved": "Format & prompt saved",
+    "format": "Format",
+    "prompt": "Prompt",
+    "noneNoLlm": "— None / No LLM —",
+    "stopRequested": "Stop requested…",
+    "clearTooltip": "Clear current job",
+    "saveTooltip": "Save format & prompt to config",
+    "startFailed": "Failed to start job: {error}",
+    "statusCompleted": "✓ Completed",
+    "statusPartial": "⚠ Partial",
+    "statusRunning": "▶ Running",
+    "statusError": "✗ Error",
+    "statusStopped": "⏹ Stopped",
+    "statusIdle": "Idle",
+    "llmSkipped": "LLM step will be skipped"
+  },
+  "jobHistory": {
+    "title": "Job History",
+    "empty": "No jobs yet.",
+    "colId": "ID",
+    "colStatus": "Status",
+    "colFiles": "Files",
+    "colCreated": "Created",
+    "colCompleted": "Completed",
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "error": "Error",
+      "partial": "Partial",
+      "stopped": "Stopped"
+    },
+    "deleteTooltip": "Delete job",
+    "confirmTitle": "Confirm Deletion",
+    "confirmTitleBatch": "Delete {count} Job(s)",
+    "confirmIntro": "This action will permanently delete:",
+    "deleteJobRecord": "Job record and all its metadata",
+    "deleteSourceFiles": "All uploaded source files",
+    "deleteOutputFiles": "All output/processed files",
+    "keepSource": "Keep source files",
+    "warning": "⚠️ This action cannot be undone!"
+  },
+  "jobOutput": {
+    "title": "Preview",
+    "zip": "ZIP",
+    "empty": "No files",
+    "selectPreview": "Select a file to preview",
+    "loadingPreview": "Loading preview..."
+  },
+  "processedFiles": {
+    "title": "Processed Files",
+    "empty": "No processed files"
+  },
+  "logPanel": {
+    "title": "Logs",
+    "filterAll": "All",
+    "filterInfo": "Info",
+    "filterLlm": "LLM",
+    "filterWarning": "Warning",
+    "filterError": "Error",
+    "empty": "No logs yet. Start a job to see output."
+  },
+  "promptLibrary": {
+    "title": "Prompt Library",
+    "addNew": "Add New",
+    "noneNoLlm": "— None / No LLM —",
+    "select": "Select",
+    "empty": "No prompts yet. Create your first prompt.",
+    "llmSkipped": "No prompt selected — LLM step will be skipped."
+  },
+  "promptEditor": {
+    "title": "Edit Prompt",
+    "name": "Name",
+    "namePlaceholder": "Prompt name",
+    "text": "Text",
+    "textPlaceholder": "Enter your prompt template..."
+  },
+  "settings": {
+    "title": "Settings",
+    "saveTooltip": "Save settings",
+    "tabProcessing": "Processing",
+    "tabProviders": "Providers",
+    "tabGeneral": "General",
+    "saved": "Settings saved"
+  },
+  "settingsGeneral": {
+    "language": "Language",
+    "interfaceLanguage": "Interface Language",
+    "theme": "Theme",
+    "colorTheme": "Color Theme",
+    "config": "Config",
+    "export": "Export Config",
+    "import": "Import Config",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "resetPrompts": "Reset Prompts",
+    "resetPromptsDone": "Prompt library has been reset",
+    "resetConfirmTitle": "Reset Prompt Library",
+    "resetConfirmText": "All custom prompts will be deleted and replaced with the default prompts.",
+    "resetConfirmRecommend": "Export your config first to save the current prompts.",
+    "resetConfirmWarning": "⚠️ This action cannot be undone!",
+    "notifications": "Notifications",
+    "notificationsEnabled": "Enable notifications on job completion",
+    "notificationsSound": "Play sound on job completion"
+  },
+  "settingsProcessing": {
+    "chunkSize": "Chunk Size",
+    "chunkOverlap": "Chunk Overlap",
+    "skipChunking": "No chunking",
+    "maxWorkers": "Max Workers",
+    "outputFormat": "Output Format",
+    "ocrEnabled": "Enable OCR",
+    "ocrLanguages": "OCR Languages",
+    "ocrHint": "Requires Tesseract-OCR installed on the backend server"
+  },
+  "settingsLlm": {
+    "llm": "LLM",
+    "model": "Model",
+    "modelPlaceholder": "e.g. llama2",
+    "baseUrl": "Base URL",
+    "baseUrlPlaceholder": "e.g. http://localhost:11434/v1",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "••••••••",
+    "backendServer": "Backend Server",
+    "backendUrl": "Base URL",
+    "backendUrlPlaceholder": "http://localhost:8000",
+    "backendApiKey": "API Key",
+    "backendHint": "Leave empty to use the Vite dev proxy (default for local development)."
+  },
+  "settingsServer": {
+    "backendUrl": "Backend Server URL",
+    "backendUrlPlaceholder": "http://localhost:8000",
+    "backendHint": "Leave empty to use the Vite dev proxy (default for local development). Set to a full URL (e.g. <code>http://192.168.1.100:8000</code>) for remote servers."
+  },
+  "formats": {
+    "rawMarkdown": "Raw Markdown",
+    "frontmatter": "Frontmatter",
+    "html": "HTML",
+    "spr": "SPR"
+  },
+  "progress": {
+    "label": "Progress"
+  }
+}

@@ -1,0 +1,187 @@
+{
+  "nav": {
+    "processing": "Обработка",
+    "preview": "Превью",
+    "history": "История",
+    "prompts": "Промпты",
+    "settings": "Настройки",
+    "logs": "Логи"
+  },
+  "common": {
+    "delete": "Удалить",
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "close": "Закрыть",
+    "confirm": "Подтвердить",
+    "selected": "{count} из {total} выбрано",
+    "activeJobs": "Активных задач: {count}",
+    "loading": "Загрузка..."
+  },
+  "connection": {
+    "connected": "Подключено",
+    "disconnected": "Отключено",
+    "checking": "Проверка…"
+  },
+  "fileList": {
+    "empty": "Файлы не загружены",
+    "dragHint": "Перетащите файлы сюда или используйте зону загрузки",
+    "filename": "Имя файла",
+    "size": "Размер",
+    "uploaded": "Загружен",
+    "deleteSelected": "Удалить выбранные",
+    "confirmTitle": "Подтверждение удаления",
+    "confirmSingle": "Вы уверены, что хотите удалить этот файл?",
+    "confirmBatch": "Вы уверены, что хотите удалить {count} выбранных файлов?",
+    "warning": "⚠️ Это действие нельзя отменить!"
+  },
+  "fileDropZone": {
+    "dragHint": "Перетащите файлы сюда или",
+    "browse": "Обзор",
+    "pdfOcrHint": "Для OCR PDF требуется установленный Tesseract-OCR"
+  },
+  "jobToolbar": {
+    "formatSaved": "Формат и промпт сохранены",
+    "format": "Формат",
+    "prompt": "Промпт",
+    "noneNoLlm": "— Нет / Без LLM —",
+    "stopRequested": "Остановка запрошена…",
+    "clearTooltip": "Очистить текущую задачу",
+    "saveTooltip": "Сохранить формат и промпт в конфиг",
+    "startFailed": "Ошибка запуска задачи: {error}",
+    "statusCompleted": "✓ Завершено",
+    "statusPartial": "⚠ Частично",
+    "statusRunning": "▶ Выполняется",
+    "statusError": "✗ Ошибка",
+    "statusStopped": "⏹ Остановлено",
+    "statusIdle": "Ожидание",
+    "llmSkipped": "Шаг LLM будет пропущён"
+  },
+  "jobHistory": {
+    "title": "История задач",
+    "empty": "Задач пока нет.",
+    "colId": "ID",
+    "colStatus": "Статус",
+    "colFiles": "Файлы",
+    "colCreated": "Создано",
+    "colCompleted": "Завершено",
+    "status": {
+      "pending": "Ожидание",
+      "running": "Выполняется",
+      "completed": "Завершено",
+      "error": "Ошибка",
+      "partial": "Частично",
+      "stopped": "Остановлено"
+    },
+    "deleteTooltip": "Удалить задачу",
+    "confirmTitle": "Подтверждение удаления",
+    "confirmTitleBatch": "Удалить {count} задач",
+    "confirmIntro": "Это действие безвозвратно удалит:",
+    "deleteJobRecord": "Запись задачи и все её метаданные",
+    "deleteSourceFiles": "Все загруженные исходные файлы",
+    "deleteOutputFiles": "Все выходные/обработанные файлы",
+    "keepSource": "Сохранить исходные файлы",
+    "warning": "⚠️ Это действие нельзя отменить!"
+  },
+  "jobOutput": {
+    "title": "Превью",
+    "zip": "ZIP",
+    "empty": "Нет файлов",
+    "selectPreview": "Выберите файл для предпросмотра",
+    "loadingPreview": "Загрузка предпросмотра..."
+  },
+  "processedFiles": {
+    "title": "Обработанные файлы",
+    "empty": "Нет обработанных файлов"
+  },
+  "logPanel": {
+    "title": "Логи",
+    "filterAll": "Все",
+    "filterInfo": "Инфо",
+    "filterLlm": "LLM",
+    "filterWarning": "Предупр.",
+    "filterError": "Ошибка",
+    "empty": "Логов пока нет. Запустите задачу для просмотра."
+  },
+  "promptLibrary": {
+    "title": "Библиотека промптов",
+    "addNew": "Добавить",
+    "noneNoLlm": "— Нет / Без LLM —",
+    "select": "Выбрать",
+    "empty": "Промптов пока нет. Создайте свой первый промпт.",
+    "llmSkipped": "Промпт не выбран — шаг LLM будет пропущен."
+  },
+  "promptEditor": {
+    "title": "Редактирование промпта",
+    "name": "Название",
+    "namePlaceholder": "Название промпта",
+    "text": "Текст",
+    "textPlaceholder": "Введите шаблон промпта..."
+  },
+  "settings": {
+    "title": "Настройки",
+    "saveTooltip": "Сохранить настройки",
+    "tabProcessing": "Обработка",
+    "tabProviders": "Провайдеры",
+    "tabGeneral": "Общие",
+    "saved": "Настройки сохранены"
+  },
+  "settingsGeneral": {
+    "language": "Язык",
+    "interfaceLanguage": "Язык интерфейса",
+    "theme": "Тема",
+    "colorTheme": "Цветовая тема",
+    "config": "Конфигурация",
+    "export": "Экспорт конфига",
+    "import": "Импорт конфига",
+    "themeSystem": "Системная",
+    "themeLight": "Светлая",
+    "themeDark": "Тёмная",
+    "resetPrompts": "Сбросить промпты",
+    "resetPromptsDone": "Библиотека промптов сброшена",
+    "resetConfirmTitle": "Сброс библиотеки промптов",
+    "resetConfirmText": "Все пользовательские промпты будут удалены и заменены на промпты по умолчанию.",
+    "resetConfirmRecommend": "Экспортируйте конфиг, чтобы сохранить текущие промпты.",
+    "resetConfirmWarning": "⚠️ Это действие нельзя отменить!",
+    "notifications": "Уведомления",
+    "notificationsEnabled": "Включить уведомления о завершении работы",
+    "notificationsSound": "Воспроизводить звук при завершении работы"
+  },
+  "settingsProcessing": {
+    "chunkSize": "Размер чанка",
+    "chunkOverlap": "Перекрытие чанков",
+    "skipChunking": "Без нарезки",
+    "maxWorkers": "Макс. потоков",
+    "outputFormat": "Формат вывода",
+    "ocrEnabled": "Включить OCR",
+    "ocrLanguages": "Языки OCR",
+    "ocrHint": "Требуется Tesseract-OCR, установленный на сервере"
+  },
+  "settingsLlm": {
+    "llm": "LLM",
+    "model": "Модель",
+    "modelPlaceholder": "например, llama2",
+    "baseUrl": "Base URL",
+    "baseUrlPlaceholder": "например, http://localhost:11434/v1",
+    "apiKey": "API ключ",
+    "apiKeyPlaceholder": "••••••••",
+    "backendServer": "Бэкенд сервер",
+    "backendUrl": "Base URL",
+    "backendUrlPlaceholder": "http://localhost:8000",
+    "backendApiKey": "API ключ",
+    "backendHint": "Оставьте пустым для использования Vite dev proxy (по умолчанию для локальной разработки)."
+  },
+  "settingsServer": {
+    "backendUrl": "URL бэкенд сервера",
+    "backendUrlPlaceholder": "http://localhost:8000",
+    "backendHint": "Оставьте пустым для использования Vite dev proxy (по умолчанию для локальной разработки). Укажите полный URL (например, <code>http://192.168.1.100:8000</code>) для удалённых серверов."
+  },
+  "formats": {
+    "rawMarkdown": "Raw Markdown",
+    "frontmatter": "Frontmatter",
+    "html": "HTML",
+    "spr": "SPR"
+  },
+  "progress": {
+    "label": "Прогресс"
+  }
+}

@@ -1,0 +1,16 @@
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import App from './App.vue'
+import i18n from './i18n'
+import { useThemeStore } from './stores/theme'
+import './styles/global.css'
+
+const app = createApp(App)
+const pinia = createPinia()
+app.use(pinia)
+app.use(i18n)
+
+// Initialize theme before mount
+useThemeStore()
+
+app.mount('#app')

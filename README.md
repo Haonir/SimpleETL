@@ -1,328 +1,467 @@
 # SimpleETL — Text Processing & SPR Pipeline
 
-**SimpleETL** — это десктопное приложение с современным графическим интерфейсом (CustomTkinter) для автоматизированной обработки текстовых документов. Приложение нарезает исходный текст на фрагменты (чанки), отправляет их в LLM-модель для генерации структурированного представления (SPR) и упаковывает результат в готовые Markdown-файлы с метаданными YAML Front Matter.
+**SimpleETL** — web application (Vue 3 + FastAPI) for automated text document processing. Chunks text, sends to LLM for Structured Presentation (SPR) generation and packs the result into Markdown/YAML files for RAG systems.
 
-**Цель приложения** — подготовить структурированные Markdown-файлы с метаданными YAML Front Matter для последующей передачи в embedding-модель при построении RAG-систем (Retrieval-Augmented Generation). Благодаря формату SPR каждый фрагмент содержит не только исходный текст, но и концентрированное смысловое представление: концепцию, алгоритм, формулу, метафору, связи и теги. Это значительно повышает качество семантического поиска при векторизации — embedding-модель получает не «сырой» текст, а обогащённый контекст с явно выделенными связями и ключевыми понятиями, что позволяет RAG-системе точнее находить релевантные фрагменты при генерации ответов.
+**Application goal** — prepare structured Markdown files with YAML Front Matter metadata for subsequent transfer to an embedding model when building RAG systems (Retrieval-Augmented Generation). Thanks to the SPR format, each fragment contains not only the original text but also a concentrated semantic representation: concept, algorithm, formula, metaphor, connections and tags. This significantly improves the quality of semantic search during vectorization.
 
-**Зачем нужна нарезка?** Отправка в LLM целых документов — десятки и сотни тысяч символов — приводит к двум критическим проблемам: модель «теряет» системные инструкции в потоке пользовательского текста и начинает действовать произвольно, либо документ обрезается на границе контекстного окна, и значительная часть содержимого просто не обрабатывается. Нарезка на управляемые чанки позволяет модели удерживать инструкции в «оперативной памяти» на протяжении всей обработки, последовательно анализируя исходный файл частями. Именно благодаря этому подходу чёткое следование инструкциям достигается даже у компактных моделей с 4B активных параметров — каждый чанк невелик относительно контекстного окна, и модель получает достаточно «внимания» и на инструкции, и на содержимое фрагмента.
+**Why chunking is needed?** Sending entire documents to an LLM leads to two problems: the model "loses" system instructions or the document gets cut off at the context window boundary. Chunking into manageable pieces allows the model to retain instructions and sequentially analyze the file part by part.
 
-**Гибкость промптов.** Несмотря на то что изначально программа создавалась для SPR-обогащения текста, системный промпт можно полностью заменить под другие задачи: суммаризация, извлечение сущностей, классификация, генерация вопросов-ответов, создание заметок Obsidian, перевод и т.д. Встроенная библиотека промптов позволяет сохранять и переключаться между различными шаблонами, превращая SimpleETL в универсальный конвейер текстовой обработки.
-
-### Интерфейс приложения
-
-![SimpleETL — главное окно](assets/main_menu.png)
+![SimpleETL — ETL Pipeline Concept](assets/etl.jpg)
 
 ---
 
-## 📋 Содержание
+## 📋 Table of Contents
 
-- [Возможности](#-возможности)
-- [Архитектура проекта](#-архитектура-проекта)
-- [Установка](#-установка)
-- [Конфигурация](#-конфигурация)
-- [Использование](#-использование)
-- [Форматы вывода](#-форматы-вывода)
-- [Поддерживаемые форматы файлов](#-поддерживаемые-форматы-файлов)
-- [Структура выходных данных](#-структура-выходных-данных)
-- [Зависимости](#-зависимости)
-
----
-
-## 🚀 Возможности
-
-- **Нарезка текста** — автоматическое разбиение документов на чанки с настраиваемым размером и перекрытием
-- **LLM-анализ** — отправка каждого чанка в OpenAI-совместимую модель для генерации структурированного SPR-представления
-- **Режим без LLM** — флажок «Только нарезка и конверсия» для быстрой нарезки файлов без обращения к модели
-- **Три формата вывода** — `spr` (Markdown-представление), `frontmatter` (настоящий YAML Front Matter), `markdown` (сырой текст)
-- **Динамические YAML-поля** — парсинг любых полей из YAML Front Matter, не привязка к конкретному набору
-- **Поддержка DOCX** — чтение документов Microsoft Word (формат `.docx`)
-- **Поддержка PDF** — чтение PDF-документов с извлечением текста и опциональным OCR для сканов
-- **Пакетная обработка** — загрузка нескольких файлов одновременно через диалог выбора
-- **Параллельная обработка** — настраиваемое количество параллельных потоков (1–8) для ускорения работы
-- **Библиотека промптов** — создание, сохранение, переключение и удаление различных системных промптов
-- **Прогресс-бар выбранного файла** — клик по файлу в списке показывает его прогресс в реальном времени
-- **Возможность остановки** — graceful shutdown конвейера по запросу пользователя
-- **Автоочистка** — удаление временных папок `raw/` и `processed/` после завершения (опционально)
-- **Сохранение настроек** — все параметры (модель, URL, API-ключ, промпты, формат вывода) сохраняются в `config.json`
+- [🚀 Features](#-features)
+- [🏗 Architecture](#-architecture)
+- [⚙️ Installation](#️-installation)
+- [🔧 Configuration](#-configuration)
+- [📖 Usage](#-usage)
+- [🧠 Output Formats](#-output-formats)
+- [📁 Supported File Formats](#-supported-file-formats)
+- [📡 API](#-api)
+- [🧪 Testing](#-testing)
+- [📄 License](#-license)
+- [👤 Author](#-author)
 
 ---
 
-## 🏗 Архитектура проекта
+## 🚀 Features
+
+- **Web interface** — modern UI on Vue 3 with settings, progress and real-time logs
+- **Text chunking** — automatic document splitting into chunks with configurable size and overlap
+- **LLM analysis** — sending each chunk to an OpenAI-compatible model for SPR generation
+- **No LLM mode** — fast file chunking without model calls
+- **Four output formats** — `spr`, `frontmatter`, `markdown`, `html`
+- **Dynamic YAML fields** — parsing any fields from YAML Front Matter
+- **DOCX and PDF support** — document reading with optional OCR for scans
+- **Batch processing** — uploading multiple files simultaneously
+- **Parallel processing** — configurable number of threads (1–8)
+- **Prompt library** — creating, saving and switching templates
+- **WebSocket progress** — real-time updates via WebSocket
+- **API authorization** — optional protection via `X-API-Key` header
+- **Server-side caps** — server limits on max_workers and chunk_size
+
+### Interface Preview
+
+![SimpleETL — Main Interface](assets/preview.png)
+
+![SimpleETL — Processing View](assets/processing.png)
+
+---
+
+## 🏗 Architecture
 
 ```
 SimpleETL/
-├── main_ui.py           # GUI-приложение (CustomTkinter) — точка входа
-├── etl_pipeline.py      # Ядро ETL-конвейера: нарезка → LLM-анализ → упаковка
-├── config_manager.py    # Менеджер конфигурации (сохранение/загрузка config.json)
-├── config.json          # Файл настроек (генерируется автоматически)
-├── assets/              # Ресурсы (скриншоты, иконки)
-└── README.md            # Документация
+├── backend/                    # FastAPI backend
+│   ├── app/
+│   │   ├── main.py             # FastAPI app, CORS, API key middleware
+│   │   ├── settings.py         # Pydantic Settings (APP_* env vars)
+│   │   ├── api/v1/             # REST endpoints: files, jobs, websocket
+│   │   ├── etl/                # ETL pipeline (extractor, splitter, llm_processor, packer)
+│   │   ├── services/           # Business logic (file_service, job_service, ws_manager)
+│   │   └── schemas/            # Pydantic v2 models
+│   ├── tests/                  # pytest tests
+│   ├── pyproject.toml          # Dependencies
+│   └── .env                    # Environment variables (not in git)
+│
+├── frontend/                   # Vue 3 + TypeScript SPA
+│   ├── src/
+│   │   ├── stores/             # Pinia stores (config, files, job, prompts)
+│   │   ├── services/           # API client (axios), WebSocket
+│   │   ├── components/         # Vue components
+│   │   └── types/              # TypeScript interfaces
+│   ├── package.json
+│   └── vite.config.ts
+│
+└── README.md
 ```
 
-| Модуль | Ответственность |
-|--------|----------------|
-| `main_ui.py` | Графический интерфейс (CustomTkinter), управление вводом/выводом, запуск фоновых потоков |
-| `etl_pipeline.py` | Извлечение текста, нарезка на чанки, вызов LLM, парсинг YAML Front Matter, формирование итоговых `.md` файлов |
-| `config_manager.py` | Чтение и запись JSON-конфигурации с поддержкой Frozen-режима (PyInstaller) |
-
-### Схема конвейера (ETL)
+### ETL Pipeline Diagram
 
 ```mermaid
 graph TD
-    subgraph Пакетная обработка
-        A[📄 Список файлов] --> B[🔀 ThreadPoolExecutor<br>N параллельных потоков]
+    subgraph Frontend
+        A[📁 File Upload] --> B[⚙️ Settings]
+        B --> C[▶ Start Job]
     end
 
-    subgraph "Поток i (на каждый файл)"
-        B --> C1[📖 Извлечение текста<br>TXT / MD / DOCX / PDF]
-        C1 --> D1[🔪 Нарезка<br>RecursiveCharacterTextSplitter]
-        D1 --> E1[📦 Чанки<br>raw/*.txt]
-        E1 --> F1[🤖 LLM Анализ<br>OpenAI-compatible API]
-        F1 --> G1[📝 SPR-фрагменты<br>processed/*.txt]
-        G1 --> H1[📚 Упаковка<br>YAML + Markdown]
-        H1 --> I1[✅ Итоговый .md файл]
+    subgraph Backend
+        C --> D[POST /api/v1/jobs]
+        D --> E[🔀 ThreadPoolExecutor]
     end
 
-    subgraph Потоки N...
-        B --> C2["..."]
-        C2 --> I2["..."]
+    subgraph "Thread i (per file)"
+        E --> F[📖 Text Extraction]
+        F --> G[🔪 Chunking]
+        G --> H[🤖 LLM Analysis]
+        H --> I[📚 Packing]
+        I --> J[✅ Final .md]
     end
 
-    style B fill:#3b82f6,stroke:#2563eb,color:#fff
-    style F1 fill:#3b82f6,stroke:#2563eb,color:#fff
+    subgraph WebSocket
+        J --> K[📡 Real-time Progress]
+    end
 ```
 
 ---
 
-## ⚙️ Установка
+## ⚙️ Installation
 
-### 1. Клонирование репозитория
+### Requirements
+
+- Python 3.10+
+- Node.js 18+
+- OpenAI-compatible API (Ollama, LM Studio, vLLM)
+
+### 1. Clone
 
 ```bash
-git clone <url-репозитория>
+git clone <repository-url>
 cd SimpleETL
 ```
 
-### 2. Создание виртуального окружения
+### 2. Backend
 
 ```bash
+cd backend
 python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
 ```
 
-Активация:
-
-- **Windows:**
-  ```powershell
-  .venv\Scripts\Activate.ps1
-  ```
-- **Linux / macOS:**
-  ```bash
-  source .venv/bin/activate
-  ```
-
-### 3. Установка зависимостей
+### 3. Frontend
 
 ```bash
-pip install customtkinter openai langchain-text-splitters python-frontmatter python-docx PyMuPDF pytesseract Pillow
+cd frontend
+npm install
 ```
 
-> **Примечание:** Для OCR-распознавания сканированных PDF дополнительно требуется установить [Tesseract-OCR](https://github.com/tesseract-ocr/tesseract) на систему. Без Tesseract приложение работает, но не распознаёт изображения в PDF.
+### 4. Running
 
-### 4. Запуск приложения
-
+**Terminal 1 — Backend:**
 ```bash
-python main_ui.py
+cd backend
+source .venv/bin/activate
+uvicorn app.main:app --reload --port 8000
 ```
 
+**Terminal 2 — Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+
+Open http://localhost:5173
+
+> **Note:** For OCR recognition of scanned PDFs, additionally install [Tesseract-OCR](https://github.com/tesseract-ocr/tesseract).
+
+### 5. Docker (alternative)
+
+**Quick start:**
+```bash
+docker compose up
+```
+
+Open http://localhost:8000
+
+**Production:**
+```bash
+docker compose up -d
+```
+
+**Data persistence:**
+
+All data is stored as bind mounts on the host:
+
+| Host path | Container path | Purpose |
+|-----------|---------------|---------|
+| `./data` | `/data` | Uploads, output files, job logs |
+| `./backend/simpleetl.db` | `/app/simpleetl.db` | SQLite database |
+| `.config.json` | `/app/static/config.json` | Frontend configuration |
+
+**Custom port:**
+```bash
+APP_SERVER_PORT=9000 docker compose up
+```
+
+### 6. Split Deployment (Frontend + Backend on separate machines)
+
+**Architecture:**
+```
+Machine 1 (Nginx)              Machine 2 (Backend)
+┌─────────────────────┐       ┌─────────────────┐
+│ Nginx :80/443       │       │ simpleetl :8000 │
+│ ├── /               │──────▶│ API + WebSocket  │
+│ │   static Vue SPA  │ proxy │                  │
+│ └── /api/* /ws/*    │       │                  │
+└─────────────────────┘       └─────────────────┘
+```
+
+**Step 1 — Build frontend (any machine with Node.js):**
+```bash
+cd frontend
+npm install
+npm run build
+# Output: frontend/dist/
+```
+
+**Step 2 — Copy to Nginx server:**
+```bash
+scp -r frontend/dist/* user@frontend-server:/var/www/simpleetl/
+```
+
+**Step 3 — Configure and start Nginx:**
+```bash
+# Copy nginx.conf to the server, update backend address
+# Then:
+docker compose -f docker-compose.frontend.yml up -d
+```
+
+**Step 4 — Start backend:**
+```bash
+docker compose -f docker-compose.backend.yml up -d
+```
+
+**Step 5 — Configure backend URL in UI:**
+
+Open the frontend → Settings → set backend URL (e.g., `https://api.example.com`). The URL is saved in localStorage — no rebuild needed.
+
+> **Note:** No `.env` configuration needed for the frontend. Users set the backend URL directly in the UI settings.
+
 ---
 
-## 🔧 Конфигурация
+## 🔧 Configuration
 
-При первом запуске или нажатии кнопки **«💾 Сохранить настройки»** создаётся файл `config.json`:
+### Environment Variables
 
-| Параметр | Описание | Значение по умолчанию |
-|----------|----------|-----------------------|
-| `model` | Идентификатор модели LLM | `llama3` |
-| `base_url` | Базовый URL OpenAI-совместимого API | `http://localhost:11434/v1` |
-| `api_key` | API-ключ для авторизации | `ollama` |
-| `chunk_size` | Максимальный размер одного чанка (символы) | `10000` |
-| `chunk_overlap` | Перекрытие между соседними чанками (символы) | `1500` |
-| `max_workers` | Количество параллельных потоков обработки | `1` |
-| `output_format` | Формат выходных файлов: `spr`, `frontmatter`, `markdown` | `spr` |
-| `prompts` | Словарь шаблонов системных промптов | Встроенный SPR-промпт |
-| `current_prompt_name` | Имя активного промпта | `Дефолтный SPR` |
+#### Backend (`backend/.env`)
 
-> **Примечание:** Приложение совместимо с любым OpenAI-совместимым API (Ollama, LM Studio, vLLM, OpenRouter и др.)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `APP_SERVER_PORT` | `8000` | uvicorn port |
+| `APP_MAX_WORKERS_LIMIT` | `1` | Max threads (server cap) |
+| `APP_CHUNK_SIZE_LIMIT` | `10000` | Max chunk size (server cap) |
+| `APP_API_KEY` | *(empty)* | API key for authorization |
+| `CORS_ORIGINS` | `http://localhost:5173,http://localhost:8000` | Allowed origins |
 
----
+> **Caps:** If the user requests a value **below** the limit — their value is used. If **above** — it's capped to the limit. Limit = 0 disables the cap.
 
-## 📖 Использование
+#### Frontend (`frontend/.env`)
 
-### Пошаговая инструкция
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_API_BASE_URL` | *(empty)* | REST API URL (empty = same-origin) |
+| `VITE_WS_BASE_URL` | *(empty)* | WebSocket URL (empty = auto-detect) |
 
-1. **Выберите входные файлы** — нажмите «➕ Добавить» в секции «Файлы для обработки». Поддерживаются `.txt`, `.md`, `.docx`, `.pdf`. В списке отображаются только имена файлов; полный путь можно увидеть, наведя курсор на файл.
+### ETL Configuration
 
-2. **Укажите выходную папку** (опционально) — по умолчанию результат сохраняется в папку рядом с исходным файлом.
+ETL configuration is sent from the frontend in the request body when creating a job:
 
-3. **Настройте LLM-провайдер** — укажите модель, Base URL и API-ключ.
-
-4. **Настройте параметры обработки** — задайте размер чанка, перекрытие, количество потоков (1–8) и формат вывода (`spr`, `frontmatter`, `markdown`).
-
-5. **Настройте промпт** — выберите готовый шаблон из выпадающего списка или отредактируйте текст вручную. Сохранение нового шаблона — «➕ Сохранить как...», удаление — «🗑 Удалить».
-
-6. **Запустите обработку** — нажмите **«▶ Начать обработку»**.
-
-7. **Следите за прогрессом** — кликните на файл в списке для отображения его прогресса. Общий прогресс конвейера отображается на втором прогресс-баре.
-
-8. **Остановка** — во время обработки кнопка меняется на **«🛑 Остановить обработку»**. Остановка происходит корректно после завершения текущего чанка.
-
-### Горячие клавиши
-
-| Комбинация | Действие |
-|------------|----------|
-| `Ctrl+V` | Вставить |
-| `Ctrl+C` | Копировать |
-| `Ctrl+X` | Вырезать |
-| `Ctrl+A` | Выделить всё |
-| `Ctrl+Z` | Отменить |
-| ПКМ | Контекстное меню (Вырезать / Копировать / Вставить / Выделить всё) |
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `model` | `llama3` | LLM model |
+| `base_url` | `http://localhost:11434/v1` | OpenAI-compatible API endpoint |
+| `api_key` | `ollama` | Provider API key |
+| `chunk_size` | `10000` | Chunk size (characters) |
+| `chunk_overlap` | `1500` | Chunk overlap |
+| `max_workers` | `1` | Number of threads |
+| `output_format` | `spr` | Output format: `spr`, `frontmatter`, `markdown`, `html` |
 
 ---
 
-## 🧠 Форматы вывода
+## 📖 Usage
 
-Приложение поддерживает три формата выходных файлов, выбираемых через выпадающий список «Формат вывода»:
+1. **Upload files** — drag and drop or select `.txt`, `.md`, `.docx`, `.pdf`
+2. **Configure LLM** — specify model, URL and API key in the "Settings" section
+3. **Select prompt** — use a built-in one or create your own
+4. **Start processing** — click ▶ Start
+5. **Track progress** — logs and progress update in real time via WebSocket
+6. **Download results** — ready files are available for download as a ZIP archive
 
-### 1. `spr` (по умолчанию)
+---
 
-Структурированное Markdown-представление. Мета-поля из YAML отображаются как список Markdown, текст фрагмента — в отдельной секции:
+## 🧠 Output Formats
+
+### 1. `spr` (default)
+
+Structured Markdown representation with YAML metadata:
 
 ```markdown
-# Название фрагмента
+# Fragment Title
 
-## 🧠 Краткое представление (SPR)
-* **Концепция:** Суть текста
-* **Алгоритм:** Шаги...
-* **Теги:** #тег1, #тег2
+## 🧠 Brief Representation (SPR)
+* **Concept:** Text essence
+* **Algorithm:** Steps...
+* **Tags:** #tag1, #tag2
 
 ---
 
-## 📄 Полный текст фрагмента
-Обработанный LLM текст...
+## 📄 Full Fragment Text
+Processed text...
 ```
 
 ### 2. `frontmatter`
 
-Настоящий YAML Front Matter между `---`. Все поля из ответа LLM попадают в YAML автоматически:
+YAML Front Matter between `---`:
 
 ```markdown
 ---
-title: "Название фрагмента"
-концепция: "Суть текста"
-алгоритм: "Шаги..."
-tags: ["тег1", "тег2"]
+title: "Fragment Title"
+concept: "Text essence"
+algorithm: "Steps..."
+tags: ["tag1", "tag2"]
 ---
 
-Обработанный LLM текст...
+Processed text...
 ```
 
 ### 3. `markdown`
 
-Сырой текст нарезки или ответа LLM без какой-либо обработки и структурирования.
+Raw text without structuring.
 
-> **Динамические поля:** форматы `spr` и `frontmatter` парсят **любые** YAML-поля из ответа LLM — промпт может вернуть произвольный набор ключей, и они все отобразятся в выходном файле.
-
----
-
-## 📁 Поддерживаемые форматы файлов
-
-| Формат | Расширения | Примечание |
-|--------|------------|------------|
-| Текстовые | `.txt`, `.md` | Чтение в кодировке UTF-8 |
-| Word | `.docx`, `.doc` | Требуется библиотека `python-docx`. Файлы `.doc` (старый формат) необходимо предварительно пересохранить в `.docx` |
-| PDF | `.pdf` | Требуется библиотека `PyMuPDF`. Поддерживается извлечение текста и OCR-распознавание сканов (опционально,requires Tesseract-OCR) |
+> **Dynamic fields:** `spr` and `frontmatter` formats parse **any** YAML fields from the LLM response.
 
 ---
 
-## 📂 Структура выходных данных
+### 4. `html`
 
-Для каждого обработанного файла создаётся отдельная папка:
+Ready HTML document, converted from Markdown:
 
-```
-📁 <Имя_исходного_файла>/
-├── 📄 01_Название_фрагмента.md
-├── 📄 02_Название_фрагмента.md
-├── 📄 03_Название_фрагмента.md
-└── ...
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Fragment Title</title></head>
+<body>
+<h1>Fragment Title</h1>
+<p>Processed text...</p>
+</body>
+</html>
 ```
 
-Каждый итоговый `.md` файл формируется в зависимости от выбранного формата вывода (см. [Форматы вывода](#-форматы-вывода)).
+---
 
-> При включённой опции «Очищать временные файлы» промежуточные папки `raw/` и `processed/` удаляются автоматически после завершения обработки.
+## 📁 Supported File Formats
+
+| Format | Extensions | Notes |
+|--------|------------|-------|
+| Text | `.txt`, `.md` | UTF-8 |
+| Word | `.docx` | Requires `python-docx` |
+| PDF | `.pdf` | Requires `PyMuPDF`. OCR optional (Tesseract) |
 
 ---
 
-## 📦 Зависимости
+## 📡 API
 
-| Библиотека | Назначение |
-|------------|------------|
-| `customtkinter` | Современный графический интерфейс с поддержкой тем и скруглённых элементов |
-| `openai` | Клиент для OpenAI-совместимого API |
-| `langchain-text-splitters` | Нарезка текста на чанки (`RecursiveCharacterTextSplitter`) |
-| `python-frontmatter` | Парсинг YAML Front Matter из ответов LLM |
-| `python-docx` | Чтение документов Word `.docx` (опционально) |
-| `PyMuPDF` | Чтение PDF-документов с извлечением текста |
-| `pytesseract` | OCR-распознавание текста на сканированных страницах PDF (опционально, требует Tesseract-OCR) |
-| `Pillow` | Обработка изображений для OCR |
-| `tkinter` | Базовый GUI-фреймворк (встроен в Python, используется для диалогов и контекстного меню) |
+### REST Endpoints
+
+```
+POST   /api/v1/files/upload        # File upload
+GET    /api/v1/files               # List files
+DELETE /api/v1/files/{id}          # Delete file
+
+POST   /api/v1/jobs                # Create and start job
+GET    /api/v1/jobs                # List jobs
+GET    /api/v1/jobs/{id}           # Job status
+DELETE /api/v1/jobs/{id}           # Stop/delete job
+GET    /api/v1/jobs/{id}/files     # Output files list
+GET    /api/v1/jobs/{id}/download  # ZIP download
+
+WS     /ws/{job_id}                # WebSocket progress/logs
+```
+
+### Request Example
+
+```bash
+# File upload
+curl -X POST http://localhost:8000/api/v1/files/upload \
+  -F "file=@document.pdf"
+
+# Create job
+curl -X POST http://localhost:8000/api/v1/jobs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "file_ids": ["file-id-1"],
+    "config": {
+      "llm": {
+        "model": "llama3",
+        "base_url": "http://localhost:11434/v1",
+        "api_key": "ollama"
+      },
+      "processing": {
+        "chunk_size": 10000,
+        "chunk_overlap": 1500,
+        "max_workers": 2
+      },
+      "output_format": "spr"  // spr | frontmatter | markdown | html
+    }
+  }'
+```
 
 ---
 
-## 📄 Лицензия
+## 🧪 Testing
+
+```bash
+# Backend tests
+cd backend
+pytest
+
+# Frontend tests
+cd frontend
+npm test
+
+# Watch mode
+npm run test:watch
+```
+
+---
+
+## 📦 Dependencies
+
+### Backend
+
+| Library | Purpose |
+|---------|---------|
+| `fastapi` | Web framework |
+| `uvicorn[standard]` | ASGI server |
+| `pydantic-settings` | Configuration via env vars |
+| `python-multipart` | File upload (multipart/form-data) |
+| `aiofiles` | Async file operations |
+| `openai` | Client for OpenAI-compatible API |
+| `langchain-text-splitters` | Text chunking |
+| `python-frontmatter` | YAML Front Matter parsing |
+| `python-docx` | Reading `.docx` |
+| `PyMuPDF` | PDF reading |
+| `markdown` | Markdown → HTML conversion |
+| `Pillow` | Image processing |
+| `pytesseract` | OCR (optional, `pip install -e ".[ocr]"`) |
+
+### Frontend
+
+| Library | Purpose |
+|---------|---------|
+| `vue 3` | UI framework |
+| `pinia` | State management |
+| `axios` | HTTP client |
+| `vue-i18n` | Localization (i18n) |
+| `marked` | Markdown rendering |
+| `@lucide/vue` | Icons |
+| `vite` | Build tool |
+| `typescript` | Typing |
+| `vitest` | Testing |
+
+---
+
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-```
-MIT License
-
-Copyright (c) 2026 Haonir
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
 ---
 
-## 👤 Автор
+## 👤 Author
 
-**Haonir** — автор и разработчик проекта SimpleETL.
+**Haonir** — author and developer of the SimpleETL project.
 
-Если вы используете данный код или программу в своих проектах, пожалуйста, укажите авторство:
-
-```
-Основано на SimpleETL от Haonir
 https://github.com/Haonir/SimpleETL
-```
-
-Или добавьте в свой README:
-
-```markdown
-## Благодарности
-
-- [SimpleETL](https://github.com/Haonir/SimpleETL) — инструмент для подготовки текстовых данных к RAG-системам, автор [Haonir](https://github.com/Haonir)
-```
