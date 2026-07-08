@@ -25,7 +25,7 @@ export const useUiStore = defineStore('ui', () => {
   // Persist UI state
   watch(activePanel, (val) => localStorage.setItem('activePanel', val))
   watch(sidebarCollapsed, (val) => localStorage.setItem('sidebarCollapsed', String(val)))
-  type LogFilter = 'all' | 'info' | 'warning' | 'error'
+  type LogFilter = 'all' | 'info' | 'warning' | 'error' | 'llm'
   const logFilter = ref<LogFilter>('all')
 
   function setPanel(id: PanelId) {

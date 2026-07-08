@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="SimpleETL API",
-    version="0.1.0",
+    version="1.0.0",
     lifespan=lifespan,
 )
 
@@ -79,7 +79,7 @@ app.add_middleware(
 )
 
 # ── Routers ─────────────────────────────────────────────────────────────────
-from app.api.v1 import files_router, jobs_router, ws_router  # noqa: E402
+from app.api.v1 import config_router, files_router, jobs_router, ws_router  # noqa: E402
 
 
 @app.get("/api/v1/capabilities")
@@ -96,7 +96,23 @@ async def capabilities():
 app.include_router(files_router)
 app.include_router(jobs_router)
 app.include_router(ws_router)
+app.include_router(config_router)
 
+# ── Static files (Vue frontend) ─────────────────────────────────────────────
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        """Serve Vue SPA — all non-API routes return index.html."""
+        file_path = static_dir / full_path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
+        return FileResponse(str(static_dir / "index.html"))
 
 @app.get("/health")
 async def health() -> dict[str, str]:

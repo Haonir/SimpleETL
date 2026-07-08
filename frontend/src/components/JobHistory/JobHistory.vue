@@ -3,13 +3,12 @@ import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useJobStore } from '@/stores/job'
 import { List, X, Trash2 } from '@lucide/vue'
-import { useUiStore } from '@/stores/ui'
+
 
 const { t } = useI18n()
 
 
 const jobStore = useJobStore()
-const uiStore = useUiStore()
 
 
 onMounted(() => {
@@ -47,14 +46,14 @@ const showBulkDeleteDialog = ref(false)
 
 
 const selectedJobIds = ref<Set<string>>(new Set())
-const allSelected = computed(() => jobStore.jobs.length > 0 && jobStore.jobs.every(j => selectedJobIds.value.has(j.id)))
+const allSelected = computed(() => jobStore.jobs.length > 0 && jobStore.jobs.every((j: any) => selectedJobIds.value.has(j.id)))
 const hasSelection = computed(() => selectedJobIds.value.size > 0)
 
 function toggleSelectAll() {
   if (allSelected.value) {
     selectedJobIds.value = new Set()
   } else {
-    selectedJobIds.value = new Set(jobStore.jobs.map(j => j.id))
+    selectedJobIds.value = new Set(jobStore.jobs.map((j: any) => j.id))
   }
 }
 

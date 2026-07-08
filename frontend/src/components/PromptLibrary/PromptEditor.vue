@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
 import type { PromptEntry } from '@/types/config'
 import Modal from '@/components/UI/Modal.vue'
 import Input from '@/components/UI/Input.vue'
@@ -21,7 +20,6 @@ const emit = defineEmits<{
 const name = ref(props.prompt?.name || '')
 const text = ref(props.prompt?.text || '')
 const isEditing = !!props.prompt
-const { t } = useI18n()
 
 watch(() => props.show, (visible) => {
   if (!visible) {

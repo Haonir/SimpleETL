@@ -5,11 +5,13 @@ import type { WSServerMessage, LogEntry } from '@/types/ws'
 import type { JobStatus } from '@/types/job'
 const JOB_STORAGE_KEY = 'simpleetl_current_job_id'
 
+interface JobItem { id: string; status: string; file_ids: string[]; config?: Record<string, unknown>; [key: string]: any }
+interface JobFileItem { filename: string; [key: string]: any }
+
 import { logger } from '@/utils/logger'
-import { saveJobProgress as saveProgress, loadJobProgress as loadProgress, clearJobProgress as clearProgress } from '@/utils/progressCache'
+import { loadJobProgress, saveJobProgress as saveProgress, clearJobProgress as clearProgress } from '@/utils/progressCache'
 import { useFilesStore } from '@/stores/files'
-import { createJob as apiCreateJob, getJobs as apiGetJobs, getJobFiles as apiGetJobFiles, stopJob as stopJobApi, getJob as apiGetJob, getJobLogs as apiGetJobLogs, getJobOutputs as apiGetJobOutputs } from '@/services/api'
-import type { JobCreateRequest, JobItem, JobFileItem, JobResponse } from '@/types/job'
+import { createJob as apiCreateJob, getJobs as apiGetJobs, stopJob as stopJobApi, getJob as apiGetJob, getJobLogs as apiGetJobLogs, getJobOutputs as apiGetJobOutputs } from '@/services/api'
 import { useConfigStore } from '@/stores/config'
 
 export const useJobStore = defineStore('job', () => {
@@ -73,7 +75,7 @@ export const useJobStore = defineStore('job', () => {
     const job = jobs.value.find(j => j.id === id)
     if (job?.status === 'completed') {
       const prog: Record<string, number> = {}
-      job.file_ids?.forEach(fid => { prog[fid] = 100 })
+      job.file_ids?.forEach((fid: string) => { prog[fid] = 100 })
       return prog
     }
     return jobProgress.value[id] ?? {}
@@ -138,7 +140,7 @@ export const useJobStore = defineStore('job', () => {
       const logsResp = await apiGetJobLogs(jobId)
       jobLogs.value[jobId] = logsResp.logs.map((l) => ({
         timestamp: l.timestamp,
-        level: l.level,
+        level: l.level as 'error' | 'info' | 'warning' | 'llm',
         message: l.message,
       }))
     } catch (err) {
@@ -293,7 +295,7 @@ export const useJobStore = defineStore('job', () => {
           const logsResp = await apiGetJobLogs(savedJobId)
           jobLogs.value[savedJobId] = logsResp.logs.map((l) => ({
             timestamp: l.timestamp,
-            level: l.level,
+            level: l.level as 'error' | 'info' | 'warning' | 'llm',
             message: l.message,
           }))
         } catch {}
@@ -347,9 +349,9 @@ export const useJobStore = defineStore('job', () => {
   }
 
   function updateJobInList(jobId: string, newStatus: string) {
-    const job = jobs.value.find(j => j.id === jobId)
+    const job = jobs.value.find((j: JobItem) => j.id === jobId)
     if (job) {
-      job.status = newStatus
+      job.status = newStatus as JobStatus
       if (newStatus === 'completed' || newStatus === 'error' || newStatus === 'stopped') {
         job.completed_at = new Date().toISOString()
       }

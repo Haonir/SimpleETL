@@ -1,5 +1,42 @@
-.opencode
+# Environment files (secrets)
 .env
-docs
-CHANGELOG.md
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+*.egg
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+
+# Project-specific
+.opencode
+docs/
 data/
+CHANGELOG.md
+
+# Database
+*.db
+*.db-shm
+*.db-wal

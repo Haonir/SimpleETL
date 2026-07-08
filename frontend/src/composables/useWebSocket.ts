@@ -19,7 +19,7 @@ export function useWebSocket() {
   }
 
   function send(msg: Record<string, unknown>) {
-    ws.value?.send(msg)
+    ws.value?.send(msg as any)
   }
 
   onUnmounted(disconnect)

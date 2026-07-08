@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Python
+__pycache__
+*.py[cod]
+*.egg-info
+.eggs
+.venv
+venv
+.pytest_cache
+
+# Node
+node_modules
+dist
+
+# Project
+.opencode
+docs
+data
+*.db
+*.db-shm
+*.db-wal
+
+# Docker
+Dockerfile
+docker-compose*.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env files (secrets)
+.env
+.env.local
+.env.*.local
+
+# Old desktop app
+core

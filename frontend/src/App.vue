@@ -29,6 +29,9 @@ const promptsStore = usePromptsStore()
 // ── Panel definitions ─────────────────────────────────────────────────────
 
 interface PanelDef { id: string; label: string; icon: any }
+
+type PanelId = 'processing' | 'settings' | 'prompts' | 'history' | 'output'
+
 const panels = computed<PanelDef[]>(() => [
   { id: 'processing', label: t('nav.processing'), icon: FileStack },
   { id: 'output', label: t('nav.preview'), icon: Eye },
@@ -47,7 +50,7 @@ const panelsTertiary = computed<PanelDef[]>(() => [
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 const activeJobsCount = computed(() => {
-  return jobStore.jobs.filter(j => j.status === 'running' || j.status === 'pending').length
+  return jobStore.jobs.filter((j: any) => j.status === 'running' || j.status === 'pending').length
 })
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -95,7 +98,7 @@ onMounted(async () => {
             :key="panel.id"
             :class="['sidebar__item', { 'sidebar__item--active': uiStore.activePanel === panel.id }]"
             :title="panel.label"
-            @click="uiStore.setPanel(panel.id)"
+            @click="uiStore.setPanel(panel.id as PanelId)"
           >
             <component :is="panel.icon" :size="18" />
             <span v-if="!uiStore.sidebarCollapsed" class="sidebar__item-label">{{ panel.label }}</span>
@@ -110,7 +113,7 @@ onMounted(async () => {
             :key="panel.id"
             :class="['sidebar__item', { 'sidebar__item--active': uiStore.activePanel === panel.id }]"
             :title="panel.label"
-            @click="uiStore.setPanel(panel.id)"
+            @click="uiStore.setPanel(panel.id as PanelId)"
           >
             <component :is="panel.icon" :size="18" />
             <span v-if="!uiStore.sidebarCollapsed" class="sidebar__item-label">{{ panel.label }}</span>
@@ -125,7 +128,7 @@ onMounted(async () => {
             :key="panel.id"
             :class="['sidebar__item', { 'sidebar__item--active': uiStore.activePanel === panel.id }]"
             :title="panel.label"
-            @click="uiStore.setPanel(panel.id)"
+            @click="uiStore.setPanel(panel.id as PanelId)"
           >
             <component :is="panel.icon" :size="18" />
             <span v-if="!uiStore.sidebarCollapsed" class="sidebar__item-label">{{ panel.label }}</span>

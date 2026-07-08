@@ -45,9 +45,9 @@ api.interceptors.response.use(
     const structured = {
       status: error.response?.status,
       message: error.message,
-      detail: error.response?.data?.detail,
+      detail: (error as any).response?.data?.detail,
     }
-    throw structured as Error
+    throw structured as unknown as Error
   },
 )
 

@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import LogEntry from '../LogEntry.vue'
 
 describe('LogEntry.vue', () => {
-  const makeEntry = (level: string) => ({
+  const makeEntry = (level: 'error' | 'info' | 'warning' | 'llm') => ({
     timestamp: '2024-01-01T12:00:00.000Z',
     level,
     message: 'Test log message',

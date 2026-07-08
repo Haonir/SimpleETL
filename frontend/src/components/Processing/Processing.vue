@@ -209,7 +209,7 @@ watch(
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(file, fileIndex) in store.files" :key="file.id" class="file-list__row">
+          <tr v-for="file in store.files" :key="file.id" class="file-list__row">
             <td class="file-list__cell file-list__cell--checkbox">
               <Checkbox
                 :modelValue="store.selectedIds.includes(file.id)"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useFilesStore } from '@/stores/files'
 import { useJobStore } from '@/stores/job'
@@ -82,7 +82,7 @@ async function handleStart() {
       },
     )
   } catch (err) {
-    uiStore.showNotification('error', t('jobToolbar.startFailed', { error: err.message }))
+    uiStore.showNotification('error', t('jobToolbar.startFailed', { error: (err as Error).message }))
   }
 }
 

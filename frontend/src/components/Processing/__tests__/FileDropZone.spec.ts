@@ -33,10 +33,10 @@ describe('FileDropZone.vue', () => {
     await wrapper.find('.drop-area').trigger('dragover')
     expect(wrapper.find('.drop-area').classes()).toContain('drag-over')
 
-    // Directly set dragOver to false (simulating drop completed)
-    // and check that the component is functional
-    expect(wrapper.vm.dragOver).toBe(true)
+    // Verify the ref is accessible via vm (cast to any since refs aren't in TS type)
+    const vm = wrapper.vm as unknown as Record<string, unknown>
+    expect(vm.dragOver).toBe(true)
     await wrapper.find('.drop-area').trigger('dragleave')
-    expect(wrapper.vm.dragOver).toBe(false)
+    expect(vm.dragOver).toBe(false)
   })
 })

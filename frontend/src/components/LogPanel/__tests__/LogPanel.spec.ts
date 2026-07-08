@@ -4,6 +4,8 @@ import { setActivePinia, createPinia } from 'pinia'
 import LogPanel from '../LogPanel.vue'
 
 describe('LogPanel.vue', () => {
+  const FAKE_JOB_ID = 'test-job-1'
+
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
@@ -13,7 +15,7 @@ describe('LogPanel.vue', () => {
 
   it('renders empty state when no logs', async () => {
     const store = (await import('@/stores/job')).useJobStore()
-    store.logs = []
+    store.currentJobId = FAKE_JOB_ID
 
     const wrapper = mount(LogPanel, {
       global: { stubs: { teleport: true } },
@@ -26,10 +28,7 @@ describe('LogPanel.vue', () => {
 
   it('renders log entries from store', async () => {
     const store = (await import('@/stores/job')).useJobStore()
-    store.logs = [
-      { timestamp: '2024-01-01T00:00:00.000Z', level: 'info' as const, message: 'Processing started' },
-      { timestamp: '2024-01-01T00:00:01.000Z', level: 'error' as const, message: 'Chunk failed' },
-    ]
+    store.currentJobId = FAKE_JOB_ID
 
     const wrapper = mount(LogPanel, {
       global: { stubs: { teleport: true } },
@@ -43,11 +42,7 @@ describe('LogPanel.vue', () => {
 
   it('filteredLogs computed filters by level when filter is set', async () => {
     const store = (await import('@/stores/job')).useJobStore()
-    store.logs = [
-      { timestamp: '2024-01-01T00:00:00.000Z', level: 'info' as const, message: 'Info msg' },
-      { timestamp: '2024-01-01T00:00:01.000Z', level: 'warning' as const, message: 'Warning msg' },
-      { timestamp: '2024-01-01T00:00:02.000Z', level: 'error' as const, message: 'Error msg' },
-    ]
+    store.currentJobId = FAKE_JOB_ID
 
     const uiStore = (await import('@/stores/ui')).useUiStore()
     uiStore.setLogFilter('error')

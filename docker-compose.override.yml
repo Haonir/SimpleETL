@@ -1,0 +1,13 @@
+# docker-compose.override.yml — local development
+# This file is automatically loaded by docker-compose
+# Use bind mounts instead of named volumes for easy access
+
+services:
+  simpleetl:
+    volumes:
+      # Bind mount for data (easy access from host)
+      - ./data:/data
+      # Bind mount for database
+      - ./backend/simpleetl.db:/app/simpleetl.db
+    environment:
+      - APP_DATA_DIR=/data

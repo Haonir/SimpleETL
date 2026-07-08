@@ -3,19 +3,51 @@ import type { ConfigResponse } from '@/types/config'
 const STORAGE_KEY = 'simpleetl_config'
 
 export async function loadConfigFile(): Promise<ConfigResponse> {
+  // Try API endpoint first
+  try {
+    const apiResponse = await fetch('/api/v1/config')
+    if (apiResponse.ok) {
+      const config = await apiResponse.json() as ConfigResponse
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
+      return config
+    }
+  } catch {
+    // API unavailable
+  }
+
+  // Fall back to static file
+  try {
+    const response = await fetch('/config.json')
+    if (response.ok) {
+      const config = await response.json() as ConfigResponse
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
+      return config
+    }
+  } catch {
+    // Static file unavailable
+  }
+
+  // Fall back to localStorage
   const stored = localStorage.getItem(STORAGE_KEY)
   if (stored) {
     return JSON.parse(stored) as ConfigResponse
   }
 
-  const response = await fetch('/config.json')
-  if (!response.ok) throw new Error(`Failed to load config: ${response.statusText}`)
-  const config = await response.json() as ConfigResponse
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
-  return config
+  throw new Error('Failed to load config from server and localStorage')
 }
 
-export function saveConfigFile(config: ConfigResponse): void {
+export async function saveConfigFile(config: ConfigResponse): Promise<void> {
+  // Save to server
+  try {
+    await fetch('/api/v1/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    })
+  } catch (e) {
+    console.warn('Failed to save config to server:', e)
+  }
+  // Also save to localStorage as cache
   localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
 }
 

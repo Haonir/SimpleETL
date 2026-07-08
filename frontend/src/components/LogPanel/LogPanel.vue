@@ -9,6 +9,8 @@ const job = useJobStore()
 const ui = useUiStore()
 const { t } = useI18n()
 
+type LogFilter = 'all' | 'error' | 'info' | 'warning' | 'llm'
+
 const containerRef = ref<HTMLElement | null>(null)
 
 const filters = [
@@ -44,7 +46,7 @@ watch(
         v-for="f in filters"
         :key="f.value"
         :class="['filter-btn', { 'filter-btn--active': ui.logFilter === f.value }]"
-        @click="ui.setLogFilter(f.value)"
+        @click="ui.setLogFilter(f.value as LogFilter)"
       >
         {{ f.label }}
       </button>

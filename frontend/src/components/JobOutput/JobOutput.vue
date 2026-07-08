@@ -41,7 +41,7 @@ const themedHtmlContent = computed(() => {
 const activeJob = computed(() => {
   const id = jobStore.selectedJobId || jobStore.currentJobId
   if (!id) return null
-  return jobStore.jobs.find(j => j.id === id) || { id, created_at: null, status: null }
+  return jobStore.jobs.find((j: any) => j.id === id) || { id, created_at: null, status: null }
 })
 
 function formatDate(iso: string | undefined | null): string {
@@ -252,7 +252,7 @@ watch(() => jobStore.selectedJobId, loadFiles)
           <pre>{{ previewContent }}</pre>
         </div>
         <div v-else-if="previewType === 'html'" class="job-output__preview-iframe-wrap">
-          <iframe class="job-output__preview-iframe" :srcdoc="themedHtmlContent" sandbox></iframe>
+          <iframe class="job-output__preview-iframe" :srcdoc="themedHtmlContent" sandbox="allow-same-origin"></iframe>
         </div>
         <div v-else class="job-output__preview-rendered" v-html="renderedContent"></div>
       </div>

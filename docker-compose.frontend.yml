@@ -1,0 +1,14 @@
+# Frontend-only deployment (machine 1)
+# Serves static Vue build via Nginx
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: simpleetl-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro

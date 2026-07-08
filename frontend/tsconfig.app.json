@@ -9,6 +9,7 @@
     "types": ["vite/client"],
     "noEmit": true,
     "allowArbitraryExtensions": true,
+    "ignoreDeprecations": "6.0",
 
     /* Linting */
     "noUnusedLocals": true,
